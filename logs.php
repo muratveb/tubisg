@@ -13,31 +13,52 @@ $action_filter = trim($_GET['action_filter'] ?? '');
 $start_date = trim($_GET['start_date'] ?? '');
 $end_date = trim($_GET['end_date'] ?? '');
 
-$sql = "SELECT l.*, u.name_surname FROM system_logs l LEFT JOIN users u ON l.user_id = u.id WHERE 1=1";
+// Sayfalama (Pagination) Parametreleri
+$per_page = (int)($_GET['per_page'] ?? 15);
+if (!in_array($per_page, [15, 30, 50, 100])) {
+    $per_page = 15;
+}
+$page = (int)($_GET['page'] ?? 1);
+if ($page < 1) $page = 1;
+
+$whereSql = " WHERE 1=1";
 $params = [];
 
 if ($user_id > 0) {
-    $sql .= " AND l.user_id = ?";
+    $whereSql .= " AND l.user_id = ?";
     $params[] = $user_id;
 }
 
 if (!empty($action_filter)) {
-    $sql .= " AND (l.action LIKE ? OR l.details LIKE ?)";
+    $whereSql .= " AND (l.action LIKE ? OR l.details LIKE ?)";
     $params[] = "%$action_filter%";
     $params[] = "%$action_filter%";
 }
 
 if (!empty($start_date)) {
-    $sql .= " AND l.created_at >= ?";
+    $whereSql .= " AND l.created_at >= ?";
     $params[] = $start_date . " 00:00:00";
 }
 
 if (!empty($end_date)) {
-    $sql .= " AND l.created_at <= ?";
+    $whereSql .= " AND l.created_at <= ?";
     $params[] = $end_date . " 23:59:59";
 }
 
-$sql .= " ORDER BY l.id DESC LIMIT 500";
+// Toplam Kayıt Sayısı
+$countSql = "SELECT COUNT(*) as total FROM system_logs l $whereSql";
+$countStmt = $db->prepare($countSql);
+$countStmt->execute($params);
+$totalRecords = (int)$countStmt->fetch()['total'];
+
+$totalPages = ceil($totalRecords / $per_page);
+if ($totalPages > 0 && $page > $totalPages) {
+    $page = $totalPages;
+}
+$offset = ($page - 1) * $per_page;
+if ($offset < 0) $offset = 0;
+
+$sql = "SELECT l.*, u.name_surname FROM system_logs l LEFT JOIN users u ON l.user_id = u.id $whereSql ORDER BY l.id DESC LIMIT $per_page OFFSET $offset";
 
 $stmt = $db->prepare($sql);
 $stmt->execute($params);
@@ -53,24 +74,25 @@ include __DIR__ . '/includes/header.php';
 <div class="d-flex align-items-center justify-content-between mb-4">
   <div>
     <h3 class="fw-extrabold m-0">Sistem İşlem Logları</h3>
-    <p class="text-muted fs-7 m-0">Kullanıcıların ne zaman, nereden bağlandığını ve hangi işlemleri yaptığını anlık izleyin.</p>
+    <p class="text-muted fs-7 m-0">Sistemdeki tüm kullanıcı hareketleri, denetim tamamlama ve yetki müdahale kayıtları</p>
   </div>
-  <span class="badge bg-primary-light text-primary font-weight-bold p-2 px-3 rounded-pill">
-    <i class="bi bi-clock-history"></i> Toplam <?php echo count($logs); ?> Kayıt Gösteriliyor
+  <span class="badge bg-primary-light text-primary font-weight-bold p-2 px-3">
+    <i class="bi bi-clock-history"></i> Toplam <?php echo $totalRecords; ?> İşlem Kaydı
   </span>
 </div>
 
-<!-- Log Filtreleme Kartı -->
+<!-- Filtre Paneli -->
 <div class="custom-card mb-4">
   <form method="GET" action="logs.php" class="row g-3 align-items-end">
-    
+    <input type="hidden" name="per_page" value="<?php echo $per_page; ?>">
+
     <div class="col-12 col-sm-6 col-md-3">
       <label class="form-label fw-bold fs-8 text-muted">Kullanıcı Filtresi</label>
       <select name="user_id" class="form-select">
         <option value="0">-- Tüm Kullanıcılar --</option>
         <?php foreach ($usersList as $u): ?>
           <option value="<?php echo $u['id']; ?>" <?php echo $user_id == $u['id'] ? 'selected' : ''; ?>>
-            <?php echo htmlspecialchars($u['name_surname']); ?> (<?php echo htmlspecialchars($u['username']); ?>)
+            <?php echo htmlspecialchars($u['name_surname']); ?> (@<?php echo htmlspecialchars($u['username']); ?>)
           </option>
         <?php endforeach; ?>
       </select>
@@ -81,19 +103,19 @@ include __DIR__ . '/includes/header.php';
       <input type="text" name="action_filter" class="form-control" placeholder="Örn: Denetim, Silindi, Giriş..." value="<?php echo htmlspecialchars($action_filter); ?>">
     </div>
 
-    <div class="col-12 col-sm-6 col-md-2">
+    <div class="col-6 col-md-2">
       <label class="form-label fw-bold fs-8 text-muted">Başlangıç Tarihi</label>
       <input type="date" name="start_date" class="form-control" value="<?php echo htmlspecialchars($start_date); ?>">
     </div>
 
-    <div class="col-12 col-sm-6 col-md-2">
+    <div class="col-6 col-md-2">
       <label class="form-label fw-bold fs-8 text-muted">Bitiş Tarihi</label>
       <input type="date" name="end_date" class="form-control" value="<?php echo htmlspecialchars($end_date); ?>">
     </div>
 
     <div class="col-12 col-md-2 d-flex gap-2">
       <button type="submit" class="btn btn-dark w-100 font-weight-bold">
-        <i class="bi bi-search"></i> Filtrele
+        <i class="bi bi-filter"></i> Filtrele
       </button>
       <?php if ($user_id > 0 || !empty($action_filter) || !empty($start_date) || !empty($end_date)): ?>
         <a href="logs.php" class="btn btn-outline-secondary" title="Temizle">
@@ -101,67 +123,129 @@ include __DIR__ . '/includes/header.php';
         </a>
       <?php endif; ?>
     </div>
-
   </form>
 </div>
 
-<!-- Log Veri Tablosu -->
+<!-- Log Kayıtları Tablosu -->
 <div class="custom-card">
   <div class="table-responsive">
     <table class="table table-hover align-middle m-0">
       <thead class="table-light fs-8 text-uppercase text-muted">
         <tr>
-          <th>Tarih & Saat</th>
+          <th style="width: 70px;">ID</th>
           <th>Kullanıcı</th>
-          <th>İşlem Türü</th>
-          <th>İşlem Detayı</th>
+          <th>Yapılan İşlem / Eylem</th>
+          <th>Detay Bilgisi</th>
           <th>IP Adresi</th>
+          <th>Tarih / Zaman</th>
         </tr>
       </thead>
       <tbody>
         <?php if (empty($logs)): ?>
           <tr>
-            <td colspan="5" class="text-center py-4 text-muted">Filtrelere uygun işlem logu bulunamadı.</td>
+            <td colspan="6" class="text-center py-4 text-muted">Kriterlere uygun hareket kaydı bulunamadı.</td>
           </tr>
         <?php else: ?>
           <?php foreach ($logs as $log): ?>
             <?php
-            $act = strtolower($log['action']);
-            $badgeColor = 'bg-secondary';
-            if (str_contains($act, 'sil')) $badgeColor = 'bg-danger';
-            elseif (str_contains($act, 'giriş') || str_contains($act, 'eklendi') || str_contains($act, 'tamamlandı')) $badgeColor = 'bg-success';
-            elseif (str_contains($act, 'güncelle') || str_contains($act, 'düzenle')) $badgeColor = 'bg-primary';
-            elseif (str_contains($act, 'çıkış')) $badgeColor = 'bg-warning text-dark';
+            $action = $log['action'];
+            $badgeBg = 'bg-secondary';
+            if (str_contains($action, 'Giriş')) $badgeBg = 'bg-success';
+            elseif (str_contains($action, 'Silindi')) $badgeBg = 'bg-danger';
+            elseif (str_contains($action, 'Güncellendi')) $badgeBg = 'bg-primary';
+            elseif (str_contains($action, 'Tamamlandı')) $badgeBg = 'bg-info text-dark';
+            elseif (str_contains($action, 'Eklendi')) $badgeBg = 'bg-success';
             ?>
             <tr>
-              <td class="text-nowrap fs-8 fw-bold text-muted">
-                <i class="bi bi-clock text-secondary me-1"></i>
-                <?php echo date('d.m.Y H:i:s', strtotime($log['created_at'])); ?>
-              </td>
+              <td class="fw-bold text-muted fs-8">#<?php echo $log['id']; ?></td>
               <td>
-                <div class="d-flex align-items-center gap-2">
-                  <div class="avatar-circle" style="width: 28px; height: 28px; font-size: 0.75rem;">
-                    <?php echo mb_substr($log['name_surname'] ?? $log['username'] ?? 'S', 0, 1, 'UTF-8'); ?>
-                  </div>
-                  <div>
-                    <div class="fw-bold text-dark fs-7"><?php echo htmlspecialchars($log['name_surname'] ?? $log['username']); ?></div>
-                    <div class="text-muted fs-8" style="font-size:0.65rem;">@<?php echo htmlspecialchars($log['username']); ?></div>
-                  </div>
+                <div class="fw-bold text-dark fs-7">
+                  <?php echo htmlspecialchars($log['name_surname'] ?? $log['username'] ?? 'Ziyaretçi'); ?>
                 </div>
+                <?php if ($log['username']): ?>
+                  <div class="text-muted fs-8">@<?php echo htmlspecialchars($log['username']); ?></div>
+                <?php endif; ?>
               </td>
               <td>
-                <span class="badge <?php echo $badgeColor; ?> p-2 fs-8 rounded-pill font-weight-bold">
-                  <?php echo htmlspecialchars($log['action']); ?>
+                <span class="badge <?php echo $badgeBg; ?> p-2 font-weight-bold">
+                  <?php echo htmlspecialchars($action); ?>
                 </span>
               </td>
-              <td class="fs-7 text-dark"><?php echo htmlspecialchars($log['details'] ?? '-'); ?></td>
-              <td class="fs-8 text-muted font-monospace"><?php echo htmlspecialchars($log['ip_address'] ?? '-'); ?></td>
+              <td class="text-secondary fs-7" style="max-width: 350px;">
+                <?php echo htmlspecialchars($log['details'] ?? '-'); ?>
+              </td>
+              <td class="text-muted fs-8 font-monospace">
+                <i class="bi bi-laptop me-1"></i> <?php echo htmlspecialchars($log['ip_address'] ?? '127.0.0.1'); ?>
+              </td>
+              <td class="text-muted fs-8 text-nowrap">
+                <i class="bi bi-clock me-1"></i> <?php echo date('d.m.Y H:i:s', strtotime($log['created_at'])); ?>
+              </td>
             </tr>
           <?php endforeach; ?>
         <?php endif; ?>
       </tbody>
     </table>
   </div>
+
+  <!-- Sayfalama (Pagination) Alt Barı -->
+  <div class="d-flex flex-column flex-md-row align-items-center justify-content-between gap-3 mt-3 pt-3 border-top">
+    <div class="text-muted fs-8">
+      Toplam <strong><?php echo $totalRecords; ?></strong> kayıttan <strong><?php echo $totalRecords > 0 ? $offset + 1 : 0; ?></strong> - <strong><?php echo min($offset + $per_page, $totalRecords); ?></strong> arası gösteriliyor.
+    </div>
+
+    <div class="d-flex align-items-center gap-2">
+      <label class="fs-8 text-muted fw-bold">Sayfa Başına:</label>
+      <select class="form-select form-select-sm" style="width: auto;" onchange="location = this.value;">
+        <?php foreach ([15, 30, 50, 100] as $size): ?>
+          <?php
+          $urlParams = $_GET;
+          $urlParams['per_page'] = $size;
+          $urlParams['page'] = 1;
+          $sizeUrl = 'logs.php?' . http_build_query($urlParams);
+          ?>
+          <option value="<?php echo htmlspecialchars($sizeUrl); ?>" <?php echo $per_page == $size ? 'selected' : ''; ?>><?php echo $size; ?></option>
+        <?php endforeach; ?>
+      </select>
+
+      <?php if ($totalPages > 1): ?>
+        <nav>
+          <ul class="pagination pagination-sm m-0">
+            <!-- Önceki -->
+            <?php
+            $prevParams = $_GET;
+            $prevParams['page'] = max(1, $page - 1);
+            $prevUrl = 'logs.php?' . http_build_query($prevParams);
+            ?>
+            <li class="page-item <?php echo $page <= 1 ? 'disabled' : ''; ?>">
+              <a class="page-link" href="<?php echo htmlspecialchars($prevUrl); ?>">&laquo;</a>
+            </li>
+
+            <?php for ($i = 1; $i <= $totalPages; $i++): ?>
+              <?php
+              $pageParams = $_GET;
+              $pageParams['page'] = $i;
+              $pUrl = 'logs.php?' . http_build_query($pageParams);
+              ?>
+              <li class="page-item <?php echo $i == $page ? 'active' : ''; ?>">
+                <a class="page-link" href="<?php echo htmlspecialchars($pUrl); ?>"><?php echo $i; ?></a>
+              </li>
+            <?php endfor; ?>
+
+            <!-- Sonraki -->
+            <?php
+            $nextParams = $_GET;
+            $nextParams['page'] = min($totalPages, $page + 1);
+            $nextUrl = 'logs.php?' . http_build_query($nextParams);
+            ?>
+            <li class="page-item <?php echo $page >= $totalPages ? 'disabled' : ''; ?>">
+              <a class="page-link" href="<?php echo htmlspecialchars($nextUrl); ?>">&raquo;</a>
+            </li>
+          </ul>
+        </nav>
+      <?php endif; ?>
+    </div>
+  </div>
+
 </div>
 
 <?php include __DIR__ . '/includes/footer.php'; ?>

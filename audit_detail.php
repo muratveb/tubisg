@@ -101,7 +101,7 @@ include __DIR__ . '/includes/header.php';
     <?php endif; ?>
 
     <?php if (has_permission('audit_delete')): ?>
-      <form method="POST" action="audit_detail.php?id=<?php echo $audit['id']; ?>" class="d-inline" onsubmit="return confirm('Bu denetim kaydını tamamen silmek istediğinize emin misiniz?');">
+      <form method="POST" action="audit_detail.php?id=<?php echo $audit['id']; ?>" class="d-inline confirm-delete-form" data-confirm-title="Denetim Raporunu Sil" data-confirm-text="Bu denetim kaydını (#DEN-<?php echo sprintf('%04d', $audit['id']); ?>) ve tüm detaylarını silmek istediğinize emin misiniz?">
         <input type="hidden" name="action" value="delete_audit">
         <button type="submit" class="btn btn-outline-danger font-weight-bold" title="Denetim Kaydını Sil">
           <i class="bi bi-trash-fill"></i> Denetimi Sil

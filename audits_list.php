@@ -26,35 +26,66 @@ $unit_id = (int)($_GET['unit_id'] ?? 0);
 $template_id = (int)($_GET['template_id'] ?? 0);
 $search = trim($_GET['search'] ?? '');
 
+// Sayfalama (Pagination) Parametreleri
+$per_page = (int)($_GET['per_page'] ?? 10);
+if (!in_array($per_page, [10, 25, 50, 100])) {
+    $per_page = 10;
+}
+$page = (int)($_GET['page'] ?? 1);
+if ($page < 1) $page = 1;
+
 // SQL Sorgusu Oluşturma
+$whereSql = " WHERE 1=1";
+$params = [];
+
+if ($unit_id > 0) {
+    $whereSql .= " AND a.unit_id = ?";
+    $params[] = $unit_id;
+}
+
+if ($template_id > 0) {
+    $whereSql .= " AND a.template_id = ?";
+    $params[] = $template_id;
+}
+
+if (!empty($search)) {
+    $whereSql .= " AND (u.unit_name LIKE ? OR st.title LIKE ? OR usr.name_surname LIKE ?)";
+    $params[] = "%$search%";
+    $params[] = "%$search%";
+    $params[] = "%$search%";
+}
+
+// Toplam Kayıt Sayısı
+$countSql = "
+    SELECT COUNT(*) as total
+    FROM audits a
+    JOIN units u ON a.unit_id = u.id
+    JOIN survey_templates st ON a.template_id = st.id
+    JOIN users usr ON a.auditor_id = usr.id
+    $whereSql
+";
+$countStmt = $db->prepare($countSql);
+$countStmt->execute($params);
+$totalRecords = (int)$countStmt->fetch()['total'];
+
+$totalPages = ceil($totalRecords / $per_page);
+if ($totalPages > 0 && $page > $totalPages) {
+    $page = $totalPages;
+}
+$offset = ($page - 1) * $per_page;
+if ($offset < 0) $offset = 0;
+
+// Ana Veri Sorgusu
 $sql = "
     SELECT a.*, u.unit_name, st.title as survey_title, usr.name_surname as auditor_name
     FROM audits a
     JOIN units u ON a.unit_id = u.id
     JOIN survey_templates st ON a.template_id = st.id
     JOIN users usr ON a.auditor_id = usr.id
-    WHERE 1=1
+    $whereSql
+    ORDER BY a.id DESC
+    LIMIT $per_page OFFSET $offset
 ";
-$params = [];
-
-if ($unit_id > 0) {
-    $sql .= " AND a.unit_id = ?";
-    $params[] = $unit_id;
-}
-
-if ($template_id > 0) {
-    $sql .= " AND a.template_id = ?";
-    $params[] = $template_id;
-}
-
-if (!empty($search)) {
-    $sql .= " AND (u.unit_name LIKE ? OR st.title LIKE ? OR usr.name_surname LIKE ?)";
-    $params[] = "%$search%";
-    $params[] = "%$search%";
-    $params[] = "%$search%";
-}
-
-$sql .= " ORDER BY a.id DESC";
 
 $stmt = $db->prepare($sql);
 $stmt->execute($params);
@@ -83,6 +114,7 @@ include __DIR__ . '/includes/header.php';
 <!-- Filtreleme Paneli -->
 <div class="custom-card mb-4">
   <form method="GET" action="audits_list.php" class="row g-3 align-items-end">
+    <input type="hidden" name="per_page" value="<?php echo $per_page; ?>">
     <div class="col-12 col-md-4">
       <label class="form-label fw-bold fs-8 text-muted">Arama (Birim, Anket, Denetçi)</label>
       <input type="text" name="search" class="form-control" placeholder="Örn: Faturalama, Hastane..." value="<?php echo htmlspecialchars($search); ?>">
@@ -165,20 +197,22 @@ include __DIR__ . '/includes/header.php';
                   %<?php echo number_format($pct, 0); ?> - <?php echo $statusText; ?>
                 </span>
               </td>
-              <td class="text-end">
-                <a href="audit_detail.php?id=<?php echo $audit['id']; ?>" class="btn btn-sm btn-outline-primary me-1" title="Karneli İncele">
-                  <i class="bi bi-eye-fill"></i> Detay
-                </a>
+              <td class="text-end text-nowrap">
+                <div class="d-inline-flex align-items-center justify-content-end gap-1">
+                  <a href="audit_detail.php?id=<?php echo $audit['id']; ?>" class="btn btn-sm btn-outline-primary fw-bold text-nowrap">
+                    <i class="bi bi-eye-fill"></i> Detay
+                  </a>
 
-                <?php if (has_permission('audit_delete')): ?>
-                  <form method="POST" action="audits_list.php" class="d-inline" onsubmit="return confirm('Bu denetim kaydını tamamen silmek istediğinize emin misiniz?');">
-                    <input type="hidden" name="action" value="delete_audit">
-                    <input type="hidden" name="audit_id" value="<?php echo $audit['id']; ?>">
-                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Denetimi Sil">
-                      <i class="bi bi-trash-fill"></i>
-                    </button>
-                  </form>
-                <?php endif; ?>
+                  <?php if (has_permission('audit_delete')): ?>
+                    <form method="POST" action="audits_list.php" class="d-inline confirm-delete-form" data-confirm-title="Denetim Raporunu Sil" data-confirm-text="Bu denetim kaydını (#DEN-<?php echo sprintf('%04d', $audit['id']); ?>) ve tüm karne verilerini silmek istediğinize emin misiniz?">
+                      <input type="hidden" name="action" value="delete_audit">
+                      <input type="hidden" name="audit_id" value="<?php echo $audit['id']; ?>">
+                      <button type="submit" class="btn btn-sm btn-outline-danger" title="Denetimi Sil">
+                        <i class="bi bi-trash-fill"></i>
+                      </button>
+                    </form>
+                  <?php endif; ?>
+                </div>
               </td>
             </tr>
           <?php endforeach; ?>
@@ -186,6 +220,66 @@ include __DIR__ . '/includes/header.php';
       </tbody>
     </table>
   </div>
+
+  <!-- Sayfalama (Pagination) Alt Barı -->
+  <div class="d-flex flex-column flex-md-row align-items-center justify-content-between gap-3 mt-3 pt-3 border-top">
+    <div class="text-muted fs-8">
+      Toplam <strong><?php echo $totalRecords; ?></strong> kayıttan <strong><?php echo $totalRecords > 0 ? $offset + 1 : 0; ?></strong> - <strong><?php echo min($offset + $per_page, $totalRecords); ?></strong> arası gösteriliyor.
+    </div>
+
+    <div class="d-flex align-items-center gap-2">
+      <label class="fs-8 text-muted fw-bold">Sayfa Başına:</label>
+      <select class="form-select form-select-sm" style="width: auto;" onchange="location = this.value;">
+        <?php foreach ([10, 25, 50, 100] as $size): ?>
+          <?php
+          $urlParams = $_GET;
+          $urlParams['per_page'] = $size;
+          $urlParams['page'] = 1;
+          $sizeUrl = 'audits_list.php?' . http_build_query($urlParams);
+          ?>
+          <option value="<?php echo htmlspecialchars($sizeUrl); ?>" <?php echo $per_page == $size ? 'selected' : ''; ?>><?php echo $size; ?></option>
+        <?php endforeach; ?>
+      </select>
+
+      <?php if ($totalPages > 1): ?>
+        <nav>
+          <ul class="pagination pagination-sm m-0">
+            <!-- Önceki -->
+            <?php
+            $prevParams = $_GET;
+            $prevParams['page'] = max(1, $page - 1);
+            $prevUrl = 'audits_list.php?' . http_build_query($prevParams);
+            ?>
+            <li class="page-item <?php echo $page <= 1 ? 'disabled' : ''; ?>">
+              <a class="page-link" href="<?php echo htmlspecialchars($prevUrl); ?>">&laquo;</a>
+            </li>
+
+            <?php for ($i = 1; $i <= $totalPages; $i++): ?>
+              <?php
+              $pageParams = $_GET;
+              $pageParams['page'] = $i;
+              $pUrl = 'audits_list.php?' . http_build_query($pageParams);
+              ?>
+              <li class="page-item <?php echo $i == $page ? 'active' : ''; ?>">
+                <a class="page-link" href="<?php echo htmlspecialchars($pUrl); ?>"><?php echo $i; ?></a>
+              </li>
+            <?php endfor; ?>
+
+            <!-- Sonraki -->
+            <?php
+            $nextParams = $_GET;
+            $nextParams['page'] = min($totalPages, $page + 1);
+            $nextUrl = 'audits_list.php?' . http_build_query($nextParams);
+            ?>
+            <li class="page-item <?php echo $page >= $totalPages ? 'disabled' : ''; ?>">
+              <a class="page-link" href="<?php echo htmlspecialchars($nextUrl); ?>">&raquo;</a>
+            </li>
+          </ul>
+        </nav>
+      <?php endif; ?>
+    </div>
+  </div>
+
 </div>
 
 <?php include __DIR__ . '/includes/footer.php'; ?>

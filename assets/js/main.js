@@ -60,6 +60,7 @@ document.addEventListener('DOMContentLoaded', function () {
  * Global Modern SweetAlert2 Confirm Handler (Eski usul browser alert/confirm pencerelerini tamamen engeller)
  */
 function initModernConfirmHandler() {
+  // 1. Form Gönderimleri İçin
   document.addEventListener('submit', function (e) {
     const form = e.target;
     
@@ -85,7 +86,7 @@ function initModernConfirmHandler() {
           cancelButtonText: 'Vazgeç',
           reverseButtons: true,
           customClass: {
-            popup: 'rounded-4 shadow-lg border-0',
+            popup: 'swal2-custom-popup',
             confirmButton: 'btn btn-danger font-weight-bold px-4 py-2 me-2',
             cancelButton: 'btn btn-secondary font-weight-bold px-4 py-2'
           },
@@ -100,6 +101,50 @@ function initModernConfirmHandler() {
         if (confirm(text)) {
           form.dataset.confirmed = 'true';
           form.submit();
+        }
+      }
+    }
+  });
+
+  // 2. Buton Tıklamaları İçin (Örn: survey_edit.php içindeki soru/seçenek silme butonları)
+  document.addEventListener('click', function (e) {
+    const btn = e.target.closest('[data-confirm-btn="true"]');
+    if (btn) {
+      if (btn.dataset.confirmed === 'true') {
+        return true;
+      }
+
+      e.preventDefault();
+      const title = btn.dataset.confirmTitle || 'Silme Onayı';
+      const text = btn.dataset.confirmText || 'Bu öğeyi silmek istediğinize emin misiniz?';
+
+      if (window.Swal) {
+        Swal.fire({
+          title: title,
+          text: text,
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonColor: '#ef4444',
+          cancelButtonColor: '#64748b',
+          confirmButtonText: '<i class="bi bi-trash-fill me-1"></i> Evet, Sil!',
+          cancelButtonText: 'Vazgeç',
+          reverseButtons: true,
+          customClass: {
+            popup: 'swal2-custom-popup',
+            confirmButton: 'btn btn-danger font-weight-bold px-4 py-2 me-2',
+            cancelButton: 'btn btn-secondary font-weight-bold px-4 py-2'
+          },
+          buttonsStyling: false
+        }).then((result) => {
+          if (result.isConfirmed) {
+            btn.dataset.confirmed = 'true';
+            btn.click();
+          }
+        });
+      } else {
+        if (confirm(text)) {
+          btn.dataset.confirmed = 'true';
+          btn.click();
         }
       }
     }
@@ -358,6 +403,7 @@ function initQuestionBuilder() {
             reverseButtons: true,
             buttonsStyling: false,
             customClass: {
+              popup: 'swal2-custom-popup',
               confirmButton: 'btn btn-danger font-weight-bold px-4 py-2 me-2',
               cancelButton: 'btn btn-secondary font-weight-bold px-4 py-2'
             }
@@ -430,7 +476,6 @@ function initQuickUnitCreator() {
       .then(response => response.json())
       .then(data => {
         if (data.success) {
-          // 1. Yeni birimi sihirbaz kartlar konteynerine görsel kart olarak ekle
           const unitContainer = document.getElementById('unitCardsContainer');
           if (unitContainer) {
             const col = document.createElement('div');
@@ -450,12 +495,10 @@ function initQuickUnitCreator() {
             `;
             unitContainer.appendChild(col);
             
-            // Diğer kartların seçimini kaldırıp bunu seçili yap
             document.querySelectorAll('.unit-card').forEach(c => c.classList.remove('selected'));
             col.querySelector('.unit-card').classList.add('selected');
             document.getElementById('selectedUnitInput').value = data.unit.id;
             
-            // Re-init wizard
             initAuditWizard();
           }
 

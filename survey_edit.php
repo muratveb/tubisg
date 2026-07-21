@@ -6,14 +6,15 @@ require_once __DIR__ . '/includes/auth.php';
 require_permission('surveys_manage');
 
 $db = getDB();
-$template_id = (int)($_GET['id'] ?? 0);
+$user = get_current_user_data();
 
+$template_id = (int)($_GET['id'] ?? 0);
 if ($template_id <= 0) {
     header("Location: survey_templates.php");
     exit;
 }
 
-// Anket profili bilgilerini çek
+// Şablon Bilgisini Çek
 $stmt = $db->prepare("SELECT * FROM survey_templates WHERE id = ?");
 $stmt->execute([$template_id]);
 $template = $stmt->fetch();
@@ -24,25 +25,65 @@ if (!$template) {
     exit;
 }
 
-// Form Post İşlemleri (Soru & Seçenek Ekleme / Güncelleme / Silme)
+// Form Post İşlemleri (Güncelleme / Soru Ekleme / Silme)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    
+    // 1. Soru Silme İşlemi
+    if (isset($_POST['delete_question_id'])) {
+        $qId = (int)$_POST['delete_question_id'];
+        $db->prepare("DELETE FROM survey_questions WHERE id = ? AND template_id = ?")->execute([$qId, $template_id]);
+        log_action('Anket Sorusu Silindi', "Anket ID: #{$template_id}, Soru ID: #{$qId}");
+        set_flash('success', 'Soru silindi.');
+        header("Location: survey_edit.php?id=" . $template_id);
+        exit;
+    }
 
-    // 1. Yeni Eklenen Sorular ve Seçenekleri Kaydet
-    if (isset($_POST['new_questions']) && is_array($_POST['new_questions'])) {
-        foreach ($_POST['new_questions'] as $qData) {
+    // 2. Seçenek Silme İşlemi
+    if (isset($_POST['delete_option_id'])) {
+        $optId = (int)$_POST['delete_option_id'];
+        $db->prepare("DELETE FROM question_options WHERE id = ?")->execute([$optId]);
+        log_action('Soru Seçeneği Silindi', "Anket ID: #{$template_id}, Seçenek ID: #{$optId}");
+        set_flash('success', 'Seçenek silindi.');
+        header("Location: survey_edit.php?id=" . $template_id);
+        exit;
+    }
+
+    // 3. Mevcut Soruları Güncelleme
+    if (isset($_POST['questions']) && is_array($_POST['questions'])) {
+        foreach ($_POST['questions'] as $qId => $qData) {
             $qText = trim($qData['text'] ?? '');
+            if (!empty($qText)) {
+                $db->prepare("UPDATE survey_questions SET question_text = ? WHERE id = ? AND template_id = ?")->execute([$qText, $qId, $template_id]);
+                
+                if (isset($qData['options']) && is_array($qData['options'])) {
+                    foreach ($qData['options'] as $optId => $optData) {
+                        $optText = trim($optData['text'] ?? '');
+                        $points = (int)($optData['points'] ?? 0);
+                        if (!empty($optText)) {
+                            $db->prepare("UPDATE question_options SET option_text = ?, points = ? WHERE id = ? AND question_id = ?")->execute([$optText, $points, $optId, $qId]);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // 4. Yeni Dinamik Soruları Kaydetme
+    if (isset($_POST['new_questions']) && is_array($_POST['new_questions'])) {
+        foreach ($_POST['new_questions'] as $newQ) {
+            $qText = trim($newQ['text'] ?? '');
             if (!empty($qText)) {
                 $stmtQ = $db->prepare("INSERT INTO survey_questions (template_id, question_text) VALUES (?, ?)");
                 $stmtQ->execute([$template_id, $qText]);
-                $questionId = $db->lastInsertId();
+                $qId = $db->lastInsertId();
 
-                if (isset($qData['options']) && is_array($qData['options'])) {
-                    foreach ($qData['options'] as $oData) {
-                        $optText = trim($oData['text'] ?? '');
-                        $points = (int)($oData['points'] ?? 0);
+                if (isset($newQ['options']) && is_array($newQ['options'])) {
+                    $stmtOpt = $db->prepare("INSERT INTO question_options (question_id, option_text, points) VALUES (?, ?, ?)");
+                    foreach ($newQ['options'] as $opt) {
+                        $optText = trim($opt['text'] ?? '');
+                        $points = (int)($opt['points'] ?? 0);
                         if (!empty($optText)) {
-                            $stmtO = $db->prepare("INSERT INTO question_options (question_id, option_text, points) VALUES (?, ?, ?)");
-                            $stmtO->execute([$questionId, $optText, $points]);
+                            $stmtOpt->execute([$qId, $optText, $points]);
                         }
                     }
                 }
@@ -50,54 +91,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    // 2. Mevcut Soruları Güncelle
-    if (isset($_POST['questions']) && is_array($_POST['questions'])) {
-        foreach ($_POST['questions'] as $qId => $qData) {
-            $qId = (int)$qId;
-            $qText = trim($qData['text'] ?? '');
-            if ($qId > 0 && !empty($qText)) {
-                $stmtQ = $db->prepare("UPDATE survey_questions SET question_text = ? WHERE id = ? AND template_id = ?");
-                $stmtQ->execute([$qText, $qId, $template_id]);
-
-                if (isset($qData['options']) && is_array($qData['options'])) {
-                    foreach ($qData['options'] as $oId => $oData) {
-                        $oId = (int)$oId;
-                        $optText = trim($oData['text'] ?? '');
-                        $points = (int)($oData['points'] ?? 0);
-                        if ($oId > 0 && !empty($optText)) {
-                            $stmtO = $db->prepare("UPDATE question_options SET option_text = ?, points = ? WHERE id = ? AND question_id = ?");
-                            $stmtO->execute([$optText, $points, $oId, $qId]);
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    // 3. Tekil Soru Silme İsteği
-    if (isset($_POST['delete_question_id'])) {
-        $delQId = (int)$_POST['delete_question_id'];
-        if ($delQId > 0) {
-            $stmtDel = $db->prepare("DELETE FROM survey_questions WHERE id = ? AND template_id = ?");
-            $stmtDel->execute([$delQId, $template_id]);
-        }
-    }
-
-    // 4. Tekil Seçenek Silme İsteği
-    if (isset($_POST['delete_option_id'])) {
-        $delOId = (int)$_POST['delete_option_id'];
-        if ($delOId > 0) {
-            $stmtDelO = $db->prepare("DELETE FROM question_options WHERE id = ?");
-            $stmtDelO->execute([$delOId]);
-        }
-    }
-
-    set_flash('success', 'Anket soruları ve puanlamaları başarıyla güncellendi.');
+    log_action('Anket Soruları Güncellendi', "Anket: {$template['title']} (ID: #{$template_id}) soruları ve puanlamaları güncellendi.");
+    set_flash('success', 'Anket soruları ve puanlama haritası başarıyla güncellendi.');
     header("Location: survey_edit.php?id=" . $template_id);
     exit;
 }
 
-// Soruları ve Seçeneklerini Çek
+// Soruları ve Seçenekleri Çek
 $questionsStmt = $db->prepare("SELECT * FROM survey_questions WHERE template_id = ? ORDER BY sort_order ASC, id ASC");
 $questionsStmt->execute([$template_id]);
 $questions = $questionsStmt->fetchAll();
@@ -109,30 +109,32 @@ foreach ($questions as &$q) {
 }
 unset($q);
 
-$pageTitle = 'Soru ve Puan Tanımlama: ' . $template['title'];
+$pageTitle = 'Anket Soruları Editörü: ' . $template['title'];
 include __DIR__ . '/includes/header.php';
 ?>
 
-<div class="d-flex align-items-center justify-content-between mb-4">
+<div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-4">
   <div>
-    <a href="survey_templates.php" class="btn btn-sm btn-outline-secondary mb-2">
+    <a href="survey_templates.php" class="text-decoration-none text-muted fs-8 font-weight-bold d-block mb-1">
       <i class="bi bi-arrow-left"></i> Anket Profillerine Dön
     </a>
     <h3 class="fw-extrabold m-0"><?php echo htmlspecialchars($template['title']); ?></h3>
-    <p class="text-muted fs-7 m-0">Soruları ekleyin ve her seçeneğe pozitif (+5, +10) veya negatif (-5, -10) puan tanımlayın.</p>
+    <p class="text-muted fs-7 m-0">Soruları, seçenekleri ve pozitif/negatif puanlama sistemini yönetin</p>
   </div>
-  <button type="button" id="addQuestionBtn" class="btn btn-primary-custom">
-    <i class="bi bi-plus-circle-fill"></i> Yeni Soru Ekle
-  </button>
+  <div class="d-flex gap-2">
+    <button type="button" id="addQuestionBtn" class="btn btn-outline-success font-weight-bold">
+      <i class="bi bi-plus-circle-fill"></i> Yeni Soru Ekle
+    </button>
+  </div>
 </div>
 
 <form method="POST" action="survey_edit.php?id=<?php echo $template_id; ?>" id="surveyEditForm">
+
   <div id="questionsContainer">
     <?php if (empty($questions)): ?>
-      <div class="custom-card text-center py-5" id="emptyNotice">
-        <i class="bi bi-question-circle fs-1 text-muted d-block mb-3"></i>
-        <h5>Bu anket profilinde henüz soru bulunmuyor.</h5>
-        <p class="text-muted">Yukarıdaki <strong>"Yeni Soru Ekle"</strong> butonuna tıklayarak soru ve seçenek puanlarını tanımlamaya başlayabilirsiniz.</p>
+      <div class="alert alert-warning text-center py-4">
+        <i class="bi bi-exclamation-triangle-fill fs-3 d-block mb-2"></i>
+        Bu anket profilinde henüz hiç soru bulunmuyor. Yukarıdaki <strong>"Yeni Soru Ekle"</strong> butonuna tıklayarak soru tanımlayabilirsiniz.
       </div>
     <?php else: ?>
       <?php $qNum = 1; foreach ($questions as $q): ?>
@@ -142,7 +144,7 @@ include __DIR__ . '/includes/header.php';
               <span class="badge bg-primary rounded-circle" style="width:28px; height:28px; display:flex; align-items:center; justify-content:center;"><?php echo $qNum; ?></span>
               <h6 class="m-0 font-weight-bold">Soru #<?php echo $qNum; ?></h6>
             </div>
-            <button type="submit" name="delete_question_id" value="<?php echo $q['id']; ?>" class="btn btn-sm btn-outline-danger" onclick="return confirm('Bu soruyu silmek istediğinize emin misiniz?');">
+            <button type="submit" name="delete_question_id" value="<?php echo $q['id']; ?>" class="btn btn-sm btn-outline-danger" data-confirm-btn="true" data-confirm-title="Soruyu Sil" data-confirm-text="Bu soruyu ve bağlı tüm cevap seçeneklerini silmek istediğinize emin misiniz?">
               <i class="bi bi-trash"></i> Soruyu Sil
             </button>
           </div>
@@ -169,7 +171,7 @@ include __DIR__ . '/includes/header.php';
                     </div>
                   </div>
                   <div class="col-1 text-end">
-                    <button type="submit" name="delete_option_id" value="<?php echo $opt['id']; ?>" class="btn btn-sm btn-link text-danger p-0" onclick="return confirm('Bu seçeneği silmek istediğinize emin misiniz?');">
+                    <button type="submit" name="delete_option_id" value="<?php echo $opt['id']; ?>" class="btn btn-sm btn-link text-danger p-0" data-confirm-btn="true" data-confirm-title="Seçeneği Sil" data-confirm-text="Bu cevap seçeneğini silmek istediğinize emin misiniz?">
                       <i class="bi bi-x-circle-fill fs-5"></i>
                     </button>
                   </div>
@@ -182,12 +184,14 @@ include __DIR__ . '/includes/header.php';
     <?php endif; ?>
   </div>
 
-  <div class="sticky-bottom bg-white p-3 border-top rounded-top shadow-lg d-flex justify-content-between align-items-center mt-4">
-    <span class="text-muted fs-7"><i class="bi bi-info-circle"></i> Değişiklikleri kaydetmek için aşağıdaki butona basın.</span>
-    <button type="submit" class="btn btn-success px-4 py-2 font-weight-bold">
+  <!-- Kaydet Butonu Barı -->
+  <div class="custom-card p-3 d-flex align-items-center justify-content-between sticky-bottom bg-white shadow-lg border-top border-2 border-primary mb-5" style="z-index:90;">
+    <span class="text-muted fs-8"><i class="bi bi-info-circle me-1"></i> Yapılan tüm soru ve puan değişikliklerini kaydetmek için tıklayın.</span>
+    <button type="submit" class="btn btn-primary-custom px-4 py-2 font-weight-bold">
       <i class="bi bi-check-circle-fill"></i> Tüm Değişiklikleri Kaydet
     </button>
   </div>
+
 </form>
 
 <?php include __DIR__ . '/includes/footer.php'; ?>
