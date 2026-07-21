@@ -6,20 +6,19 @@ Tüm geliştirmeler, eklenen/güncellenen dosyalar mevcuttur.
 
 ## 📌 Mevcut Durum Özeti (Current Status)
 - **Tarih**: 21 Temmuz 2026
-- **Aşama**: Tanıtıcı Ana Sayfa (`index.php`) ve Kullanıcı Kontrol Paneli (`dashboard.php`) Ultra-Modern Radyal Işıklandırma ve Yüksek Yoğunluklu Grid Tasarımıyla Yenilendi.
-- **Aktif Sürüm**: v2.1.0
+- **Aşama**: Tanıtıcı Ana Sayfa (`index.php`) Hero Alanı Kayma Düzeltmesi, Mobil Header Tek Satır Hizalaması ve Görsel Modernizasyon Tamamlandı.
+- **Aktif Sürüm**: v2.2.0
 
 ---
 
 ## 📅 Geliştirme Adımları
 
-### 🟢 Adım 1: Tanıtıcı Ana Sayfa Redesign (`index.php`)
-- [x] Ekran görüntüsünde kısıtlı görünen ana sayfa hero alanı **Dark Navy (`#0f172a`) + Radyal Işıklandırma** mimarisiyle yeniden tasarlandı.
-- [x] Yüksek kontrastlı başlıklar, canlı yeşil vurgu metinleri ve hızlı özellik rozetleri (`%100 Mobil`, `Dinamik Anket`, `PDF / Excel`) eklendi.
-- [x] Mobil ve masaüstünde kesintisiz uyum gösteren özellik kartları ve giriş butonları entegre edildi.
+### 🟢 Adım 1: Mobil & Web Header Tek Satırlık Düzeni (`index.php`)
+- [x] Mobil ekranlarda "Saha Portalına Giriş" butonu ile logonun alt alta kayma sorunu çözüldü. Header esnek `flex-nowrap` yapısına kavuşturuldu ve buton yazısı dar ekranlarda "Giriş Yap" olarak otomatik adapte edildi.
 
-### 🟢 Adım 2: İç Kontrol Paneli Yenilemesi (`dashboard.php`)
-- [x] Giriş yapmış kullanıcılar için karşılama kartı ve stat rozetleri Glassmorphic kart tasarımına kavuşturuldu.
+### 🟢 Adım 2: Hero Bölümü Görsel Düzeltmesi (`index.php`)
+- [x] Hero padding ve container marjları optimize edildi; başlık (`h1`), açıklama (`p`), buton ve hızlı istatistik haplarının ekran görünümünden taşması engellendi.
+- [x] Başlık metni canlı yeşil vurgu ve piksel mükemmel çözünürlükle yenilendi.
 
 ---
 
