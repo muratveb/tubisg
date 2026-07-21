@@ -104,7 +104,7 @@ include __DIR__ . '/includes/header.php';
               <a href="survey_edit.php?id=<?php echo $tpl['id']; ?>" class="btn btn-sm btn-outline-primary font-weight-bold" title="Soruları Düzenle">
                 <i class="bi bi-pencil-fill"></i> Soruları Yönet
               </a>
-              <form method="POST" action="survey_templates.php" onsubmit="return confirm('Bu anket profilini ve bağlı sorularını silmek istediğinize emin misiniz?');" style="display:inline;">
+              <form method="POST" action="survey_templates.php" class="d-inline confirm-delete-form" data-confirm-title="Anket Profilini Sil" data-confirm-text="Bu anket profilini (<?php echo htmlspecialchars($tpl['title']); ?>) ve bağlı tüm sorularını silmek istediğinize emin misiniz?">
                 <input type="hidden" name="action" value="delete">
                 <input type="hidden" name="id" value="<?php echo $tpl['id']; ?>">
                 <button type="submit" class="btn btn-sm btn-outline-danger" title="Anketi Sil">

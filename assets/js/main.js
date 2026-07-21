@@ -1,6 +1,6 @@
 /**
  * Tubİsg - Main Interactive Script
- * Real-time Score Calculator, Auto-dismissing Alerts, Audit Wizard & Touch Handlers
+ * Real-time Score Calculator, Auto-dismissing Alerts, Audit Wizard, Touch Handlers & SweetAlert2 Modals
  */
 
 document.addEventListener('DOMContentLoaded', function () {
@@ -51,7 +51,60 @@ document.addEventListener('DOMContentLoaded', function () {
     initAuditWizard();
   }
 
+  // 7. Global Modern SweetAlert2 Confirmation Dialog Handler
+  initModernConfirmHandler();
+
 });
+
+/**
+ * Global Modern SweetAlert2 Confirm Handler (Eski usul browser alert/confirm pencerelerini tamamen engeller)
+ */
+function initModernConfirmHandler() {
+  document.addEventListener('submit', function (e) {
+    const form = e.target;
+    
+    if (form.classList.contains('confirm-delete-form') || form.hasAttribute('data-confirm-title')) {
+      if (form.dataset.confirmed === 'true') {
+        return true; // Kullanıcı önceden onayladıysa formu gönder
+      }
+      
+      e.preventDefault();
+      
+      const title = form.dataset.confirmTitle || 'Silme Onayı';
+      const text = form.dataset.confirmText || 'Bu kaydı silmek istediğinize emin misiniz? Bu işlem geri alınamaz.';
+      
+      if (window.Swal) {
+        Swal.fire({
+          title: title,
+          text: text,
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonColor: '#ef4444',
+          cancelButtonColor: '#64748b',
+          confirmButtonText: '<i class="bi bi-trash-fill me-1"></i> Evet, Sil!',
+          cancelButtonText: 'Vazgeç',
+          reverseButtons: true,
+          customClass: {
+            popup: 'rounded-4 shadow-lg border-0',
+            confirmButton: 'btn btn-danger font-weight-bold px-4 py-2 me-2',
+            cancelButton: 'btn btn-secondary font-weight-bold px-4 py-2'
+          },
+          buttonsStyling: false
+        }).then((result) => {
+          if (result.isConfirmed) {
+            form.dataset.confirmed = 'true';
+            form.submit();
+          }
+        });
+      } else {
+        if (confirm(text)) {
+          form.dataset.confirmed = 'true';
+          form.submit();
+        }
+      }
+    }
+  });
+}
 
 /**
  * Interactive Visual Audit Wizard (audit_new.php)
@@ -292,8 +345,31 @@ function initQuestionBuilder() {
     const removeQBtn = qCard.querySelector('.remove-question-btn');
     if (removeQBtn) {
       removeQBtn.addEventListener('click', function () {
-        if (confirm('Bu soruyu silmek istediğinize emin misiniz?')) {
-          qCard.remove();
+        if (window.Swal) {
+          Swal.fire({
+            title: 'Soruyu Sil',
+            text: 'Bu soruyu ve seçeneklerini kaldırmak istediğinize emin misiniz?',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#ef4444',
+            cancelButtonColor: '#64748b',
+            confirmButtonText: 'Evet, Sil!',
+            cancelButtonText: 'Vazgeç',
+            reverseButtons: true,
+            buttonsStyling: false,
+            customClass: {
+              confirmButton: 'btn btn-danger font-weight-bold px-4 py-2 me-2',
+              cancelButton: 'btn btn-secondary font-weight-bold px-4 py-2'
+            }
+          }).then((res) => {
+            if (res.isConfirmed) {
+              qCard.remove();
+            }
+          });
+        } else {
+          if (confirm('Bu soruyu silmek istediğinize emin misiniz?')) {
+            qCard.remove();
+          }
         }
       });
     }
@@ -358,14 +434,15 @@ function initQuickUnitCreator() {
           const unitContainer = document.getElementById('unitCardsContainer');
           if (unitContainer) {
             const col = document.createElement('div');
-            col.className = 'col-12 col-sm-6 col-md-4 col-lg-3';
+            col.className = 'col-12 col-sm-6 unit-card-wrapper';
+            col.setAttribute('data-name', data.unit.unit_name.toLowerCase());
             col.innerHTML = `
-              <div class="wizard-select-card unit-card selected" data-id="${data.unit.id}">
+              <div class="wizard-select-card unit-card selected p-2 px-3" data-id="${data.unit.id}">
                 <div class="d-flex align-items-center gap-2 mb-1">
-                  <i class="bi bi-building text-success fs-5"></i>
-                  <h6 class="fw-bold text-dark m-0 wizard-card-title">${data.unit.unit_name}</h6>
+                  <i class="bi bi-building text-success fs-6"></i>
+                  <h6 class="fw-bold text-dark m-0 wizard-card-title fs-7 text-truncate">${data.unit.unit_name}</h6>
                 </div>
-                <p class="text-muted fs-8 m-0 wizard-card-desc">${data.unit.description || 'Kayıtlı saha birimi.'}</p>
+                <p class="text-muted fs-8 m-0 wizard-card-desc text-truncate" style="font-size:0.75rem;">${data.unit.description || 'Kayıtlı saha birimi.'}</p>
                 <div class="wizard-card-check">
                   <i class="bi bi-check-circle-fill"></i>
                 </div>
@@ -388,12 +465,20 @@ function initQuickUnitCreator() {
             if (modalInstance) modalInstance.hide();
           }
         } else {
-          alert('Hata: ' + (data.message || 'Birim eklenemedi.'));
+          if (window.Swal) {
+            Swal.fire('Hata!', data.message || 'Birim eklenemedi.', 'error');
+          } else {
+            alert('Hata: ' + (data.message || 'Birim eklenemedi.'));
+          }
         }
       })
       .catch(err => {
         console.error(err);
-        alert('Bir hata oluştu.');
+        if (window.Swal) {
+          Swal.fire('Hata!', 'Bir bağlantı hatası oluştu.', 'error');
+        } else {
+          alert('Bir hata oluştu.');
+        }
       });
   });
 }
