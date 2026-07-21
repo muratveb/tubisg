@@ -142,7 +142,7 @@ include __DIR__ . '/includes/header.php';
                 <button class="btn btn-sm btn-light text-primary me-1" data-bs-toggle="modal" data-bs-target="#editUnitModal<?php echo $u['id']; ?>" title="Düzenle">
                   <i class="bi bi-pencil-fill"></i>
                 </button>
-                <form method="POST" action="units.php" style="display:inline;" onsubmit="return confirm('Bu birimi silmek istediğinize emin misiniz? Birime ait tüm denetim verileri silinecektir.');">
+                <form method="POST" action="units.php" class="d-inline confirm-delete-form" data-confirm-title="Birimi Sil" data-confirm-text="Bu birimi (<?php echo htmlspecialchars($u['unit_name']); ?>) ve bağlı tüm denetim verilerini silmek istediğinize emin misiniz?">
                   <input type="hidden" name="action" value="delete">
                   <input type="hidden" name="id" value="<?php echo $u['id']; ?>">
                   <button type="submit" class="btn btn-sm btn-light text-danger" title="Sil">
@@ -152,15 +152,15 @@ include __DIR__ . '/includes/header.php';
               </td>
             </tr>
 
-            <!-- Birim Düzenleme Modal -->
+            <!-- Birim Düzenleme Modal (Modern Kart) -->
             <div class="modal fade" id="editUnitModal<?php echo $u['id']; ?>" tabindex="-1" aria-hidden="true">
-              <div class="modal-dialog">
+              <div class="modal-dialog modal-dialog-centered">
                 <div class="modal-content">
                   <form method="POST" action="units.php">
                     <input type="hidden" name="action" value="edit">
                     <input type="hidden" name="id" value="<?php echo $u['id']; ?>">
                     <div class="modal-header">
-                      <h5 class="modal-title fw-bold">Birim Düzenle</h5>
+                      <h5 class="modal-title fw-bold"><i class="bi bi-pencil-square text-success"></i> Birim Düzenle</h5>
                       <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body text-start">
@@ -175,7 +175,7 @@ include __DIR__ . '/includes/header.php';
                     </div>
                     <div class="modal-footer">
                       <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
-                      <button type="submit" class="btn btn-success">Kaydet</button>
+                      <button type="submit" class="btn btn-success font-weight-bold"><i class="bi bi-check-lg"></i> Kaydet</button>
                     </div>
                   </form>
                 </div>
@@ -190,7 +190,7 @@ include __DIR__ . '/includes/header.php';
 
 <!-- Yeni Birim Ekle Modal -->
 <div class="modal fade" id="addUnitModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog">
+  <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
       <form method="POST" action="units.php">
         <input type="hidden" name="action" value="add">
@@ -210,7 +210,7 @@ include __DIR__ . '/includes/header.php';
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Vazgeç</button>
-          <button type="submit" class="btn btn-success">Oluştur</button>
+          <button type="submit" class="btn btn-success font-weight-bold"><i class="bi bi-plus-circle-fill"></i> Oluştur</button>
         </div>
       </form>
     </div>
