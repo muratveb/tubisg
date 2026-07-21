@@ -7,6 +7,7 @@ require_login();
 
 $pageTitle = 'Kontrol Paneli & Saha Özeti';
 $db = getDB();
+$user = get_current_user_data();
 
 // 1. İstatistik Sayıları
 $totalAuditsCount = $db->query("SELECT COUNT(*) FROM audits")->fetchColumn();
@@ -40,26 +41,28 @@ $unitScores = $unitScoresStmt->fetchAll();
 include __DIR__ . '/includes/header.php';
 ?>
 
-<!-- Mobil / Tablet Hızlı Başlatma Kartı -->
-<div class="custom-card border-0 text-white mb-4" style="background: linear-gradient(135deg, #0f172a 0%, #059669 100%);">
+<!-- Mobil & Masaüstü Hızlı Denetim Başlatma Karşılama Kartı -->
+<div class="custom-card border-0 text-white mb-4 p-4" style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #059669 100%); border-radius: 20px; box-shadow: 0 16px 32px rgba(5, 150, 105, 0.2);">
   <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
     <div>
-      <span class="badge bg-warning text-dark font-weight-bold mb-2">SAHA DENETİMİ</span>
-      <h3 class="fw-extrabold mb-1">Hoş Geldiniz, <?php echo htmlspecialchars($user['name_surname']); ?>! 👋</h3>
-      <p class="m-0 text-light opacity-90 fs-7">Saha İSG kontrollerini telefon veya tabletinizden anında başlatabilirsiniz.</p>
+      <span class="badge bg-warning text-dark font-weight-bold mb-2 px-3 py-1 rounded-pill" style="font-size:0.7rem;">
+        <i class="bi bi-shield-check me-1"></i> CANLI SAHA PORTALI
+      </span>
+      <h3 class="fw-extrabold mb-1 text-white">Hoş Geldiniz, <?php echo htmlspecialchars($user['name_surname']); ?>! 👋</h3>
+      <p class="m-0 text-light opacity-90 fs-7">Saha İSG denetimlerini dokunmatik telefon ve tabletinizden anında başlatıp doldurabilirsiniz.</p>
     </div>
     <?php if (has_permission('audit_conduct')): ?>
-    <div>
+    <div class="flex-shrink-0">
       <a href="audit_new.php" class="btn btn-light text-success fw-bold py-3 px-4 rounded-pill shadow-lg d-inline-flex align-items-center gap-2">
-        <i class="bi bi-play-circle-fill fs-4"></i>
-        <span>Yeni Denetim Başlat</span>
+        <i class="bi bi-play-circle-fill fs-4 text-success"></i>
+        <span class="fs-6">Yeni Denetim Başlat</span>
       </a>
     </div>
     <?php endif; ?>
   </div>
 </div>
 
-<!-- Metrik / Stat Kartları -->
+<!-- Metrik / Stat Kartları (Modern Yüksek Yoğunluklu Grid) -->
 <div class="row g-3 mb-4">
   <div class="col-6 col-md-3">
     <div class="custom-card p-3 h-100 border-start border-4 border-success">
@@ -111,7 +114,7 @@ include __DIR__ . '/includes/header.php';
           <i class="bi bi-clock-history text-success"></i> Son Saha Denetimleri
         </h5>
         <?php if (has_permission('audit_view')): ?>
-          <a href="audits_list.php" class="btn btn-sm btn-outline-secondary rounded-pill">Tümünü Gör</a>
+          <a href="audits_list.php" class="btn btn-sm btn-outline-secondary rounded-pill font-weight-bold">Tümünü Gör</a>
         <?php endif; ?>
       </div>
 
@@ -129,7 +132,7 @@ include __DIR__ . '/includes/header.php';
                 <th>Anket</th>
                 <th>Tarih</th>
                 <th>Skor</th>
-                <th>İşlem</th>
+                <th class="text-end">İşlem</th>
               </tr>
             </thead>
             <tbody>
@@ -139,7 +142,7 @@ include __DIR__ . '/includes/header.php';
                 $badgeClass = $pct >= 80 ? 'bg-success' : ($pct >= 50 ? 'bg-warning text-dark' : 'bg-danger');
                 ?>
                 <tr>
-                  <td class="fw-bold"><?php echo htmlspecialchars($audit['unit_name']); ?></td>
+                  <td class="fw-bold text-dark"><?php echo htmlspecialchars($audit['unit_name']); ?></td>
                   <td class="text-muted fs-7"><?php echo htmlspecialchars($audit['survey_title']); ?></td>
                   <td class="fs-8 text-muted"><?php echo date('d.m.Y H:i', strtotime($audit['audit_date'])); ?></td>
                   <td>
@@ -147,8 +150,8 @@ include __DIR__ . '/includes/header.php';
                       %<?php echo number_format($pct, 0); ?> Uygun
                     </span>
                   </td>
-                  <td>
-                    <a href="audit_detail.php?id=<?php echo $audit['id']; ?>" class="btn btn-sm btn-light rounded-circle shadow-sm" title="Detay">
+                  <td class="text-end">
+                    <a href="audit_detail.php?id=<?php echo $audit['id']; ?>" class="btn btn-sm btn-light text-primary rounded-circle shadow-sm" title="Karneli Detay Göster">
                       <i class="bi bi-chevron-right"></i>
                     </a>
                   </td>
@@ -166,25 +169,29 @@ include __DIR__ . '/includes/header.php';
     <div class="custom-card h-100">
       <div class="custom-card-header">
         <h5 class="custom-card-title m-0">
-          <i class="bi bi-building-check text-primary"></i> Birim Skorları
+          <i class="bi bi-building-check text-primary"></i> Birim Skor Karnesi
         </h5>
       </div>
       <div class="d-flex flex-column gap-3">
-        <?php foreach ($unitScores as $uScore): ?>
-          <?php
-          $uAvg = $uScore['avg_unit_score'] !== null ? round((float)$uScore['avg_unit_score']) : 0;
-          $uColor = $uAvg >= 80 ? '#10b981' : ($uAvg >= 50 ? '#f59e0b' : '#ef4444');
-          ?>
-          <div>
-            <div class="d-flex justify-content-between align-items-center mb-1">
-              <span class="fw-bold fs-7"><?php echo htmlspecialchars($uScore['unit_name']); ?></span>
-              <span class="fs-8 text-muted"><?php echo $uScore['audit_count']; ?> denetim / %<?php echo $uAvg; ?></span>
+        <?php if (empty($unitScores)): ?>
+          <div class="text-muted fs-8 text-center py-3">Henüz birim verisi yok.</div>
+        <?php else: ?>
+          <?php foreach ($unitScores as $uScore): ?>
+            <?php
+            $uAvg = $uScore['avg_unit_score'] !== null ? round((float)$uScore['avg_unit_score']) : 0;
+            $uColor = $uAvg >= 80 ? '#10b981' : ($uAvg >= 50 ? '#f59e0b' : '#ef4444');
+            ?>
+            <div>
+              <div class="d-flex justify-content-between align-items-center mb-1">
+                <span class="fw-bold fs-7 text-dark"><?php echo htmlspecialchars($uScore['unit_name']); ?></span>
+                <span class="fs-8 text-muted"><?php echo $uScore['audit_count']; ?> denetim / %<?php echo $uAvg; ?></span>
+              </div>
+              <div class="progress" style="height: 8px; border-radius: 4px; background:#e2e8f0;">
+                <div class="progress-bar" role="progressbar" style="width: <?php echo $uAvg; ?>%; background: <?php echo $uColor; ?>;" aria-valuenow="<?php echo $uAvg; ?>" aria-valuemin="0" aria-valuemax="100"></div>
+              </div>
             </div>
-            <div class="progress" style="height: 8px; border-radius: 4px; background:#e2e8f0;">
-              <div class="progress-bar" role="progressbar" style="width: <?php echo $uAvg; ?>%; background: <?php echo $uColor; ?>;" aria-valuenow="<?php echo $uAvg; ?>" aria-valuemin="0" aria-valuemax="100"></div>
-            </div>
-          </div>
-        <?php endforeach; ?>
+          <?php endforeach; ?>
+        <?php endif; ?>
       </div>
     </div>
   </div>

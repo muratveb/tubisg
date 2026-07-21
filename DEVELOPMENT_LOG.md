@@ -6,21 +6,20 @@ Tüm geliştirmeler, eklenen/güncellenen dosyalar mevcuttur.
 
 ## 📌 Mevcut Durum Özeti (Current Status)
 - **Tarih**: 21 Temmuz 2026
-- **Aşama**: Tüm Satır İçi (Inline) Confirm'ler Temizlendi, Tablo İletişim Butonlarının Kayması Düzeltildi, Tablo Sayfalama (Pagination) Entegre Edildi ve GitHub'a Gönderildi.
-- **Aktif Sürüm**: v2.0.0
+- **Aşama**: Tanıtıcı Ana Sayfa (`index.php`) ve Kullanıcı Kontrol Paneli (`dashboard.php`) Ultra-Modern Radyal Işıklandırma ve Yüksek Yoğunluklu Grid Tasarımıyla Yenilendi.
+- **Aktif Sürüm**: v2.1.0
 
 ---
 
 ## 📅 Geliştirme Adımları
 
-### 🟢 Adım 1: İlkel Tarayıcı Onaylarının Temizlenmesi (`audits_list.php`, `audit_detail.php`, `survey_edit.php`)
-- [x] `audits_list.php` ve `audit_detail.php` üzerindeki satır içi `onsubmit="return confirm(...)"` kuralı kaldırıldı.
-- [x] Tüm silme formlarına `.confirm-delete-form` ve `data-confirm-title` niteliği eklenerek %100 SweetAlert2 diyalog entegrasyonu sağlandı.
+### 🟢 Adım 1: Tanıtıcı Ana Sayfa Redesign (`index.php`)
+- [x] Ekran görüntüsünde kısıtlı görünen ana sayfa hero alanı **Dark Navy (`#0f172a`) + Radyal Işıklandırma** mimarisiyle yeniden tasarlandı.
+- [x] Yüksek kontrastlı başlıklar, canlı yeşil vurgu metinleri ve hızlı özellik rozetleri (`%100 Mobil`, `Dinamik Anket`, `PDF / Excel`) eklendi.
+- [x] Mobil ve masaüstünde kesintisiz uyum gösteren özellik kartları ve giriş butonları entegre edildi.
 
-### 🟢 Adım 2: Tablo Butonlarının Hizalanması & Modern Sayfalama (`audits_list.php`, `logs.php`)
-- [x] Denetim raporlarında "Detay" ve "Sil" butonlarının alt alta kayması engellendi; yan yana esnek flex hizalamaya (`d-inline-flex align-items-center gap-1 text-nowrap`) kavuşturuldu.
-- [x] Denetim Raporları ve Sistem Logları sayfalarına **Modern Tablo Sayfalama (Pagination)** eklendi.
-- [x] Sayfa başına gösterilecek kayıt sayısı seçeneği (10, 25, 50, 100) ve sayfa numaralandırma çubuğu aktifleştirildi.
+### 🟢 Adım 2: İç Kontrol Paneli Yenilemesi (`dashboard.php`)
+- [x] Giriş yapmış kullanıcılar için karşılama kartı ve stat rozetleri Glassmorphic kart tasarımına kavuşturuldu.
 
 ---
 
