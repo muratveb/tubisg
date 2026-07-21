@@ -21,6 +21,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'quick_add' && $_SERVER['REQUE
     $stmt = $db->prepare("INSERT INTO units (unit_name, description) VALUES (?, ?)");
     if ($stmt->execute([$unit_name, $description])) {
         $newId = $db->lastInsertId();
+        log_action('Hızlı Birim Eklendi', "Saha sihirbazından birim eklendi: {$unit_name} (ID: #{$newId})");
         echo json_encode([
             'success' => true,
             'unit' => [
@@ -44,6 +45,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         if (!empty($unit_name)) {
             $stmt = $db->prepare("INSERT INTO units (unit_name, description) VALUES (?, ?)");
             $stmt->execute([$unit_name, $description]);
+            $newId = $db->lastInsertId();
+            log_action('Birim Eklendi', "Yeni birim: {$unit_name} (ID: #{$newId})");
             set_flash('success', 'Birim başarıyla eklendi.');
         } else {
             set_flash('danger', 'Birim adı boş olamaz.');
@@ -60,6 +63,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         if (!empty($unit_name) && $id > 0) {
             $stmt = $db->prepare("UPDATE units SET unit_name = ?, description = ? WHERE id = ?");
             $stmt->execute([$unit_name, $description, $id]);
+            log_action('Birim Güncellendi', "Birim: {$unit_name} (ID: #{$id}) güncellendi.");
             set_flash('success', 'Birim bilgileri güncellendi.');
         }
         header("Location: units.php");
@@ -69,9 +73,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     if ($_POST['action'] === 'delete') {
         $id = (int)$_POST['id'];
         if ($id > 0) {
-            $stmt = $db->prepare("DELETE FROM units WHERE id = ?");
-            $stmt->execute([$id]);
-            set_flash('success', 'Birim silindi.');
+            $targetStmt = $db->prepare("SELECT * FROM units WHERE id = ?");
+            $targetStmt->execute([$id]);
+            $u = $targetStmt->fetch();
+
+            if ($u) {
+                // FK 1451 hatasını önlemek için önce ilişkili denetimleri sil
+                $db->prepare("DELETE FROM audits WHERE unit_id = ?")->execute([$id]);
+
+                $stmt = $db->prepare("DELETE FROM units WHERE id = ?");
+                $stmt->execute([$id]);
+
+                log_action('Birim Silindi', "Birim: {$u['unit_name']} (ID: #{$id}) ve ilişkili tüm denetim verileri silindi.");
+                set_flash('success', "Birim ({$u['unit_name']}) başarıyla silindi.");
+            }
         }
         header("Location: units.php");
         exit;
@@ -100,45 +115,45 @@ include __DIR__ . '/includes/header.php';
     <table class="table table-hover align-middle m-0">
       <thead class="table-light fs-8 text-uppercase text-muted">
         <tr>
-          <th>#</th>
           <th>Birim Adı</th>
           <th>Açıklama</th>
-          <th>Denetim Sayısı</th>
-          <th>Kayıt Tarihi</th>
-          <th class="text-end">İşlemler</th>
+          <th>Yapılan Denetim Sayısı</th>
+          <th class="text-end">İşlem</th>
         </tr>
       </thead>
       <tbody>
         <?php if (empty($units)): ?>
           <tr>
-            <td colspan="6" class="text-center py-4 text-muted">Henüz kayıtlı bir birim bulunmuyor.</td>
+            <td colspan="4" class="text-center py-4 text-muted">Henüz hiç birim tanımlanmamış.</td>
           </tr>
         <?php else: ?>
           <?php foreach ($units as $u): ?>
             <tr>
-              <td class="fw-bold text-muted">#<?php echo $u['id']; ?></td>
-              <td class="fw-bold text-dark"><?php echo htmlspecialchars($u['unit_name']); ?></td>
+              <td class="fw-bold text-dark">
+                <i class="bi bi-building text-success me-2"></i> <?php echo htmlspecialchars($u['unit_name']); ?>
+              </td>
               <td class="text-muted fs-7"><?php echo htmlspecialchars($u['description'] ?? '-'); ?></td>
               <td>
-                <span class="badge bg-light text-dark border px-3 py-2 rounded-pill font-weight-bold">
+                <span class="badge bg-light text-dark border font-weight-bold">
                   <?php echo $u['audit_count']; ?> Denetim
                 </span>
               </td>
-              <td class="text-muted fs-8"><?php echo date('d.m.Y', strtotime($u['created_at'])); ?></td>
               <td class="text-end">
-                <button class="btn btn-sm btn-light text-primary me-1" data-bs-toggle="modal" data-bs-target="#editModal<?php echo $u['id']; ?>">
+                <button class="btn btn-sm btn-light text-primary me-1" data-bs-toggle="modal" data-bs-target="#editUnitModal<?php echo $u['id']; ?>" title="Düzenle">
                   <i class="bi bi-pencil-fill"></i>
                 </button>
-                <form method="POST" action="units.php" style="display:inline;" onsubmit="return confirm('Bu birimi silmek istediğinize emin misiniz?');">
+                <form method="POST" action="units.php" style="display:inline;" onsubmit="return confirm('Bu birimi silmek istediğinize emin misiniz? Birime ait tüm denetim verileri silinecektir.');">
                   <input type="hidden" name="action" value="delete">
                   <input type="hidden" name="id" value="<?php echo $u['id']; ?>">
-                  <button type="submit" class="btn btn-sm btn-light text-danger"><i class="bi bi-trash-fill"></i></button>
+                  <button type="submit" class="btn btn-sm btn-light text-danger" title="Sil">
+                    <i class="bi bi-trash-fill"></i>
+                  </button>
                 </form>
               </td>
             </tr>
 
             <!-- Birim Düzenleme Modal -->
-            <div class="modal fade" id="editModal<?php echo $u['id']; ?>" tabindex="-1" aria-hidden="true">
+            <div class="modal fade" id="editUnitModal<?php echo $u['id']; ?>" tabindex="-1" aria-hidden="true">
               <div class="modal-dialog">
                 <div class="modal-content">
                   <form method="POST" action="units.php">
@@ -160,7 +175,7 @@ include __DIR__ . '/includes/header.php';
                     </div>
                     <div class="modal-footer">
                       <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
-                      <button type="submit" class="btn btn-success">Değişiklikleri Kaydet</button>
+                      <button type="submit" class="btn btn-success">Kaydet</button>
                     </div>
                   </form>
                 </div>
@@ -173,14 +188,14 @@ include __DIR__ . '/includes/header.php';
   </div>
 </div>
 
-<!-- Yeni Birim Ekleme Modal -->
+<!-- Yeni Birim Ekle Modal -->
 <div class="modal fade" id="addUnitModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog">
     <div class="modal-content">
       <form method="POST" action="units.php">
         <input type="hidden" name="action" value="add">
         <div class="modal-header">
-          <h5 class="modal-title fw-bold"><i class="bi bi-building-add text-primary"></i> Yeni Birim Tanımla</h5>
+          <h5 class="modal-title fw-bold"><i class="bi bi-building-add text-success"></i> Yeni Birim Tanımla</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
@@ -190,12 +205,12 @@ include __DIR__ . '/includes/header.php';
           </div>
           <div class="mb-3">
             <label class="form-label fw-bold">Açıklama (Opsiyonel)</label>
-            <textarea name="description" class="form-control" rows="3" placeholder="Örn: İdari bina 2. kat ana faturalama servisi"></textarea>
+            <textarea name="description" class="form-control" rows="3" placeholder="Birim konumu veya detaylı bilgi..."></textarea>
           </div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Vazgeç</button>
-          <button type="submit" class="btn btn-success">Kaydet</button>
+          <button type="submit" class="btn btn-success">Oluştur</button>
         </div>
       </form>
     </div>

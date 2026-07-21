@@ -6,21 +6,19 @@ Tüm geliştirmeler, eklenen/güncellenen dosyalar mevcuttur.
 
 ## 📌 Mevcut Durum Özeti (Current Status)
 - **Tarih**: 21 Temmuz 2026
-- **Aşama**: Masaüstü Web Footer Hizalaması, Kompakt 2-Sütunlu Denetim Sihirbazı (`audit_new.php`) ve Birim Arama Entegrasyonu Tamamlandı.
-- **Aktif Sürüm**: v1.6.1
+- **Aşama**: Kullanıcı, Anket Profili ve Birim Silme İşlemlerindeki Yabancı Anahtar (FK 1451) Hataları Çözüldü, Tüm İşlemler Sistem Loglarına Bağlanarak GitHub'a Gönderildi.
+- **Aktif Sürüm**: v1.7.0
 
 ---
 
 ## 📅 Geliştirme Adımları
 
-### 🟢 Adım 1: Masaüstü Web Footer Sabitlenmesi (`assets/css/style.css`)
-- [x] Masaüstü (web) sürümünde footer barın ekranın altında görünmeyip aşağıya kayma sorunu çözüldü.
-- [x] Ana içerik kapsayıcısına esnek flex yapısı (`flex: 1 0 auto`) ve footer barına `margin-top: auto` verilerek içerik az olsa dahi masaüstünde doğrudan ekran görünümünün en altına yapışması sağlandı.
+### 🟢 Adım 1: Yabancı Anahtar (FK 1451) Silme Hatalarının Çözümü (`users.php`, `survey_templates.php`, `units.php`)
+- [x] Ekran görüntülerinde tespit edilen `SQLSTATE[23000]: 1451 Cannot delete or update a parent row` hataları giderildi.
+- [x] Bir kullanıcı, anket profili veya birim silinirken ilişkili denetimlerin sırasıyla temizlenmesi ve ardından ana kaydın pürüzsüzce silinmesi sağlandı.
 
-### 🟢 Adım 2: Kompakt & Modern Saha Denetim Sihirbazı (`audit_new.php`)
-- [x] Ekran görüntüsündeki dikeyde çok yer kaplayan kart yapısı masaüstünde **2 Sütunlu Kompakt Grid** mimarisine dönüştürüldü.
-- [x] Sol tarafa Anket Profilleri, sağ tarafa Birimler yerleştirildi.
-- [x] Birim seçimi alanına **canlı birim arama filtresi** (`🔍 Birim / Saha Ara...`) eklendi.
+### 🟢 Adım 2: Kapsamlı İşlem Loglama (`log_action`)
+- [x] Kullanıcı ekleme, kullanıcı silme, pasife alma, anket şablonu silme, soruları güncelleme, birim ekleme/silme gibi tüm yönetimsel işlemler kullanıcı adı ve detay bilgisiyle `system_logs` veritabanına loglanmaktadır.
 
 ---
 

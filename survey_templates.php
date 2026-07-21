@@ -19,6 +19,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $stmt = $db->prepare("INSERT INTO survey_templates (title, description, category, created_by) VALUES (?, ?, ?, ?)");
             $stmt->execute([$title, $description, $category, $user['id']]);
             $newId = $db->lastInsertId();
+            log_action('Anket Profili Eklendi', "Yeni anket profili: {$title} (ID: #{$newId})");
             set_flash('success', 'Anket profili oluşturuldu. Şimdi soruları ekleyebilirsiniz.');
             header("Location: survey_edit.php?id=" . $newId);
             exit;
@@ -28,9 +29,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     if ($_POST['action'] === 'delete') {
         $id = (int)$_POST['id'];
         if ($id > 0) {
-            $stmt = $db->prepare("DELETE FROM survey_templates WHERE id = ?");
-            $stmt->execute([$id]);
-            set_flash('success', 'Anket profili ve soruları silindi.');
+            $targetStmt = $db->prepare("SELECT * FROM survey_templates WHERE id = ?");
+            $targetStmt->execute([$id]);
+            $tpl = $targetStmt->fetch();
+
+            if ($tpl) {
+                // FK 1451 hatasını önlemek için bu şablona ait denetimleri sil
+                $db->prepare("DELETE FROM audits WHERE template_id = ?")->execute([$id]);
+
+                // Şablonu sil (soru ve seçenekler ON DELETE CASCADE ile silinir)
+                $stmt = $db->prepare("DELETE FROM survey_templates WHERE id = ?");
+                $stmt->execute([$id]);
+
+                log_action('Anket Profili Silindi', "Anket profili: {$tpl['title']} (ID: #{$id}) ve ilişkili tüm denetimleri silindi.");
+                set_flash('success', "Anket profili ({$tpl['title']}) başarıyla silindi.");
+            }
         }
         header("Location: survey_templates.php");
         exit;
@@ -61,13 +74,12 @@ include __DIR__ . '/includes/header.php';
   </button>
 </div>
 
-<div class="row g-3">
+<div class="row g-4">
   <?php if (empty($templates)): ?>
     <div class="col-12">
-      <div class="custom-card text-center py-5">
-        <i class="bi bi-journal-x fs-1 text-muted d-block mb-3"></i>
-        <h5>Henüz hiç anket profili tanımlanmamış.</h5>
-        <p class="text-muted">Yukarıdaki butonla ilk İSG anket profilinizi oluşturarak soru ve puan tanımlamaya başlayın.</p>
+      <div class="custom-card text-center py-5 text-muted">
+        <i class="bi bi-journal-x display-4 d-block mb-3"></i>
+        Henüz hiç anket profili tanımlanmamış. "Yeni Anket Profili Oluştur" butonuna basarak başlayabilirsiniz.
       </div>
     </div>
   <?php else: ?>
@@ -77,24 +89,27 @@ include __DIR__ . '/includes/header.php';
           <div>
             <div class="d-flex align-items-center justify-content-between mb-2">
               <span class="badge bg-primary-light text-primary font-weight-bold"><?php echo htmlspecialchars($tpl['category']); ?></span>
-              <span class="badge bg-light text-dark border"><?php echo $tpl['question_count']; ?> Soru</span>
+              <span class="badge bg-light text-dark border"><i class="bi bi-list-task"></i> <?php echo $tpl['question_count']; ?> Soru</span>
             </div>
+            
             <h5 class="fw-bold text-dark mb-2"><?php echo htmlspecialchars($tpl['title']); ?></h5>
-            <p class="text-muted fs-7 mb-3 opacity-90"><?php echo htmlspecialchars($tpl['description'] ?? 'Açıklama girilmemiş.'); ?></p>
+            <p class="text-muted fs-7 mb-3"><?php echo htmlspecialchars($tpl['description'] ?? 'Açıklama girilmemiş.'); ?></p>
           </div>
 
-          <div class="pt-3 border-top d-flex align-items-center justify-content-between">
+          <div class="border-top pt-3 mt-3 d-flex align-items-center justify-content-between">
             <div class="fs-8 text-muted">
-              <i class="bi bi-person"></i> <?php echo htmlspecialchars($tpl['creator_name'] ?? 'Yönetici'); ?>
+              <i class="bi bi-person me-1"></i> <?php echo htmlspecialchars($tpl['creator_name'] ?? 'Sistem'); ?>
             </div>
-            <div class="d-flex gap-2">
-              <a href="survey_edit.php?id=<?php echo $tpl['id']; ?>" class="btn btn-sm btn-outline-success font-weight-bold">
-                <i class="bi bi-pencil-square"></i> Soruları Düzenle
+            <div class="d-flex gap-1">
+              <a href="survey_edit.php?id=<?php echo $tpl['id']; ?>" class="btn btn-sm btn-outline-primary font-weight-bold" title="Soruları Düzenle">
+                <i class="bi bi-pencil-fill"></i> Soruları Yönet
               </a>
-              <form method="POST" action="survey_templates.php" style="display:inline;" onsubmit="return confirm('Bu anket profilini silmek istediğinize emin misiniz?');">
+              <form method="POST" action="survey_templates.php" onsubmit="return confirm('Bu anket profilini ve bağlı sorularını silmek istediğinize emin misiniz?');" style="display:inline;">
                 <input type="hidden" name="action" value="delete">
                 <input type="hidden" name="id" value="<?php echo $tpl['id']; ?>">
-                <button type="submit" class="btn btn-sm btn-light text-danger"><i class="bi bi-trash"></i></button>
+                <button type="submit" class="btn btn-sm btn-outline-danger" title="Anketi Sil">
+                  <i class="bi bi-trash-fill"></i>
+                </button>
               </form>
             </div>
           </div>
@@ -104,7 +119,7 @@ include __DIR__ . '/includes/header.php';
   <?php endif; ?>
 </div>
 
-<!-- Yeni Anket Profili Modal -->
+<!-- Yeni Anket Profili Ekle Modal -->
 <div class="modal fade" id="addTemplateModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog">
     <div class="modal-content">
@@ -116,21 +131,21 @@ include __DIR__ . '/includes/header.php';
         </div>
         <div class="modal-body">
           <div class="mb-3">
-            <label class="form-label fw-bold">Anket Profili Adı</label>
-            <input type="text" name="title" class="form-control" placeholder="Örn: Hastane İSG Saha Denetim Anketi" required>
+            <label class="form-label fw-bold">Anket Profili Başlığı</label>
+            <input type="text" name="title" class="form-control" placeholder="Örn: Hastane İSG Saha Denetimi" required>
           </div>
           <div class="mb-3">
             <label class="form-label fw-bold">Kategori</label>
             <input type="text" name="category" class="form-control" placeholder="Örn: Sağlık Tesisleri, Şantiye, Depo" value="Genel" required>
           </div>
           <div class="mb-3">
-            <label class="form-label fw-bold">Profil Açıklaması</label>
-            <textarea name="description" class="form-control" rows="3" placeholder="Bu anket profilinin kullanım alanı ve denetçi yönergeleri..."></textarea>
+            <label class="form-label fw-bold">Açıklama (Opsiyonel)</label>
+            <textarea name="description" class="form-control" rows="3" placeholder="Bu anket profilinin kullanım amacı ve kapsamı..."></textarea>
           </div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Vazgeç</button>
-          <button type="submit" class="btn btn-success">Oluştur ve Sorulara Geç</button>
+          <button type="submit" class="btn btn-success">Oluştur ve Soruları Ekle</button>
         </div>
       </form>
     </div>

@@ -29,6 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $stmt = $db->prepare("INSERT INTO users (username, password, name_surname, email, role_id) VALUES (?, ?, ?, ?, ?)");
             try {
                 $stmt->execute([$username, $hash, $name_surname, $email, $role_id]);
+                log_action('Kullanıcı Eklendi', "Yeni kullanıcı oluşturuldu: {$name_surname} (@{$username})");
                 set_flash('success', 'Kullanıcı hesabı oluşturuldu.');
             } catch (PDOException $e) {
                 set_flash('danger', 'Bu kullanıcı adı zaten kullanılıyor.');
@@ -67,6 +68,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     $stmt = $db->prepare("UPDATE users SET name_surname = ?, email = ?, role_id = ? WHERE id = ?");
                     $stmt->execute([$name_surname, $email, $role_id, $id]);
                 }
+                log_action('Kullanıcı Bilgileri Güncellendi', "Kullanıcı: {$name_surname} (@{$targetUser['username']}) güncellendi.");
                 set_flash('success', 'Kullanıcı bilgileri güncellendi.');
             }
         }
@@ -74,7 +76,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         exit;
     }
 
-    if ($_POST['action'] === 'toggle_active' || $_POST['action'] === 'delete') {
+    if ($_POST['action'] === 'delete') {
         $id = (int)$_POST['id'];
         
         $targetStmt = $db->prepare("SELECT * FROM users WHERE id = ?");
@@ -86,19 +88,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
             if ($isMasterAdmin) {
                 set_flash('danger', 'KURAL İHLALİ: Ana sistem yöneticisi (admin) hesabı hiçbir yetkili tarafından silinemez, pasife alınamaz veya rolü değiştirilemez!');
+                log_action('Güvenlik İhlali Engellendi', "Ana admin hesabı silinmeye çalışıldı.");
                 header("Location: users.php");
                 exit;
             }
 
-            if ($_POST['action'] === 'delete') {
-                $stmt = $db->prepare("DELETE FROM users WHERE id = ?");
-                $stmt->execute([$id]);
-                set_flash('success', 'Kullanıcı silindi.');
-            } else {
-                $stmt = $db->prepare("UPDATE users SET is_active = NOT is_active WHERE id = ?");
-                $stmt->execute([$id]);
-                set_flash('info', 'Kullanıcı aktiflik durumu güncellendi.');
+            // FK 1451 hatasını engellemek için önce bu kullanıcının yaptığı denetimleri sil
+            $db->prepare("DELETE FROM audits WHERE auditor_id = ?")->execute([$id]);
+            
+            // Kullanıcıyı sil
+            $stmt = $db->prepare("DELETE FROM users WHERE id = ?");
+            $stmt->execute([$id]);
+
+            log_action('Kullanıcı Silindi', "Kullanıcı: {$targetUser['name_surname']} (@{$targetUser['username']}) ve ilişkili tüm denetimleri silindi.");
+            set_flash('success', "Kullanıcı hesabı ({$targetUser['name_surname']}) başarıyla silindi.");
+        }
+        header("Location: users.php");
+        exit;
+    }
+
+    if ($_POST['action'] === 'toggle_active') {
+        $id = (int)$_POST['id'];
+        
+        $targetStmt = $db->prepare("SELECT * FROM users WHERE id = ?");
+        $targetStmt->execute([$id]);
+        $targetUser = $targetStmt->fetch();
+
+        if ($targetUser) {
+            $isMasterAdmin = ($id === 1 || strtolower($targetUser['username']) === 'admin');
+
+            if ($isMasterAdmin) {
+                set_flash('danger', 'KURAL İHLALİ: Ana sistem yöneticisi (admin) hesabı pasife alınamaz!');
+                header("Location: users.php");
+                exit;
             }
+
+            $stmt = $db->prepare("UPDATE users SET is_active = NOT is_active WHERE id = ?");
+            $stmt->execute([$id]);
+
+            $newStatus = $targetUser['is_active'] ? 'Pasif' : 'Aktif';
+            log_action('Kullanıcı Durumu Değiştirildi', "Kullanıcı: {$targetUser['name_surname']} (@{$targetUser['username']}) durumu {$newStatus} yapıldı.");
+            set_flash('info', 'Kullanıcı aktiflik durumu güncellendi.');
         }
         header("Location: users.php");
         exit;
@@ -182,7 +212,7 @@ include __DIR__ . '/includes/header.php';
                     <i class="bi bi-power"></i>
                   </button>
                 </form>
-                <form method="POST" action="users.php" style="display:inline;" onsubmit="return confirm('Bu kullanıcıyı silmek istediğinize emin misiniz?');">
+                <form method="POST" action="users.php" style="display:inline;" onsubmit="return confirm('Bu kullanıcıyı silmek istediğinize emin misiniz? Kullanıcıya ait tüm denetim verileri silinecektir.');">
                   <input type="hidden" name="action" value="delete">
                   <input type="hidden" name="id" value="<?php echo $u['id']; ?>">
                   <button type="submit" class="btn btn-sm btn-light text-danger me-1" title="Kullanıcıyı Sil">
