@@ -1,6 +1,6 @@
 <?php
 /**
- * Tubİsg - Oturum Yönetimi & Rol Tabanlı Yetkilendirme (RBAC) Helper
+ * Tubİsg - Oturum Yönetimi, Sistem Logları & Rol Tabanlı Yetkilendirme (RBAC) Helper
  */
 
 if (session_status() === PHP_SESSION_NONE) {
@@ -58,7 +58,7 @@ function get_current_user_data() {
 
 /**
  * Rol tabanlı yetki kontrol fonksiyonu
- * @param string $permission_key (Örn: 'surveys_manage', 'units_manage', 'audit_conduct')
+ * @param string $permission_key (Örn: 'surveys_manage', 'units_manage', 'audit_conduct', 'audit_delete', 'logs_view')
  * @return bool
  */
 function has_permission($permission_key) {
@@ -92,9 +92,31 @@ function require_permission($permission_key) {
 }
 
 /**
+ * Sistem İşlem Logu Kaydeder
+ */
+function log_action($action, $details = '') {
+    $db = getDB();
+    if (!$db) return;
+
+    $user_id = $_SESSION['user_id'] ?? null;
+    $username = $_SESSION['username'] ?? 'Sistem / Ziyaretçi';
+    $ip = $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
+
+    try {
+        $stmt = $db->prepare("INSERT INTO system_logs (user_id, username, action, details, ip_address) VALUES (?, ?, ?, ?, ?)");
+        $stmt->execute([$user_id, $username, $action, $details, $ip]);
+    } catch (Exception $e) {
+        // Log hatasını yut, ana akış aksamasın
+    }
+}
+
+/**
  * Kullanıcı oturumunu kapatır
  */
 function logout_user() {
+    if (is_logged_in()) {
+        log_action('Çıkış Yapma', 'Kullanıcı sistemden çıkış yaptı.');
+    }
     $_SESSION = array();
     if (ini_get("session.use_cookies")) {
         $params = session_get_cookie_params();

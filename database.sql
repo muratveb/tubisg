@@ -14,6 +14,14 @@ CREATE TABLE IF NOT EXISTS `roles` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 2. Kullanıcılar Tablosu
+CREATE TABLE IF NOT EXISTS `roles` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `role_name` VARCHAR(50) NOT NULL,
+  `description` VARCHAR(255) NULL,
+  `permissions` TEXT NOT NULL,
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS `users` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `username` VARCHAR(50) NOT NULL UNIQUE,
@@ -93,51 +101,29 @@ CREATE TABLE IF NOT EXISTS `audit_answers` (
   FOREIGN KEY (`option_id`) REFERENCES `question_options`(`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- 9. Sistem İşlem Logları Tablosu
+CREATE TABLE IF NOT EXISTS `system_logs` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `user_id` INT NULL,
+  `username` VARCHAR(50) NULL,
+  `action` VARCHAR(100) NOT NULL,
+  `details` TEXT NULL,
+  `ip_address` VARCHAR(45) NULL,
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Varsayılan Verilerin Eklenmesi
 
 -- 1. Varsayılan Roller
 INSERT INTO `roles` (`id`, `role_name`, `description`, `permissions`) VALUES
-(1, 'Süper Yönetici', 'Sistemdeki tüm yetkilere sınırsız erişim', '{"surveys_manage":true,"units_manage":true,"audit_conduct":true,"audit_view":true,"reports_export":true,"users_manage":true}'),
-(2, 'İSG Denetçisi / Saha Elemanı', 'Sahada denetim başlatma, doldurma ve raporları inceleme yetkisi', '{"surveys_manage":false,"units_manage":true,"audit_conduct":true,"audit_view":true,"reports_export":true,"users_manage":false}'),
-(3, 'Birim Yöneticisi', 'Sadece denetim raporlarını ve birim puanlarını görüntüleme', '{"surveys_manage":false,"units_manage":false,"audit_conduct":false,"audit_view":true,"reports_export":true,"users_manage":false}');
+(1, 'Süper Yönetici', 'Sistemdeki tüm yetkilere sınırsız erişim', '{"surveys_manage":true,"units_manage":true,"audit_conduct":true,"audit_view":true,"audit_delete":true,"reports_export":true,"users_manage":true,"logs_view":true}'),
+(2, 'İSG Denetçisi', 'Saha denetimleri gerçekleştirme ve kendi raporlarını görüntüleme', '{"surveys_manage":false,"units_manage":true,"audit_conduct":true,"audit_view":true,"audit_delete":false,"reports_export":true,"users_manage":false,"logs_view":false}'),
+(3, 'Birim Sorumlusu', 'Yalnızca denetim raporlarını görüntüleme ve çıktı alma', '{"surveys_manage":false,"units_manage":false,"audit_conduct":false,"audit_view":true,"audit_delete":false,"reports_export":true,"users_manage":false,"logs_view":false}')
+ON DUPLICATE KEY UPDATE `permissions` = VALUES(`permissions`);
 
--- 2. Varsayılan Kullanıcılar (Kullanıcı adları: admin ve denetci / Parolalar: admin123)
+-- 2. Varsayılan Kullanıcılar (Parola: admin123)
 INSERT INTO `users` (`id`, `username`, `password`, `name_surname`, `email`, `role_id`, `is_active`) VALUES
-(1, 'admin', '$2y$10$Xh9faN5jPdk/rVrPF4WrcOZ7/0RyQBiwc.5qL7Cw5uGLTNbk0W18u', 'Sistem Yöneticisi', 'admin@tubisg.com', 1, 1),
-(2, 'denetci', '$2y$10$Xh9faN5jPdk/rVrPF4WrcOZ7/0RyQBiwc.5qL7Cw5uGLTNbk0W18u', 'Ahmet Yılmaz (Saha Denetçisi)', 'ahmet@tubisg.com', 2, 1);
-
--- 3. Örnek Birimler
-INSERT INTO `units` (`id`, `unit_name`, `description`) VALUES
-(1, 'Faturalama Birimi', 'İdari bina 2. kat ana faturalama ve muhasebe servisi'),
-(2, 'Ameliyathane A Blok', 'Hastane ana bina 1. kat cerrahi müdahale alanları'),
-(3, 'Genel Depo / Lojistik', 'Saha malzeme depolama ve sevkiyat alanı'),
-(4, 'Teknik Servis Atölyesi', 'Bakım-onarım ve elektrik panolarının yer aldığı alan');
-
--- 4. Örnek Anket Şablonu (Hastane İSG)
-INSERT INTO `survey_templates` (`id`, `title`, `description`, `category`, `is_active`, `created_by`) VALUES
-(1, 'Hastane İSG Saha Denetimi', 'Sağlık tesislerinde çalışan koruyucu donanım ve saha risk denetim anketi', 'Sağlık Tesisleri', 1, 1),
-(2, 'Şantiye & Depo Saha Denetimi', 'Genel saha, baret, iş ayakkabısı ve istifleme denetimi', 'Saha / Lojistik', 1, 1);
-
--- 5. Örnek Sorular (Hastane İSG için)
-INSERT INTO `survey_questions` (`id`, `template_id`, `question_text`, `sort_order`) VALUES
-(1, 1, 'Sahada eleman eldiven kullanıyor mu? Kullanıyorsa hangi renk/tür kullanıyor?', 1),
-(2, 1, 'Saha çalışanı baret ve çene koruması takıyor mu?', 2),
-(3, 1, 'Çalışma alanındaki acil çıkış ve İSG ikaz levhaları uygun mu?', 3);
-
--- 6. Örnek Seçenekler ve Pozitif / Negatif Puanlar
-INSERT INTO `question_options` (`id`, `question_id`, `option_text`, `points`, `sort_order`) VALUES
--- Soru 1 Seçenekleri
-(1, 1, 'Hayır, Eldiven kullanılmıyor', -5, 1),
-(2, 1, 'Evet, Kırmızı eldiven kullanılıyor (Standart Korumalı)', 5, 2),
-(3, 1, 'Evet, Sarı eldiven kullanılıyor (Yüksek Nitril Korumalı)', 10, 3),
-(4, 1, 'Eldivenler delik, yıpranmış veya kirli', -10, 4),
-
--- Soru 2 Seçenekleri
-(5, 2, 'Hayır, Baret kullanılmıyor', -10, 1),
-(6, 2, 'Evet, Çene bantlı TS-EN 397 Baret takılıyor', 10, 2),
-(7, 2, 'Baret takılı fakat çene bandı bağlanmamış', 2, 3),
-
--- Soru 3 Seçenekleri
-(8, 3, 'Levhalar eksik veya görünmüyor', -5, 1),
-(9, 3, 'Tüm İSG ikaz levhaları eksiksiz ve görünür durumda', 10, 2),
-(10, 3, 'Acil yönlendirme armatürleri ve yangın tüpleri kontrol kartlı', 5, 3);
+(1, 'admin', '$2y$10$Xh9faN5jPdk/rVrPF4WrcOZ7/0RyQBiwc.5qL7Cw5uGLTNbk0W18u', 'Tuba BAL', 'admin@tubisg.com', 1, 1),
+(2, 'denetci', '$2y$10$Xh9faN5jPdk/rVrPF4WrcOZ7/0RyQBiwc.5qL7Cw5uGLTNbk0W18u', 'Saha Denetçisi Ahmet', 'ahmet@tubisg.com', 2, 1)
+ON DUPLICATE KEY UPDATE `id` = `id`;

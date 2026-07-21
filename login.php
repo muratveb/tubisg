@@ -28,10 +28,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['username'] = $user['username'];
             $_SESSION['name_surname'] = $user['name_surname'];
 
+            log_action('Oturum Açma', 'Kullanıcı sisteme başarıyla giriş yaptı.');
+
             header("Location: index.php");
             exit;
         } else {
             $error = 'Kullanıcı adı veya parola hatalı!';
+            log_action('Başarısız Giriş Denemesi', "Kullanıcı adı: {$username}");
         }
     } else {
         $error = 'Lütfen tüm alanları doldurun.';
@@ -59,72 +62,56 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       padding: 20px;
     }
     .login-card {
-      background: rgba(255, 255, 255, 0.96);
-      backdrop-filter: blur(16px);
+      background: rgba(255, 255, 255, 0.98);
       border-radius: var(--radius-lg);
-      padding: 40px 32px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.3);
       width: 100%;
       max-width: 420px;
-      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-    }
-    .login-brand-icon {
-      width: 64px;
-      height: 64px;
-      background: linear-gradient(135deg, #10b981, #059669);
-      border-radius: var(--radius-md);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #fff;
-      font-size: 2rem;
-      margin: 0 auto 16px auto;
-      box-shadow: 0 10px 20px rgba(5, 150, 105, 0.4);
+      padding: 32px 28px;
     }
   </style>
 </head>
 <body>
 
-<div class="login-card">
-  <div class="text-center mb-4">
-    <div class="login-brand-icon">
+<div class="login-card text-center">
+  <div class="mb-4">
+    <div class="d-inline-flex align-items-center justify-content-center bg-success text-white rounded-circle mb-3" style="width:60px; height:60px; font-size:1.8rem; box-shadow: 0 6px 16px rgba(16, 185, 129, 0.4);">
       <i class="bi bi-shield-check"></i>
     </div>
-    <h3 class="fw-extrabold text-dark mb-1">Tub<span class="text-success">İsg</span></h3>
-    <p class="text-muted fs-7">Saha İş Sağlığı ve Güvenliği Denetim Portalı</p>
+    <h3 class="fw-extrabold text-dark m-0">Tub<span class="text-success">İsg</span> Portal</h3>
+    <p class="text-muted fs-8">Saha İş Sağlığı ve Güvenliği Platformu</p>
   </div>
 
   <?php if ($error): ?>
-    <div class="alert alert-danger d-flex align-items-center gap-2 py-2 px-3 fs-7 mb-4">
-      <i class="bi bi-exclamation-triangle-fill"></i>
-      <div><?php echo htmlspecialchars($error); ?></div>
+    <div class="alert alert-danger p-2 fs-7 mb-3 text-start">
+      <i class="bi bi-exclamation-triangle-fill me-1"></i> <?php echo htmlspecialchars($error); ?>
     </div>
   <?php endif; ?>
 
-  <form method="POST" action="login.php">
+  <form method="POST" action="login.php" class="text-start">
     <div class="mb-3">
-      <label class="form-label fw-bold text-secondary fs-7">Kullanıcı Adı</label>
+      <label class="form-label font-weight-bold fs-7">Kullanıcı Adı</label>
       <div class="input-group">
-        <span class="input-group-text bg-light border-end-0"><i class="bi bi-person text-muted"></i></span>
-        <input type="text" name="username" class="form-control bg-light border-start-0" placeholder="Örn: admin" required autofocus>
+        <span class="input-group-text bg-light"><i class="bi bi-person-fill text-muted"></i></span>
+        <input type="text" name="username" class="form-control" placeholder="Örn: admin" required autofocus>
       </div>
     </div>
 
     <div class="mb-4">
-      <label class="form-label fw-bold text-secondary fs-7">Parola</label>
+      <label class="form-label font-weight-bold fs-7">Parola</label>
       <div class="input-group">
-        <span class="input-group-text bg-light border-end-0"><i class="bi bi-lock text-muted"></i></span>
-        <input type="password" name="password" class="form-control bg-light border-start-0" placeholder="••••••••" required>
+        <span class="input-group-text bg-light"><i class="bi bi-lock-fill text-muted"></i></span>
+        <input type="password" name="password" class="form-control" placeholder="••••••••" required>
       </div>
     </div>
 
-    <button type="submit" class="btn btn-primary-custom w-100 py-3 text-uppercase font-weight-bold letter-spacing-1">
-      <i class="bi bi-box-arrow-in-right fs-5"></i>
-      Giriş Yap
+    <button type="submit" class="btn btn-primary-custom w-100 py-3 font-weight-bold fs-6">
+      <i class="bi bi-box-arrow-in-right fs-5"></i> Giriş Yap
     </button>
   </form>
 
   <div class="mt-4 pt-3 border-top text-center text-muted fs-8">
-    <small>Varsayılan Yönetici: <strong>admin</strong> / <strong>admin123</strong></small>
+    © <?php echo date('Y'); ?> Tubİsg - Tüm Hakları Saklıdır
   </div>
 </div>
 

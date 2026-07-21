@@ -102,6 +102,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmtAns->execute([$auditId, $ans['question_id'], $ans['option_id'], $ans['points']]);
     }
 
+    log_action('Saha Denetimi Tamamlandı', "Birim: {$unit['unit_name']}, Anket: {$template['title']}, Skor: %{$percentageScore} (#DEN-" . sprintf('%04d', $auditId) . ")");
+
     set_flash('success', 'Saha denetimi başarıyla tamamlandı ve kaydedildi.');
     header("Location: audit_detail.php?id=" . $auditId);
     exit;
@@ -111,91 +113,94 @@ $pageTitle = 'Saha Denetimi: ' . $unit['unit_name'];
 include __DIR__ . '/includes/header.php';
 ?>
 
-<!-- Denetim Başlığı Kartı -->
-<div class="custom-card mb-3 p-3 bg-white">
-  <div class="d-flex align-items-center justify-content-between">
-    <div>
-      <span class="badge bg-primary-light text-primary font-weight-bold mb-1">
-        <i class="bi bi-building"></i> <?php echo htmlspecialchars($unit['unit_name']); ?>
-      </span>
-      <h4 class="fw-extrabold m-0 text-dark fs-5"><?php echo htmlspecialchars($template['title']); ?></h4>
-    </div>
-    <div class="text-end text-muted fs-8">
-      <div><i class="bi bi-person"></i> <?php echo htmlspecialchars($user['name_surname']); ?></div>
-      <div><i class="bi bi-calendar3"></i> <?php echo date('d.m.Y'); ?></div>
-    </div>
+<!-- Üst Başlık ve Sabit Skor Rozeti Barı -->
+<div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2 mb-3">
+  <div>
+    <span class="badge bg-primary-light text-primary font-weight-bold mb-1">
+      <i class="bi bi-building"></i> BİRİM: <?php echo htmlspecialchars($unit['unit_name']); ?>
+    </span>
+    <h3 class="fw-extrabold m-0"><?php echo htmlspecialchars($template['title']); ?></h3>
+  </div>
+  <div class="text-muted fs-8">
+    <i class="bi bi-person-fill"></i> Denetçi: <strong><?php echo htmlspecialchars($user['name_surname']); ?></strong>
   </div>
 </div>
 
-<!-- Canlı Skor ve Yüzde Çubuğu -->
+<!-- Canlı Hesaplayıcı Skor Barı (Yapışkan / Sticky) -->
 <div class="sticky-audit-scorebar">
-  <div>
-    <div class="fs-8 text-light opacity-75">TOPLAM SKOR</div>
-    <div class="score-number fs-6">
-      <span id="liveTotalScore">0</span> / <span id="liveMaxScore">0</span> Puan
+  <div class="d-flex align-items-center gap-3 flex-grow-1">
+    <div class="text-center">
+      <div class="score-number" id="liveTotalScore">0</div>
+      <div class="fs-8 opacity-75" style="font-size: 0.65rem;">Puan / <span id="liveMaxScore">0</span></div>
     </div>
-  </div>
+    
+    <div class="score-progress-bar">
+      <div class="score-progress-fill" id="scoreProgressFill"></div>
+    </div>
 
-  <div class="score-progress-bar mx-2">
-    <div id="scoreProgressFill" class="score-progress-fill"></div>
-  </div>
-
-  <div class="score-badge-box">
-    <div class="fs-8 text-light opacity-75">UYGUNLUK</div>
-    <div id="livePercentage" class="fw-extrabold fs-6 text-warning">%0</div>
+    <div class="text-end">
+      <div class="fw-extrabold" id="livePercentage">%0</div>
+      <span id="scoreStatusBadge" class="badge bg-secondary">HESAPLANIYOR</span>
+    </div>
   </div>
 </div>
 
 <form method="POST" action="audit_fill.php?template_id=<?php echo $template_id; ?>&unit_id=<?php echo $unit_id; ?>" id="auditFillForm">
-  
-  <div class="questions-wrapper">
-    <?php $qNo = 1; foreach ($questions as $q): ?>
-      <div class="question-card">
-        <div class="question-title">
-          <div class="question-number"><?php echo $qNo; ?></div>
-          <div class="fw-bold"><?php echo htmlspecialchars($q['question_text']); ?></div>
-        </div>
 
-        <div class="option-checkbox-group">
-          <?php foreach ($q['options'] as $opt): ?>
-            <?php
-            $pts = (int)$opt['points'];
-            $pointClass = $pts > 0 ? 'positive' : ($pts < 0 ? 'negative' : 'neutral');
-            $pointSign = $pts > 0 ? '+' : '';
-            ?>
-            <!-- div olarak güncellendi: Çift tıklama / çakışma önlendi -->
-            <div class="option-item-card" data-points="<?php echo $pts; ?>">
-              <div class="option-left">
-                <div class="custom-checkbox">
-                  <i class="bi bi-check-lg check-icon d-none"></i>
+  <div class="mb-4">
+    <?php if (empty($questions)): ?>
+      <div class="alert alert-warning">Bu anket profilinde henüz tanımlanmış soru bulunmuyor.</div>
+    <?php else: ?>
+      <?php $qIndex = 1; foreach ($questions as $q): ?>
+        <div class="question-card">
+          <div class="question-title">
+            <span class="question-number"><?php echo $qIndex; ?></span>
+            <div><?php echo htmlspecialchars($q['question_text']); ?></div>
+          </div>
+
+          <div class="option-checkbox-group">
+            <?php foreach ($q['options'] as $opt): ?>
+              <?php
+              $pts = (int)$opt['points'];
+              $ptsBadgeClass = $pts > 0 ? 'positive' : ($pts < 0 ? 'negative' : 'neutral');
+              $ptsSign = $pts > 0 ? '+' : '';
+              ?>
+              <div class="option-item-card" data-points="<?php echo $pts; ?>">
+                <div class="option-left">
+                  <div class="custom-checkbox">
+                    <i class="bi bi-check text-white d-none check-icon"></i>
+                  </div>
+                  <input type="checkbox" name="answers[<?php echo $q['id']; ?>][]" value="<?php echo $opt['id']; ?>" class="d-none option-checkbox">
+                  <span class="option-text"><?php echo htmlspecialchars($opt['option_text']); ?></span>
                 </div>
-                <input type="checkbox" name="answers[<?php echo $q['id']; ?>][]" value="<?php echo $opt['id']; ?>" class="option-checkbox d-none">
-                <span class="option-text"><?php echo htmlspecialchars($opt['option_text']); ?></span>
+                <span class="point-badge <?php echo $ptsBadgeClass; ?>">
+                  <?php echo $ptsSign . $pts; ?> Puan
+                </span>
               </div>
-              <div class="point-badge <?php echo $pointClass; ?>">
-                <?php echo $pointSign . $pts; ?> Puan
-              </div>
-            </div>
-          <?php endforeach; ?>
+            <?php endforeach; ?>
+          </div>
         </div>
-      </div>
-    <?php $qNo++; endforeach; ?>
+      <?php $qIndex++; endforeach; ?>
+    <?php endif; ?>
   </div>
 
-  <!-- Ek Saha Notları -->
+  <!-- Saha Notları ve Gözlem Kutusu -->
   <div class="custom-card mb-4">
-    <label class="form-label fw-bold text-dark fs-7 mb-2">
-      <i class="bi bi-journal-text text-primary"></i> Saha Notları ve Uyarılar (Opsiyonel)
-    </label>
-    <textarea name="notes" class="form-control form-control-sm" rows="3" placeholder="Saha denetiminde tespit edilen ek aksaklıklar, fotoğraf notları veya düzeltici faaliyet önerileri..."></textarea>
+    <div class="custom-card-header">
+      <h6 class="custom-card-title m-0">
+        <i class="bi bi-pencil-square text-warning"></i> Denetçi Saha Notları & Gözlemleri (Opsiyonel)
+      </h6>
+    </div>
+    <textarea name="notes" class="form-control" rows="3" placeholder="Saha denetimi esnasında tespit edilen özel hususlar, eksiklikler veya uyarılar..."></textarea>
   </div>
 
   <!-- Kaydet Butonu -->
-  <div class="mb-5">
-    <button type="submit" class="btn btn-primary-custom w-100 py-3 font-weight-bold shadow-lg">
-      <i class="bi bi-check-circle-fill"></i> Denetimi Tamamla ve Kaydet
+  <div class="d-grid gap-2 mb-5">
+    <button type="submit" class="btn btn-primary-custom py-3 fs-6 font-weight-bold shadow-lg">
+      <i class="bi bi-check-circle-fill fs-5"></i> Saha Denetimini Tamamla ve Kaydet
     </button>
   </div>
+
 </form>
 
 <?php include __DIR__ . '/includes/footer.php'; ?>

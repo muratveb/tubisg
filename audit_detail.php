@@ -13,6 +13,17 @@ if ($audit_id <= 0) {
     exit;
 }
 
+// Denetim Silme İşlemi
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'delete_audit') {
+    require_permission('audit_delete');
+    $stmt = $db->prepare("DELETE FROM audits WHERE id = ?");
+    $stmt->execute([$audit_id]);
+    log_action('Denetim Raporu Silindi', "Denetim ID #DEN-" . sprintf('%04d', $audit_id) . " detay sayfasından silindi.");
+    set_flash('success', "Denetim kaydı (#DEN-" . sprintf('%04d', $audit_id) . ") başarıyla silindi.");
+    header("Location: audits_list.php");
+    exit;
+}
+
 // Denetim Detayını Çek
 $stmt = $db->prepare("
     SELECT a.*, u.unit_name, u.description as unit_desc, st.title as survey_title, st.category as survey_cat, usr.name_surname as auditor_name, usr.email as auditor_email
@@ -73,8 +84,8 @@ include __DIR__ . '/includes/header.php';
     <h3 class="fw-extrabold m-0">Saha Denetim Karnesi #DEN-<?php echo sprintf('%04d', $audit['id']); ?></h3>
   </div>
 
-  <?php if (has_permission('reports_export')): ?>
-    <div class="d-flex flex-wrap gap-2">
+  <div class="d-flex flex-wrap gap-2">
+    <?php if (has_permission('reports_export')): ?>
       <button onclick="window.print();" class="btn btn-outline-dark fw-bold">
         <i class="bi bi-printer"></i> Yazdır
       </button>
@@ -87,8 +98,17 @@ include __DIR__ . '/includes/header.php';
       <a href="export.php?id=<?php echo $audit['id']; ?>&format=word" class="btn btn-primary font-weight-bold">
         <i class="bi bi-file-earmark-word-fill"></i> Word
       </a>
-    </div>
-  <?php endif; ?>
+    <?php endif; ?>
+
+    <?php if (has_permission('audit_delete')): ?>
+      <form method="POST" action="audit_detail.php?id=<?php echo $audit['id']; ?>" class="d-inline" onsubmit="return confirm('Bu denetim kaydını tamamen silmek istediğinize emin misiniz?');">
+        <input type="hidden" name="action" value="delete_audit">
+        <button type="submit" class="btn btn-outline-danger font-weight-bold" title="Denetim Kaydını Sil">
+          <i class="bi bi-trash-fill"></i> Denetimi Sil
+        </button>
+      </form>
+    <?php endif; ?>
+  </div>
 </div>
 
 <!-- PDF İÇİN YAZDIRILABİLİR KARNE ALANI (PİKSEL MÜKEMMEL PDF HİZALAMA) -->

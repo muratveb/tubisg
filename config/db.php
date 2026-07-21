@@ -88,6 +88,21 @@ try {
             $pdo->exec($sqlContent);
         }
     }
+
+    // 4. system_logs Tablosunun Varlığını Kontrol Et / Otomatik Oluştur
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS `system_logs` (
+          `id` INT AUTO_INCREMENT PRIMARY KEY,
+          `user_id` INT NULL,
+          `username` VARCHAR(50) NULL,
+          `action` VARCHAR(100) NOT NULL,
+          `details` TEXT NULL,
+          `ip_address` VARCHAR(45) NULL,
+          `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE SET NULL
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    ");
+
 } catch (PDOException $e) {
     die('<div style="font-family:sans-serif; padding:40px; text-align:center; background:#fff0f0; border-radius:12px; margin:50px auto; max-width:600px; color:#c53030;">'
         . '<h2>⚠️ Veritabanı Kurulum Hatası</h2>'

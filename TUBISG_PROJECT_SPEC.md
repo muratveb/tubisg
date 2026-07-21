@@ -11,10 +11,10 @@
 1. **Dinamik Anket & Profil Tanımlama**: Yönetici farklı ortamlar için (örn. "Hastane İSG", "Fabrika Saha İSG") sınırsız anket profili tanımlayabilir.
 2. **Çoklu Seçenek ve Esnek Puanlama**: Sorular altında seçilebilecek seçenekler tanımlanır. Her seçeneğin pozitif (`+5`, `+10`) veya negatif (`-5`, `-10`) bir puanı olabilir. Kullanıcı bir soruda birden fazla seçenek işaretleyebilir.
 3. **Görsel Denetim Sihirbazı & Birim Yönetimi**: Denetim başlatılırken anket profilleri ve birimler etkileşimli görsel kartlarla seçilir. Yetki dahilinde anında yeni birim tanımlanabilir.
-4. **Kullanıcı Profil Düzenleme**: Kullanıcılar sağ üst profil resmine veya sol menüdeki "Profilim" bağlantısına tıklayarak Ad Soyad ve Şifre bilgilerini güncelleyebilir (Kullanıcı adı ve E-Posta değiştirilemez).
-5. **Mobil / Tablet Öncelikli UX**: Dokunmatik ekranlar için özel tasarlanmış, büyük temas alanlı, canlı skor rozetli modern Glassmorphic arayüz.
-6. **Otomatik Kapanan Bildirimler**: Sistem genelindeki bildirim bantları 4 saniye sonra yumuşak animasyonla kendiliğinden kaybolur.
-7. **Gelişmiş RBAC Yetkilendirme**: Yönetici, Süper Yönetici haricindeki kullanıcıların neyi yapıp yapamayacağını yetki tablosundan yönetebilir.
+4. **Denetim Silme Yetki Kurgusu (`audit_delete`)**: Yönetici paneli üzerinden istenilen rollere denetim raporu silme yetkisi (açık/kapalı) tanımlanabilir. Yetkisi olan kullanıcılar denetimleri silebilir.
+5. **Detaylı Sistem Logları (`logs.php`)**: Kullanıcıların giriş/çıkış, denetim tamamlama, denetim silme, rol güncelleme vb. tüm eylemleri IP ve zaman damgasıyla kaydolur. Süper Yöneticiler bu logları kullanıcı ve tarih bazlı filtreleyebilir.
+6. **Dokunulmaz Master Admin Koruması**: `admin` (ID: 1) hesabı hiçbir yetkili tarafından silinemez, pasife alınamaz veya rolü değiştirilemez.
+7. **Mobil / Tablet Öncelikli UX**: Dokunmatik ekranlar için özel tasarlanmış, büyük temas alanlı, canlı skor rozetli modern Glassmorphic arayüz.
 8. **Raporlama ve Export**: Yapılan denetimlerin karnesi, genel puan ortalaması, PDF, Excel (.xls), Word (.doc) ve Yazdırılabilir çıktı alma desteği.
 
 ---
@@ -110,6 +110,18 @@ CREATE TABLE IF NOT EXISTS `audit_answers` (
   FOREIGN KEY (`question_id`) REFERENCES `survey_questions`(`id`),
   FOREIGN KEY (`option_id`) REFERENCES `question_options`(`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 9. Sistem İşlem Logları Tablosu
+CREATE TABLE IF NOT EXISTS `system_logs` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `user_id` INT NULL,
+  `username` VARCHAR(50) NULL,
+  `action` VARCHAR(100) NOT NULL,
+  `details` TEXT NULL,
+  `ip_address` VARCHAR(45) NULL,
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 ```
 
 ---
@@ -122,9 +134,9 @@ tubisg/
 ├── DEVELOPMENT_LOG.md      # Yapılan tüm güncellemeler ve durum takibi
 ├── database.sql            # Veritabanı tablo ve örnek veri kurulum dosyası
 ├── config/
-│   └── db.php              # PDO Veritabanı bağlantısı
+│   └── db.php              # PDO Veritabanı bağlantısı ve auto-table init
 ├── includes/
-│   ├── auth.php            # Oturum ve yetki kontrolleri
+│   ├── auth.php            # Oturum, yetki ve log_action helper'ları
 │   ├── header.php          # Üst menü, profil bağlantısı & sol navigasyon
 │   └── footer.php          # Doğal sayfa sonu footer & mobil bottom nav
 ├── assets/
@@ -137,14 +149,15 @@ tubisg/
 ├── login.php               # Kullanıcı Girişi
 ├── logout.php              # Oturumu Kapat
 ├── profile.php             # Kullanıcı Profil & Şifre Güncelleme Ekranı
+├── logs.php                # Sistem İşlem Logları Ekranı (Filtreli)
 ├── survey_templates.php    # Anket Profilleri Listesi
 ├── survey_edit.php         # Anket Soruları & Seçenek Puan Editörü
 ├── units.php               # Birim Yönetimi
 ├── audit_new.php           # Saha Denetim Görsel Sihirbazı
 ├── audit_fill.php          # Saha Denetim Doldurma Ekranı
-├── audits_list.php         # Tamamlanan Denetimler Listesi
-├── audit_detail.php        # Denetim Detayı & Karnesi
+├── audits_list.php         # Tamamlanan Denetimler Listesi (Silme Yetkili)
+├── audit_detail.php        # Denetim Detayı & Karnesi (Silme Yetkili)
 ├── export.php              # PDF / Excel / Word İhracat İşleyicisi
-├── roles.php               # Rol & Yetki Tanımlama Paneli (RBAC)
-└── users.php               # Kullanıcı Hesapları Paneli
+├── roles.php               # Rol & Yetki Tanımlama Paneli (RBAC + audit_delete & logs_view)
+└── users.php               # Kullanıcı Hesapları Paneli (Master Admin Korumalı)
 ```

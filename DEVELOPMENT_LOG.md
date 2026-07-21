@@ -6,20 +6,21 @@ Tüm geliştirmeler, eklenen/güncellenen dosyalar mevcuttur.
 
 ## 📌 Mevcut Durum Özeti (Current Status)
 - **Tarih**: 21 Temmuz 2026
-- **Aşama**: Dokunulmaz Ana Sistem Yöneticisi (`admin`) Koruması, Otomatik Git Commit/Push Kuralı ve Proje Kuralları (`.agents/AGENTS.md`) Eklenerek GitHub'a Gönderildi.
-- **Aktif Sürüm**: v1.5.0
+- **Aşama**: Denetim Raporu Silme Yetkisi (`audit_delete`), Sistem İşlem Logları (`system_logs` & `logs.php`) Eklenerek GitHub'a Otomatik Gönderildi.
+- **Aktif Sürüm**: v1.6.0
 
 ---
 
 ## 📅 Geliştirme Adımları
 
-### 🟢 Adım 1: Dokunulmaz `admin` Kullanıcısı Koruması (`users.php`)
-- [x] Ana sistem yöneticisi olan `admin` (veya ID: 1) kullanıcısı dokunulmaz hale getirildi.
-- [x] Sonradan tanımlanan süper yöneticiler de dahil olmak üzere hiçbir kullanıcının `admin` hesabını silmesine, pasife almasına veya rolünü değiştirmesine izin verilmez.
-- [x] Arayüzde `admin` hesabı için kırmızı kilitli rozet ve silinemez koruma simgeleri eklendi.
+### 🟢 Adım 1: Denetim Raporu Silme Yetkisi (`roles.php`, `audits_list.php`, `audit_detail.php`)
+- [x] Rol yetkileri matrisine `audit_delete` ("Denetim Raporu Silme Yetkisi") anahtarı eklendi.
+- [x] Yetkisi olan kullanıcılara denetim listesi ve denetim detayında kırmızı "Denetimi Sil" butonu gösterildi. Silinen denetimler loglandı.
 
-### 🟢 Adım 2: Otomatik Git Commit & Push Kuralı (`.agents/AGENTS.md`)
-- [x] Yapılan tüm geliştirmelerin kullanıcı talimatına gerek kalmadan otomatik olarak GitHub repository'sine (`origin main`) pushlanması kuralı `.agents/AGENTS.md` dosyası olarak projeye sabitlendi.
+### 🟢 Adım 2: Detaylı Sistem Logları Modülü (`system_logs` & `logs.php`)
+- [x] Veritabanında `system_logs` tablosu oluşturuldu. `log_action()` helper fonksiyonu tanımlandı.
+- [x] Kullanıcıların giriş, çıkış, denetim tamamlama, denetim silme, rol/kullanıcı güncelleme vb. tüm eylemleri IP ve zaman damgasıyla kaydolmaktadır.
+- [x] Süper Yöneticiler için kullanıcı, işlem türü ve tarih aralığına göre **Filtrelenebilir Sistem Logları (`logs.php`)** ekranı oluşturuldu.
 
 ---
 

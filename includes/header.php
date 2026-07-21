@@ -72,8 +72,10 @@ $currentPage = basename($_SERVER['PHP_SELF']);
       </a>
       <?php endif; ?>
 
-      <?php if (has_permission('users_manage')): ?>
+      <?php if (has_permission('users_manage') || has_permission('logs_view')): ?>
       <div class="nav-category">Sistem & Yetki</div>
+      
+      <?php if (has_permission('users_manage')): ?>
       <a href="users.php" class="nav-link-custom <?php echo $currentPage == 'users.php' ? 'active' : ''; ?>">
         <i class="bi bi-people-fill"></i>
         <span>Kullanıcı Yönetimi</span>
@@ -82,6 +84,15 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         <i class="bi bi-shield-lock-fill"></i>
         <span>Rol & Yetkiler</span>
       </a>
+      <?php endif; ?>
+
+      <?php if (has_permission('logs_view')): ?>
+      <a href="logs.php" class="nav-link-custom <?php echo $currentPage == 'logs.php' ? 'active' : ''; ?>">
+        <i class="bi bi-clock-history text-info"></i>
+        <span>Sistem Logları</span>
+      </a>
+      <?php endif; ?>
+
       <?php endif; ?>
 
       <div class="nav-category">Hesabım</div>
