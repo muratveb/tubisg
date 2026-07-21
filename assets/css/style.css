@@ -42,6 +42,10 @@
 }
 
 /* Base Styles */
+html, body {
+  height: 100%;
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
@@ -199,12 +203,13 @@ body {
   text-align: center;
 }
 
-/* Main Content Area */
+/* Main Content Area (Flex Layout for Sticky Footer Anchoring) */
 .main-content {
   flex: 1;
   margin-left: 0;
   display: flex;
   flex-direction: column;
+  min-height: 100vh;
   min-width: 0;
 }
 
@@ -258,12 +263,12 @@ body {
   max-width: 1200px;
   margin: 0 auto;
   width: 100%;
-  flex: 1;
+  flex: 1 0 auto; /* Pushes global footer bar down */
 }
 
 @media (min-width: 768px) {
   .page-container {
-    padding: 24px 24px;
+    padding: 20px 24px;
   }
 }
 
@@ -280,8 +285,8 @@ body {
 
 @media (min-width: 768px) {
   .custom-card {
-    padding: 24px;
-    margin-bottom: 24px;
+    padding: 20px 24px;
+    margin-bottom: 20px;
   }
 }
 
@@ -289,13 +294,13 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 16px;
-  padding-bottom: 12px;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
   border-bottom: 1px solid var(--card-border);
 }
 
 .custom-card-title {
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: 700;
   color: var(--text-main);
   display: flex;
@@ -317,32 +322,31 @@ body {
   background: #ffffff;
   border: 2px solid #e2e8f0;
   border-radius: var(--radius-md);
-  padding: 16px;
+  padding: 12px 14px;
   cursor: pointer;
   position: relative;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  height: 100%;
   user-select: none;
 }
 
 .wizard-select-card:hover {
   border-color: #10b981;
   transform: translateY(-2px);
-  box-shadow: 0 8px 16px rgba(5, 150, 105, 0.1);
+  box-shadow: 0 6px 14px rgba(5, 150, 105, 0.1);
 }
 
 .wizard-select-card.selected {
   border-color: #059669;
   background: #ecfdf5;
-  box-shadow: 0 8px 20px rgba(5, 150, 105, 0.18);
+  box-shadow: 0 6px 16px rgba(5, 150, 105, 0.18);
 }
 
 .wizard-card-check {
   position: absolute;
-  top: 12px;
-  right: 12px;
+  top: 10px;
+  right: 10px;
   color: #059669;
-  font-size: 1.25rem;
+  font-size: 1.1rem;
   opacity: 0;
   transform: scale(0.5);
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -623,21 +627,23 @@ body {
   box-shadow: none;
 }
 
-/* Natural Bottom Footer Bar (Sayfa En Altında Kaydırılarak Görünür) */
+/* Global Footer Bar (Masaüstünde Görünümün En Altına Otomatik Çakılan Yapı) */
 .global-footer-bar {
+  margin-top: auto;
   position: relative;
-  margin-top: 40px;
   width: 100%;
   background: #0f172a;
   color: #94a3b8;
-  padding: 16px 20px;
+  padding: 12px 20px;
   text-align: center;
   font-size: 0.8rem;
   font-weight: 500;
   border-top: 1px solid rgba(255, 255, 255, 0.12);
+  z-index: 90;
+  flex-shrink: 0;
 }
 
-/* Mobilde alt navigasyon barı için ek alt boşluk */
+/* Mobilde alt gezinti barı için ek alt boşluk */
 @media (max-width: 991.98px) {
   .global-footer-bar {
     margin-bottom: 60px;

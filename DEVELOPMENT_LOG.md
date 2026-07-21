@@ -6,21 +6,21 @@ Tüm geliştirmeler, eklenen/güncellenen dosyalar mevcuttur.
 
 ## 📌 Mevcut Durum Özeti (Current Status)
 - **Tarih**: 21 Temmuz 2026
-- **Aşama**: Denetim Raporu Silme Yetkisi (`audit_delete`), Sistem İşlem Logları (`system_logs` & `logs.php`) Eklenerek GitHub'a Otomatik Gönderildi.
-- **Aktif Sürüm**: v1.6.0
+- **Aşama**: Masaüstü Web Footer Hizalaması, Kompakt 2-Sütunlu Denetim Sihirbazı (`audit_new.php`) ve Birim Arama Entegrasyonu Tamamlandı.
+- **Aktif Sürüm**: v1.6.1
 
 ---
 
 ## 📅 Geliştirme Adımları
 
-### 🟢 Adım 1: Denetim Raporu Silme Yetkisi (`roles.php`, `audits_list.php`, `audit_detail.php`)
-- [x] Rol yetkileri matrisine `audit_delete` ("Denetim Raporu Silme Yetkisi") anahtarı eklendi.
-- [x] Yetkisi olan kullanıcılara denetim listesi ve denetim detayında kırmızı "Denetimi Sil" butonu gösterildi. Silinen denetimler loglandı.
+### 🟢 Adım 1: Masaüstü Web Footer Sabitlenmesi (`assets/css/style.css`)
+- [x] Masaüstü (web) sürümünde footer barın ekranın altında görünmeyip aşağıya kayma sorunu çözüldü.
+- [x] Ana içerik kapsayıcısına esnek flex yapısı (`flex: 1 0 auto`) ve footer barına `margin-top: auto` verilerek içerik az olsa dahi masaüstünde doğrudan ekran görünümünün en altına yapışması sağlandı.
 
-### 🟢 Adım 2: Detaylı Sistem Logları Modülü (`system_logs` & `logs.php`)
-- [x] Veritabanında `system_logs` tablosu oluşturuldu. `log_action()` helper fonksiyonu tanımlandı.
-- [x] Kullanıcıların giriş, çıkış, denetim tamamlama, denetim silme, rol/kullanıcı güncelleme vb. tüm eylemleri IP ve zaman damgasıyla kaydolmaktadır.
-- [x] Süper Yöneticiler için kullanıcı, işlem türü ve tarih aralığına göre **Filtrelenebilir Sistem Logları (`logs.php`)** ekranı oluşturuldu.
+### 🟢 Adım 2: Kompakt & Modern Saha Denetim Sihirbazı (`audit_new.php`)
+- [x] Ekran görüntüsündeki dikeyde çok yer kaplayan kart yapısı masaüstünde **2 Sütunlu Kompakt Grid** mimarisine dönüştürüldü.
+- [x] Sol tarafa Anket Profilleri, sağ tarafa Birimler yerleştirildi.
+- [x] Birim seçimi alanına **canlı birim arama filtresi** (`🔍 Birim / Saha Ara...`) eklendi.
 
 ---
 
