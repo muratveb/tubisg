@@ -18,6 +18,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $role_id = (int)($_POST['role_id'] ?? 0);
 
         if (!empty($username) && !empty($password) && !empty($name_surname) && $role_id > 0) {
+            // 'admin' kullanıcı adıyla yeni hesap açılamaz (korumalı)
+            if (strtolower($username) === 'admin') {
+                set_flash('danger', 'Bu kullanıcı adı ana sistem yöneticisi için ayrılmıştır.');
+                header("Location: users.php");
+                exit;
+            }
+
             $hash = password_hash($password, PASSWORD_DEFAULT);
             $stmt = $db->prepare("INSERT INTO users (username, password, name_surname, email, role_id) VALUES (?, ?, ?, ?, ?)");
             try {
@@ -38,27 +45,60 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $role_id = (int)($_POST['role_id'] ?? 0);
         $new_password = trim($_POST['new_password'] ?? '');
 
-        if ($id > 0 && !empty($name_surname) && $role_id > 0) {
-            if (!empty($new_password)) {
-                $hash = password_hash($new_password, PASSWORD_DEFAULT);
-                $stmt = $db->prepare("UPDATE users SET name_surname = ?, email = ?, role_id = ?, password = ? WHERE id = ?");
-                $stmt->execute([$name_surname, $email, $role_id, $hash, $id]);
-            } else {
-                $stmt = $db->prepare("UPDATE users SET name_surname = ?, email = ?, role_id = ? WHERE id = ?");
-                $stmt->execute([$name_surname, $email, $role_id, $id]);
+        // Kullanıcının mevcut bilgilerini kontrol et
+        $targetStmt = $db->prepare("SELECT * FROM users WHERE id = ?");
+        $targetStmt->execute([$id]);
+        $targetUser = $targetStmt->fetch();
+
+        if ($targetUser) {
+            $isMasterAdmin = ($id === 1 || strtolower($targetUser['username']) === 'admin');
+
+            // Eğer düzenlenecek kullanıcı ana 'admin' ise rolü değiştirilemez (Super Admin kalır)
+            if ($isMasterAdmin) {
+                $role_id = $targetUser['role_id']; // Rolünü koru
             }
-            set_flash('success', 'Kullanıcı bilgileri güncellendi.');
+
+            if ($id > 0 && !empty($name_surname) && $role_id > 0) {
+                if (!empty($new_password)) {
+                    $hash = password_hash($new_password, PASSWORD_DEFAULT);
+                    $stmt = $db->prepare("UPDATE users SET name_surname = ?, email = ?, role_id = ?, password = ? WHERE id = ?");
+                    $stmt->execute([$name_surname, $email, $role_id, $hash, $id]);
+                } else {
+                    $stmt = $db->prepare("UPDATE users SET name_surname = ?, email = ?, role_id = ? WHERE id = ?");
+                    $stmt->execute([$name_surname, $email, $role_id, $id]);
+                }
+                set_flash('success', 'Kullanıcı bilgileri güncellendi.');
+            }
         }
         header("Location: users.php");
         exit;
     }
 
-    if ($_POST['action'] === 'toggle_active') {
+    if ($_POST['action'] === 'toggle_active' || $_POST['action'] === 'delete') {
         $id = (int)$_POST['id'];
-        if ($id > 1) { // Super Admin 1'in durumu değiştirilemez
-            $stmt = $db->prepare("UPDATE users SET is_active = NOT is_active WHERE id = ?");
-            $stmt->execute([$id]);
-            set_flash('info', 'Kullanıcı aktiflik durumu güncellendi.');
+        
+        $targetStmt = $db->prepare("SELECT * FROM users WHERE id = ?");
+        $targetStmt->execute([$id]);
+        $targetUser = $targetStmt->fetch();
+
+        if ($targetUser) {
+            $isMasterAdmin = ($id === 1 || strtolower($targetUser['username']) === 'admin');
+
+            if ($isMasterAdmin) {
+                set_flash('danger', 'KURAL İHLALİ: Ana sistem yöneticisi (admin) hesabı hiçbir yetkili tarafından silinemez, pasife alınamaz veya rolü değiştirilemez!');
+                header("Location: users.php");
+                exit;
+            }
+
+            if ($_POST['action'] === 'delete') {
+                $stmt = $db->prepare("DELETE FROM users WHERE id = ?");
+                $stmt->execute([$id]);
+                set_flash('success', 'Kullanıcı silindi.');
+            } else {
+                $stmt = $db->prepare("UPDATE users SET is_active = NOT is_active WHERE id = ?");
+                $stmt->execute([$id]);
+                set_flash('info', 'Kullanıcı aktiflik durumu güncellendi.');
+            }
         }
         header("Location: users.php");
         exit;
@@ -98,16 +138,24 @@ include __DIR__ . '/includes/header.php';
       </thead>
       <tbody>
         <?php foreach ($users as $u): ?>
+          <?php $isMasterAdmin = ((int)$u['id'] === 1 || strtolower($u['username']) === 'admin'); ?>
           <tr>
             <td>
               <div class="d-flex align-items-center gap-2">
-                <div class="avatar-circle">
+                <div class="avatar-circle" style="<?php echo $isMasterAdmin ? 'background: #ef4444;' : ''; ?>">
                   <?php echo mb_substr($u['name_surname'], 0, 1, 'UTF-8'); ?>
                 </div>
-                <div class="fw-bold text-dark"><?php echo htmlspecialchars($u['name_surname']); ?></div>
+                <div>
+                  <div class="fw-bold text-dark"><?php echo htmlspecialchars($u['name_surname']); ?></div>
+                  <?php if ($isMasterAdmin): ?>
+                    <span class="badge bg-danger-light text-danger fs-8" style="font-size:0.65rem;"><i class="bi bi-shield-lock-fill"></i> Ana Yönetici (Korumalı)</span>
+                  <?php endif; ?>
+                </div>
               </div>
             </td>
-            <td class="font-weight-bold text-secondary"><?php echo htmlspecialchars($u['username']); ?></td>
+            <td class="font-weight-bold text-secondary">
+              <?php echo htmlspecialchars($u['username']); ?>
+            </td>
             <td class="text-muted fs-7"><?php echo htmlspecialchars($u['email'] ?? '-'); ?></td>
             <td>
               <span class="badge bg-primary-light text-primary font-weight-bold p-2">
@@ -122,17 +170,29 @@ include __DIR__ . '/includes/header.php';
               <?php endif; ?>
             </td>
             <td class="text-end">
-              <button class="btn btn-sm btn-light text-primary me-1" data-bs-toggle="modal" data-bs-target="#editUserModal<?php echo $u['id']; ?>">
+              <button class="btn btn-sm btn-light text-primary me-1" data-bs-toggle="modal" data-bs-target="#editUserModal<?php echo $u['id']; ?>" title="Düzenle">
                 <i class="bi bi-pencil-fill"></i>
               </button>
-              <?php if ((int)$u['id'] !== 1): ?>
+
+              <?php if (!$isMasterAdmin): ?>
                 <form method="POST" action="users.php" style="display:inline;">
                   <input type="hidden" name="action" value="toggle_active">
                   <input type="hidden" name="id" value="<?php echo $u['id']; ?>">
-                  <button type="submit" class="btn btn-sm btn-light text-<?php echo $u['is_active'] ? 'warning' : 'success'; ?>">
+                  <button type="submit" class="btn btn-sm btn-light text-<?php echo $u['is_active'] ? 'warning' : 'success'; ?>" title="<?php echo $u['is_active'] ? 'Pasife Al' : 'Aktif Et'; ?>">
                     <i class="bi bi-power"></i>
                   </button>
                 </form>
+                <form method="POST" action="users.php" style="display:inline;" onsubmit="return confirm('Bu kullanıcıyı silmek istediğinize emin misiniz?');">
+                  <input type="hidden" name="action" value="delete">
+                  <input type="hidden" name="id" value="<?php echo $u['id']; ?>">
+                  <button type="submit" class="btn btn-sm btn-light text-danger me-1" title="Kullanıcıyı Sil">
+                    <i class="bi bi-trash-fill"></i>
+                  </button>
+                </form>
+              <?php else: ?>
+                <span class="badge bg-light text-muted border px-2 py-1 fs-8" title="Ana Sistem Yöneticisi Silinemez veya Pasife Alınamaz">
+                  <i class="bi bi-lock-fill text-danger"></i> Korumalı
+                </span>
               <?php endif; ?>
             </td>
           </tr>
@@ -157,16 +217,23 @@ include __DIR__ . '/includes/header.php';
                       <label class="form-label fw-bold">E-Posta</label>
                       <input type="email" name="email" class="form-control" value="<?php echo htmlspecialchars($u['email'] ?? ''); ?>">
                     </div>
+                    
                     <div class="mb-3">
                       <label class="form-label fw-bold">Rol</label>
-                      <select name="role_id" class="form-select" required>
-                        <?php foreach ($roles as $r): ?>
-                          <option value="<?php echo $r['id']; ?>" <?php echo $r['id'] == $u['role_id'] ? 'selected' : ''; ?>>
-                            <?php echo htmlspecialchars($r['role_name']); ?>
-                          </option>
-                        <?php endforeach; ?>
-                      </select>
+                      <?php if ($isMasterAdmin): ?>
+                        <input type="hidden" name="role_id" value="<?php echo $u['role_id']; ?>">
+                        <input type="text" class="form-control bg-light" value="<?php echo htmlspecialchars($u['role_name']); ?> (Ana Sistem Yöneticisi - Kilitli)" disabled readonly>
+                      <?php else: ?>
+                        <select name="role_id" class="form-select" required>
+                          <?php foreach ($roles as $r): ?>
+                            <option value="<?php echo $r['id']; ?>" <?php echo $r['id'] == $u['role_id'] ? 'selected' : ''; ?>>
+                              <?php echo htmlspecialchars($r['role_name']); ?>
+                            </option>
+                          <?php endforeach; ?>
+                        </select>
+                      <?php endif; ?>
                     </div>
+
                     <div class="mb-3">
                       <label class="form-label fw-bold">Yeni Parola (Değiştirmek istemiyorsanız boş bırakın)</label>
                       <input type="password" name="new_password" class="form-control" placeholder="••••••••">

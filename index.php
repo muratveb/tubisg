@@ -64,18 +64,18 @@ $pageTitle = 'Tubİsg - Saha İş Sağlığı ve Güvenliği Platformu';
 </head>
 <body class="d-flex flex-column min-vh-100 pb-5">
 
-<!-- Header Navigation -->
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark py-3 px-3 shadow-sm sticky-top" style="background:#0f172a !important;">
-  <div class="container">
-    <a href="index.php" class="brand-logo me-auto">
-      <i class="bi bi-shield-check text-success fs-3"></i>
-      <span>Tub<span class="text-success">İsg</span></span>
-      <span class="brand-badge">Saha v1.0</span>
+<!-- Header Navigation (Modern Responsive Logo) -->
+<nav class="navbar navbar-dark py-3 px-3 shadow-sm sticky-top" style="background:#0f172a !important;">
+  <div class="container d-flex flex-nowrap align-items-center justify-content-between">
+    <a href="index.php" class="brand-logo text-nowrap me-2">
+      <i class="bi bi-shield-check brand-icon"></i>
+      <span class="brand-name">Tub<span class="text-success">İsg</span></span>
+      <span class="brand-badge ms-1">Sahadaki Güç</span>
     </a>
 
-    <div class="d-flex align-items-center">
-      <a href="login.php" class="btn btn-success font-weight-bold px-4 py-2 fs-7 rounded-pill shadow-sm">
-        <i class="bi bi-shield-lock-fill"></i> Saha Portalına Giriş
+    <div class="d-flex align-items-center flex-shrink-0">
+      <a href="login.php" class="btn btn-success font-weight-bold px-3 px-md-4 py-2 fs-7 rounded-pill shadow-sm text-nowrap">
+        <i class="bi bi-shield-lock-fill"></i> <span class="d-none d-sm-inline">Saha Portalına </span>Giriş
       </a>
     </div>
   </div>

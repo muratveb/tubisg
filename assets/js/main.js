@@ -1,6 +1,6 @@
 /**
  * Tubİsg - Main Interactive Script
- * Real-time Score Calculator, Mobile Touch Handler, Dynamic Forms & AJAX Unit Creator
+ * Real-time Score Calculator, Auto-dismissing Alerts, Audit Wizard & Touch Handlers
  */
 
 document.addEventListener('DOMContentLoaded', function () {
@@ -14,25 +14,117 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
-  // 2. Audit Fill Page: Touch Option Card Click & Real-time Live Score Calculation
+  // 2. Auto-Dismissing Flash Notification Banners (4 saniye sonra otomatik kapanır)
+  const alerts = document.querySelectorAll('.alert');
+  alerts.forEach(alert => {
+    setTimeout(() => {
+      alert.style.transition = 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)';
+      alert.style.opacity = '0';
+      alert.style.transform = 'translateY(-10px)';
+      setTimeout(() => {
+        alert.remove();
+      }, 500);
+    }, 4000);
+  });
+
+  // 3. Audit Fill Page: Touch Option Card Click & Real-time Live Score Calculation
   const auditForm = document.getElementById('auditFillForm');
   if (auditForm) {
     initAuditFormCalculator();
   }
 
-  // 3. Dynamic Question Builder for survey_edit.php
+  // 4. Dynamic Question Builder for survey_edit.php
   const addQuestionBtn = document.getElementById('addQuestionBtn');
   if (addQuestionBtn) {
     initQuestionBuilder();
   }
 
-  // 4. Quick AJAX Unit Creator
+  // 5. Quick AJAX Unit Creator
   const quickUnitForm = document.getElementById('quickUnitForm');
   if (quickUnitForm) {
     initQuickUnitCreator();
   }
 
+  // 6. Interactive Visual Audit Wizard (audit_new.php)
+  const wizardForm = document.getElementById('startAuditWizardForm');
+  if (wizardForm) {
+    initAuditWizard();
+  }
+
 });
+
+/**
+ * Interactive Visual Audit Wizard (audit_new.php)
+ */
+function initAuditWizard() {
+  const tplCards = document.querySelectorAll('.template-card');
+  const unitCards = document.querySelectorAll('.unit-card');
+  const tplInput = document.getElementById('selectedTemplateInput');
+  const unitInput = document.getElementById('selectedUnitInput');
+  const submitBtn = document.getElementById('startAuditSubmitBtn');
+  const summaryText = document.getElementById('wizardSelectionSummary');
+
+  let selectedTplTitle = '';
+  let selectedUnitTitle = '';
+
+  function updateWizardState() {
+    const tplId = tplInput.value;
+    const unitId = unitInput.value;
+
+    if (tplId && unitId) {
+      if (submitBtn) {
+        submitBtn.classList.remove('disabled');
+      }
+      if (summaryText) {
+        summaryText.innerHTML = `<span class="text-success">${selectedTplTitle}</span> &rarr; <span class="text-primary">${selectedUnitTitle}</span>`;
+      }
+    } else {
+      if (submitBtn) {
+        submitBtn.classList.add('disabled');
+      }
+      let missing = [];
+      if (!tplId) missing.push('Anket Profili');
+      if (!unitId) missing.push('Birim');
+      if (summaryText) {
+        summaryText.innerHTML = `Lütfen <strong class="text-danger">${missing.join(' ve ')}</strong> seçin`;
+      }
+    }
+  }
+
+  // Anket Profili Kart Seçimi
+  tplCards.forEach(card => {
+    if (card.classList.contains('selected')) {
+      selectedTplTitle = card.querySelector('.wizard-card-title').textContent.trim();
+    }
+
+    card.addEventListener('click', function () {
+      tplCards.forEach(c => c.classList.remove('selected'));
+      this.classList.add('selected');
+      const id = this.dataset.id;
+      tplInput.value = id;
+      selectedTplTitle = this.querySelector('.wizard-card-title').textContent.trim();
+      updateWizardState();
+    });
+  });
+
+  // Birim Kart Seçimi
+  unitCards.forEach(card => {
+    if (card.classList.contains('selected')) {
+      selectedUnitTitle = card.querySelector('.wizard-card-title').textContent.trim();
+    }
+
+    card.addEventListener('click', function () {
+      unitCards.forEach(c => c.classList.remove('selected'));
+      this.classList.add('selected');
+      const id = this.dataset.id;
+      unitInput.value = id;
+      selectedUnitTitle = this.querySelector('.wizard-card-title').textContent.trim();
+      updateWizardState();
+    });
+  });
+
+  updateWizardState();
+}
 
 /**
  * Audit Real-time Score Calculator & Touch Selection Handler
@@ -56,7 +148,6 @@ function initAuditFormCalculator() {
       const checkboxes = qCard.querySelectorAll('.option-checkbox:checked');
       const allOptionsInQuestion = qCard.querySelectorAll('.option-item-card');
 
-      // Sorunun olası maks pozitif puanı
       allOptionsInQuestion.forEach(optCard => {
         const pts = parseInt(optCard.dataset.points) || 0;
         if (pts > qMaxPoints) {
@@ -65,7 +156,6 @@ function initAuditFormCalculator() {
       });
       maxPossible += qMaxPoints;
 
-      // Seçili seçeneklerin puan toplamı
       checkboxes.forEach(cb => {
         const parentCard = cb.closest('.option-item-card');
         if (parentCard) {
@@ -105,14 +195,12 @@ function initAuditFormCalculator() {
     }
   }
 
-  // Kart Tıklama ve Seçim Olayı
   optionCards.forEach(card => {
     card.addEventListener('click', function (e) {
       const checkbox = this.querySelector('.option-checkbox');
       const checkIcon = this.querySelector('.check-icon');
       if (!checkbox) return;
 
-      // Checkbox durumunu tersine çevir
       checkbox.checked = !checkbox.checked;
 
       if (checkbox.checked) {
@@ -266,13 +354,32 @@ function initQuickUnitCreator() {
       .then(response => response.json())
       .then(data => {
         if (data.success) {
-          const unitSelect = document.getElementById('unit_id');
-          if (unitSelect) {
-            const opt = document.createElement('option');
-            opt.value = data.unit.id;
-            opt.textContent = data.unit.unit_name;
-            opt.selected = true;
-            unitSelect.appendChild(opt);
+          // 1. Yeni birimi sihirbaz kartlar konteynerine görsel kart olarak ekle
+          const unitContainer = document.getElementById('unitCardsContainer');
+          if (unitContainer) {
+            const col = document.createElement('div');
+            col.className = 'col-12 col-sm-6 col-md-4 col-lg-3';
+            col.innerHTML = `
+              <div class="wizard-select-card unit-card selected" data-id="${data.unit.id}">
+                <div class="d-flex align-items-center gap-2 mb-1">
+                  <i class="bi bi-building text-success fs-5"></i>
+                  <h6 class="fw-bold text-dark m-0 wizard-card-title">${data.unit.unit_name}</h6>
+                </div>
+                <p class="text-muted fs-8 m-0 wizard-card-desc">${data.unit.description || 'Kayıtlı saha birimi.'}</p>
+                <div class="wizard-card-check">
+                  <i class="bi bi-check-circle-fill"></i>
+                </div>
+              </div>
+            `;
+            unitContainer.appendChild(col);
+            
+            // Diğer kartların seçimini kaldırıp bunu seçili yap
+            document.querySelectorAll('.unit-card').forEach(c => c.classList.remove('selected'));
+            col.querySelector('.unit-card').classList.add('selected');
+            document.getElementById('selectedUnitInput').value = data.unit.id;
+            
+            // Re-init wizard
+            initAuditWizard();
           }
 
           form.reset();
@@ -280,7 +387,6 @@ function initQuickUnitCreator() {
             const modalInstance = bootstrap.Modal.getInstance(modalElem);
             if (modalInstance) modalInstance.hide();
           }
-          alert('Birim başarıyla eklendi ve seçildi: ' + data.unit.unit_name);
         } else {
           alert('Hata: ' + (data.message || 'Birim eklenemedi.'));
         }

@@ -1,30 +1,25 @@
 # Tubİsg - Geliştirme Günlüğü (Development Log)
 
-Tüm geliştirmeler, eklenen/güncellenen dosyalar ve sonraki adımlar bu dosyada kronolojik olarak tutulur.
+Tüm geliştirmeler, eklenen/güncellenen dosyalar mevcuttur.
 
 ---
 
 ## 📌 Mevcut Durum Özeti (Current Status)
 - **Tarih**: 21 Temmuz 2026
-- **Aşama**: Sabit Footer Bar ("Sahadaki Güç"), Çıkış Yönlendirmesi ve Tekil Buton Revizyonu Tamamlandı.
-- **Aktif Sürüm**: v1.2.0
+- **Aşama**: Dokunulmaz Ana Sistem Yöneticisi (`admin`) Koruması, Otomatik Git Commit/Push Kuralı ve Proje Kuralları (`.agents/AGENTS.md`) Eklenerek GitHub'a Gönderildi.
+- **Aktif Sürüm**: v1.5.0
 
 ---
 
 ## 📅 Geliştirme Adımları
 
-### 🟢 Adım 1: Sabit Global Footer Bar & "Sahadaki Güç"
-- [x] Footer bar ekranın altında sürekli görünecek şekilde sabitlendi (`position: fixed`).
-- [x] Metin formatı düzenlendi:
-  `© 2026 TUBİSG | Sahadaki Güç | Powered By Murat Yalçın`
-  ("Sahadaki Güç" bölümü yeşil ve kalın olarak stilize edilmiştir).
+### 🟢 Adım 1: Dokunulmaz `admin` Kullanıcısı Koruması (`users.php`)
+- [x] Ana sistem yöneticisi olan `admin` (veya ID: 1) kullanıcısı dokunulmaz hale getirildi.
+- [x] Sonradan tanımlanan süper yöneticiler de dahil olmak üzere hiçbir kullanıcının `admin` hesabını silmesine, pasife almasına veya rolünü değiştirmesine izin verilmez.
+- [x] Arayüzde `admin` hesabı için kırmızı kilitli rozet ve silinemez koruma simgeleri eklendi.
 
-### 🟢 Adım 2: Çıkış İşlemi Yönlendirmesi (`logout.php`)
-- [x] Sistemden çıkış yapıldığında doğrudan `login.php` yerine Tanıtıcı Ana Sayfaya (`index.php`) yönlendirme sağlandı.
-
-### 🟢 Adım 3: Tanıtıcı Sayfa Buton Sadeleştirmesi (`index.php`)
-- [x] Tanıtıcı ana sayfadaki yinelenen "Giriş Yap" butonu kaldırıldı.
-- [x] Tekil ve şık **"Saha Portalına Giriş"** butonu korundu.
+### 🟢 Adım 2: Otomatik Git Commit & Push Kuralı (`.agents/AGENTS.md`)
+- [x] Yapılan tüm geliştirmelerin kullanıcı talimatına gerek kalmadan otomatik olarak GitHub repository'sine (`origin main`) pushlanması kuralı `.agents/AGENTS.md` dosyası olarak projeye sabitlendi.
 
 ---
 

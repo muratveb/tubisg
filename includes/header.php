@@ -29,9 +29,9 @@ $currentPage = basename($_SERVER['PHP_SELF']);
   <aside class="sidebar">
     <div class="sidebar-header">
       <a href="dashboard.php" class="brand-logo">
-        <i class="bi bi-shield-check text-success fs-3"></i>
+        <i class="bi bi-shield-check brand-icon fs-3"></i>
         <span>Tub<span class="text-success">İsg</span></span>
-        <span class="brand-badge">Saha v1.0</span>
+        <span class="brand-badge">Sahadaki Güç</span>
       </a>
     </div>
 
@@ -84,7 +84,11 @@ $currentPage = basename($_SERVER['PHP_SELF']);
       </a>
       <?php endif; ?>
 
-      <div class="nav-category">Oturum</div>
+      <div class="nav-category">Hesabım</div>
+      <a href="profile.php" class="nav-link-custom <?php echo $currentPage == 'profile.php' ? 'active' : ''; ?>">
+        <i class="bi bi-person-circle"></i>
+        <span>Profilim</span>
+      </a>
       <a href="logout.php" class="nav-link-custom text-danger">
         <i class="bi bi-box-arrow-right"></i>
         <span>Çıkış Yap</span>
@@ -108,15 +112,15 @@ $currentPage = basename($_SERVER['PHP_SELF']);
 
       <div class="d-flex align-items-center gap-3">
         <?php if ($user): ?>
-        <div class="user-profile-badge">
+        <a href="profile.php" class="user-profile-badge text-decoration-none" title="Profil Ayarları">
           <div class="avatar-circle">
             <?php echo mb_substr($user['name_surname'], 0, 1, 'UTF-8'); ?>
           </div>
           <div class="d-none d-md-block text-start">
-            <div class="fw-bold fs-7 leading-tight"><?php echo htmlspecialchars($user['name_surname']); ?></div>
+            <div class="fw-bold fs-7 leading-tight text-dark"><?php echo htmlspecialchars($user['name_surname']); ?></div>
             <div class="text-muted fs-8" style="font-size:0.7rem;"><?php echo htmlspecialchars($user['role_name']); ?></div>
           </div>
-        </div>
+        </a>
         <?php endif; ?>
       </div>
     </header>

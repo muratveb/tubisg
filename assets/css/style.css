@@ -39,7 +39,6 @@
   --sidebar-width: 250px;
   --topbar-height: 64px;
   --bottom-nav-height: 60px;
-  --footer-height: 42px;
 }
 
 /* Base Styles */
@@ -57,12 +56,12 @@ body {
   line-height: 1.5;
   overflow-x: hidden;
   font-size: 0.9rem;
-  padding-bottom: 110px;
+  padding-bottom: 70px; /* Mobilde alt gezinti çubuğu alanı */
 }
 
 @media (min-width: 992px) {
   body {
-    padding-bottom: 50px;
+    padding-bottom: 0;
   }
 }
 
@@ -105,24 +104,53 @@ body {
   border-bottom: 1px solid rgba(255,255,255,0.08);
 }
 
+/* Brand Logo (Responsive Modern Styling) */
 .brand-logo {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 10px;
   text-decoration: none;
   color: #fff;
   font-weight: 800;
-  font-size: 1.25rem;
+  font-size: 1.4rem;
   letter-spacing: -0.5px;
+}
+
+.brand-icon {
+  font-size: 2rem;
+  color: #10b981;
+  filter: drop-shadow(0 2px 8px rgba(16, 185, 129, 0.4));
+}
+
+.brand-name {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: #fff;
 }
 
 .brand-badge {
   background: linear-gradient(135deg, #10b981, #059669);
   color: #fff;
-  padding: 2px 6px;
+  padding: 3px 8px;
   border-radius: var(--radius-sm);
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   font-weight: 700;
+}
+
+@media (max-width: 575.98px) {
+  .brand-logo {
+    gap: 6px;
+  }
+  .brand-icon {
+    font-size: 1.5rem;
+  }
+  .brand-name {
+    font-size: 1.15rem;
+  }
+  .brand-badge {
+    font-size: 0.65rem;
+    padding: 2px 5px;
+  }
 }
 
 .sidebar-nav {
@@ -275,20 +303,72 @@ body {
   gap: 8px;
 }
 
-/* Mobile Bottom Navigation Bar */
+/* Auto-dismissing Notification Banners */
+.alert {
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  font-size: 0.875rem;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Visual Wizard Selectable Cards (audit_new.php) */
+.wizard-select-card {
+  background: #ffffff;
+  border: 2px solid #e2e8f0;
+  border-radius: var(--radius-md);
+  padding: 16px;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  height: 100%;
+  user-select: none;
+}
+
+.wizard-select-card:hover {
+  border-color: #10b981;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(5, 150, 105, 0.1);
+}
+
+.wizard-select-card.selected {
+  border-color: #059669;
+  background: #ecfdf5;
+  box-shadow: 0 8px 20px rgba(5, 150, 105, 0.18);
+}
+
+.wizard-card-check {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  color: #059669;
+  font-size: 1.25rem;
+  opacity: 0;
+  transform: scale(0.5);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.wizard-select-card.selected .wizard-card-check {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Modernized Mobile Bottom Navigation Bar */
 .mobile-bottom-nav {
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
   height: var(--bottom-nav-height);
-  background: #0f172a;
+  background: rgba(15, 23, 42, 0.96);
+  backdrop-filter: blur(12px);
   display: flex;
   align-items: center;
   justify-content: space-around;
   z-index: 999;
   border-top: 1px solid rgba(255,255,255,0.1);
-  box-shadow: 0 -4px 20px rgba(0,0,0,0.2);
+  box-shadow: 0 -4px 20px rgba(0,0,0,0.3);
+  padding: 0 8px;
 }
 
 @media (min-width: 992px) {
@@ -306,9 +386,10 @@ body {
   text-decoration: none;
   font-size: 0.65rem;
   font-weight: 600;
-  gap: 2px;
-  width: 25%;
+  gap: 3px;
+  flex: 1;
   height: 100%;
+  transition: color 0.2s ease;
 }
 
 .bottom-nav-item i {
@@ -319,14 +400,30 @@ body {
   color: #10b981;
 }
 
+/* Modern Floating Action Button (+ YENİ DENETİM) */
 .bottom-nav-item.action-btn {
   background: linear-gradient(135deg, #10b981, #059669);
   color: #fff;
-  border-radius: 50%;
-  width: 48px;
-  height: 48px;
-  margin-top: -20px;
-  box-shadow: 0 6px 16px rgba(5, 150, 105, 0.5);
+  border-radius: 14px;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  margin: 0 6px;
+  box-shadow: 0 4px 14px rgba(5, 150, 105, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.bottom-nav-item.action-btn:active {
+  transform: scale(0.92);
+}
+
+.bottom-nav-item.action-btn i {
+  font-size: 1.3rem;
+  color: #fff;
 }
 
 /* Kompakt Mobil Soru Kartları */
@@ -452,7 +549,7 @@ body {
 /* Sticky Live Audit Score Footer */
 .sticky-audit-scorebar {
   position: sticky;
-  bottom: 105px;
+  bottom: 70px;
   z-index: 85;
   background: rgba(15, 23, 42, 0.95);
   backdrop-filter: blur(10px);
@@ -469,7 +566,7 @@ body {
 
 @media (min-width: 992px) {
   .sticky-audit-scorebar {
-    bottom: 50px;
+    bottom: 20px;
   }
 }
 
@@ -519,36 +616,31 @@ body {
   color: #fff;
 }
 
-/* Global Fixed Footer Bar (Tam Genişlik 100% Sabit Bar) */
+.btn-primary-custom.disabled {
+  opacity: 0.6;
+  pointer-events: none;
+  background: #94a3b8;
+  box-shadow: none;
+}
+
+/* Natural Bottom Footer Bar (Sayfa En Altında Kaydırılarak Görünür) */
 .global-footer-bar {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
+  position: relative;
+  margin-top: 40px;
   width: 100%;
-  z-index: 1000;
   background: #0f172a;
   color: #94a3b8;
-  padding: 10px 16px;
+  padding: 16px 20px;
   text-align: center;
   font-size: 0.8rem;
   font-weight: 500;
   border-top: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 0 -4px 15px rgba(0, 0, 0, 0.3);
 }
 
-/* Yalnızca giriş yapmış kullanıcıların masaüstü görünümünde sidebar boşluğu ver */
-@media (min-width: 992px) {
-  body.logged-in-mobile .global-footer-bar {
-    left: var(--sidebar-width);
-    width: calc(100% - var(--sidebar-width));
-  }
-}
-
-/* Mobilde alt menü varsa footer'ı onun üstüne hizala */
+/* Mobilde alt navigasyon barı için ek alt boşluk */
 @media (max-width: 991.98px) {
-  body.logged-in-mobile .global-footer-bar {
-    bottom: var(--bottom-nav-height);
+  .global-footer-bar {
+    margin-bottom: 60px;
   }
 }
 

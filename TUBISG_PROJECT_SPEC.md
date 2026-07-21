@@ -10,10 +10,12 @@
 ### Temel Yetenekler:
 1. **Dinamik Anket & Profil Tanımlama**: Yönetici farklı ortamlar için (örn. "Hastane İSG", "Fabrika Saha İSG") sınırsız anket profili tanımlayabilir.
 2. **Çoklu Seçenek ve Esnek Puanlama**: Sorular altında seçilebilecek seçenekler tanımlanır. Her seçeneğin pozitif (`+5`, `+10`) veya negatif (`-5`, `-10`) bir puanı olabilir. Kullanıcı bir soruda birden fazla seçenek işaretleyebilir.
-3. **Birim Yönetimi & Hızlı Tanımlama**: Denetim başlatılırken birim seçilir veya yetki dahilinde anında yeni birim tanımlanabilir.
-4. **Mobil / Tablet Öncelikli UX**: Dokunmatik ekranlar için özel tasarlanmış, büyük butonlu, canlı skor rozetli modern Glassmorphic arayüz.
-5. **Gelişmiş RBAC Yetkilendirme**: Yönetici, Süper Yönetici haricindeki kullanıcıların neyi yapıp yapamayacağını yetki tablosundan yönetebilir (Anket Yönetimi, Birim Yönetimi, Kullanıcı Yönetimi, Denetim Yapma, Raporlama vb.).
-6. **Raporlama ve Export**: Yapılan denetimlerin karnesi, genel puan ortalaması, PDF, Excel, Word ve Yazdırılabilir çıktı alma desteği.
+3. **Görsel Denetim Sihirbazı & Birim Yönetimi**: Denetim başlatılırken anket profilleri ve birimler etkileşimli görsel kartlarla seçilir. Yetki dahilinde anında yeni birim tanımlanabilir.
+4. **Kullanıcı Profil Düzenleme**: Kullanıcılar sağ üst profil resmine veya sol menüdeki "Profilim" bağlantısına tıklayarak Ad Soyad ve Şifre bilgilerini güncelleyebilir (Kullanıcı adı ve E-Posta değiştirilemez).
+5. **Mobil / Tablet Öncelikli UX**: Dokunmatik ekranlar için özel tasarlanmış, büyük temas alanlı, canlı skor rozetli modern Glassmorphic arayüz.
+6. **Otomatik Kapanan Bildirimler**: Sistem genelindeki bildirim bantları 4 saniye sonra yumuşak animasyonla kendiliğinden kaybolur.
+7. **Gelişmiş RBAC Yetkilendirme**: Yönetici, Süper Yönetici haricindeki kullanıcıların neyi yapıp yapamayacağını yetki tablosundan yönetebilir.
+8. **Raporlama ve Export**: Yapılan denetimlerin karnesi, genel puan ortalaması, PDF, Excel (.xls), Word (.doc) ve Yazdırılabilir çıktı alma desteği.
 
 ---
 
@@ -25,9 +27,9 @@ CREATE TABLE IF NOT EXISTS `roles` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `role_name` VARCHAR(50) NOT NULL,
   `description` VARCHAR(255) NULL,
-  `permissions` TEXT NOT NULL, -- JSON formatında yetkiler
+  `permissions` TEXT NOT NULL,
   `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 2. Kullanıcılar Tablosu
 CREATE TABLE IF NOT EXISTS `users` (
@@ -40,7 +42,7 @@ CREATE TABLE IF NOT EXISTS `users` (
   `is_active` TINYINT(1) DEFAULT 1,
   `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (`role_id`) REFERENCES `roles`(`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 3. Birimler Tablosu (Faturalama, Ameliyathane, Depo vb.)
 CREATE TABLE IF NOT EXISTS `units` (
@@ -48,7 +50,7 @@ CREATE TABLE IF NOT EXISTS `units` (
   `unit_name` VARCHAR(100) NOT NULL,
   `description` TEXT NULL,
   `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 4. Anket Profilleri / Şablonları (Hastane İSG, Fabrika İSG vb.)
 CREATE TABLE IF NOT EXISTS `survey_templates` (
@@ -59,7 +61,7 @@ CREATE TABLE IF NOT EXISTS `survey_templates` (
   `is_active` TINYINT(1) DEFAULT 1,
   `created_by` INT NULL,
   `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 5. Anket Soruları Tablosu
 CREATE TABLE IF NOT EXISTS `survey_questions` (
@@ -68,17 +70,17 @@ CREATE TABLE IF NOT EXISTS `survey_questions` (
   `question_text` TEXT NOT NULL,
   `sort_order` INT DEFAULT 0,
   FOREIGN KEY (`template_id`) REFERENCES `survey_templates`(`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 6. Soru Seçenekleri ve Puan Tablosu
 CREATE TABLE IF NOT EXISTS `question_options` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `question_id` INT NOT NULL,
   `option_text` VARCHAR(255) NOT NULL,
-  `points` INT NOT NULL DEFAULT 0, -- Pozitif veya negatif puan (Örn: -5, +5, +10)
+  `points` INT NOT NULL DEFAULT 0,
   `sort_order` INT DEFAULT 0,
   FOREIGN KEY (`question_id`) REFERENCES `survey_questions`(`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 7. Sahada Yapılan Denetimler Tablosu
 CREATE TABLE IF NOT EXISTS `audits` (
@@ -95,7 +97,7 @@ CREATE TABLE IF NOT EXISTS `audits` (
   FOREIGN KEY (`template_id`) REFERENCES `survey_templates`(`id`),
   FOREIGN KEY (`unit_id`) REFERENCES `units`(`id`),
   FOREIGN KEY (`auditor_id`) REFERENCES `users`(`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 8. Denetimde Seçilen Cevaplar Tablosu
 CREATE TABLE IF NOT EXISTS `audit_answers` (
@@ -107,31 +109,12 @@ CREATE TABLE IF NOT EXISTS `audit_answers` (
   FOREIGN KEY (`audit_id`) REFERENCES `audits`(`id`) ON DELETE CASCADE,
   FOREIGN KEY (`question_id`) REFERENCES `survey_questions`(`id`),
   FOREIGN KEY (`option_id`) REFERENCES `question_options`(`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 ```
 
 ---
 
-## 3. Puan Hesaplama Mantığı
-1. Her soru için sunulan seçeneklerden **birden fazlası** işaretlenebilir.
-2. Seçilen her seçeneğin puanı (`points`) toplanarak `total_score` elde edilir.
-3. Sorulardaki en yüksek pozitif puan potansiyeli `max_possible_score` olarak hesaplanır.
-4. Başarı / Uygunluk yüzdesi: `(total_score / max_possible_score) * 100` olarak hesaplanır ve renk gruplarına ayrılır (Örn: >=%80 Yeşil/Güvenli, %50-%79 Sarı/Orta Risk, <%50 Kırmızı/Yüksek Risk).
-
----
-
-## 4. Yetki Modeli (RBAC JSON)
-`roles` tablosundaki `permissions` sütununda aşağıdaki yetkiler tutulur:
-- `surveys_manage`: Anket ve soru/seçenek profili oluşturma, düzenleme, silme.
-- `units_manage`: Birim tanımlama ve düzenleme yetkisi.
-- `audit_conduct`: Sahada denetim başlatıp doldurabilme yetkisi.
-- `audit_view`: Yapılan denetimleri ve sonuçlarını görme yetkisi.
-- `reports_export`: PDF/Excel/Word indirme ve raporlama alma yetkisi.
-- `users_manage`: Kullanıcı ve rol yönetimi yapabilme yetkisi (Sadece Yönetici).
-
----
-
-## 5. Proje Dizini Yapısı
+## 3. Proje Dizini Yapısı
 
 ```
 tubisg/
@@ -141,25 +124,27 @@ tubisg/
 ├── config/
 │   └── db.php              # PDO Veritabanı bağlantısı
 ├── includes/
-│   ├── auth.php            # Oturum, yetki kontrolü ve güvenlik helper'ları
-│   ├── header.php          # Üst menü & mobil başlık
-│   └── footer.php          # Mobil bottom navigation & dipnotlar
+│   ├── auth.php            # Oturum ve yetki kontrolleri
+│   ├── header.php          # Üst menü, profil bağlantısı & sol navigasyon
+│   └── footer.php          # Doğal sayfa sonu footer & mobil bottom nav
 ├── assets/
 │   ├── css/
 │   │   └── style.css       # Mobil öncelikli modern Glassmorphic CSS
 │   └── js/
-│       └── main.js         # Canlı hesaplayıcı, AJAX ve UI kontrolleri
-├── index.php               # Dashboard (İstatistikler, hızlı erişim)
+│       └── main.js         # Canlı hesaplayıcı, Otomatik Alert Kapatma & Görsel Sihirbaz
+├── index.php               # Tanıtıcı Ana Sayfa (Public Landing Page)
+├── dashboard.php           # Giriş Yapmış Kullanıcı Kontrol Paneli
 ├── login.php               # Kullanıcı Girişi
 ├── logout.php              # Oturumu Kapat
-├── survey_templates.php    # Anket Profilleri Listesi & Ekleme
+├── profile.php             # Kullanıcı Profil & Şifre Güncelleme Ekranı
+├── survey_templates.php    # Anket Profilleri Listesi
 ├── survey_edit.php         # Anket Soruları & Seçenek Puan Editörü
-├── units.php               # Birim Yönetimi (Faturalama, Ameliyathane vs.)
-├── audit_new.php           # Saha Denetim Başlatma (Profil + Birim Seçimi)
-├── audit_fill.php          # Saha Denetim Doldurma Ekranı (Mobil Uyumlu)
+├── units.php               # Birim Yönetimi
+├── audit_new.php           # Saha Denetim Görsel Sihirbazı
+├── audit_fill.php          # Saha Denetim Doldurma Ekranı
 ├── audits_list.php         # Tamamlanan Denetimler Listesi
 ├── audit_detail.php        # Denetim Detayı & Karnesi
 ├── export.php              # PDF / Excel / Word İhracat İşleyicisi
-├── roles.php               # Rol & Yetki Tanımlama Paneli
+├── roles.php               # Rol & Yetki Tanımlama Paneli (RBAC)
 └── users.php               # Kullanıcı Hesapları Paneli
 ```

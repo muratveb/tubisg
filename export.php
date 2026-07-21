@@ -51,7 +51,6 @@ if ($format === 'excel') {
     header('Content-Disposition: attachment; filename="' . $fileName . '.xls"');
     header('Cache-Control: max-age=0');
 
-    // UTF-8 BOM ekle (Excel'de Türkçe karakter sorunu olmaması için)
     echo "\xEF\xBB\xBF";
     ?>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
@@ -188,7 +187,7 @@ if ($format === 'word') {
 }
 
 // ==========================================
-// 3. PDF EXPORT (Yazdırılabilir PDF HTML Görünümü)
+// 3. PDF EXPORT (İstendiğinde Otomatik PDF İndirme)
 // ==========================================
-header("Location: audit_detail.php?id=" . $audit_id . "&print=1");
+header("Location: audit_detail.php?id=" . $audit_id . "&download_pdf=1");
 exit;
