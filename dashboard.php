@@ -13,12 +13,12 @@ $user = get_current_user_data();
 $totalAuditsCount = $db->query("SELECT COUNT(*) FROM audits")->fetchColumn();
 $activeSurveysCount = $db->query("SELECT COUNT(*) FROM survey_templates WHERE is_active = 1")->fetchColumn();
 $totalUnitsCount = $db->query("SELECT COUNT(*) FROM units")->fetchColumn();
-$avgScore = $db->query("SELECT AVG(percentage_score) FROM audits WHERE status = 'Tamamlandı'")->fetchColumn();
-$avgScoreFormatted = $avgScore !== null ? number_format((float)$avgScore, 1) : '0';
+$totalRiskItemsCount = $db->query("SELECT COUNT(*) FROM audit_answers WHERE risk_score >= 6")->fetchColumn();
 
-// 2. Son 5 Denetim
+// 2. Son 5 Denetim (Max Risk Skoru İle)
 $recentAuditsStmt = $db->query("
-    SELECT a.*, u.unit_name, st.title as survey_title, usr.name_surname as auditor_name
+    SELECT a.*, u.unit_name, st.title as survey_title, usr.name_surname as auditor_name,
+           (SELECT MAX(risk_score) FROM audit_answers WHERE audit_id = a.id) as max_audit_risk
     FROM audits a
     JOIN units u ON a.unit_id = u.id
     JOIN survey_templates st ON a.template_id = st.id
@@ -28,13 +28,13 @@ $recentAuditsStmt = $db->query("
 ");
 $recentAudits = $recentAuditsStmt->fetchAll();
 
-// 3. Birim Bazlı Ortalama Skor Özeti
+// 3. Birim Bazlı Denetim Özeti
 $unitScoresStmt = $db->query("
-    SELECT u.unit_name, COUNT(a.id) as audit_count, AVG(a.percentage_score) as avg_unit_score
+    SELECT u.unit_name, COUNT(a.id) as audit_count, MAX(a.total_score) as max_unit_risk
     FROM units u
     LEFT JOIN audits a ON u.id = a.unit_id AND a.status = 'Tamamlandı'
     GROUP BY u.id
-    ORDER BY avg_unit_score DESC
+    ORDER BY audit_count DESC
 ");
 $unitScores = $unitScoresStmt->fetchAll();
 
@@ -46,10 +46,10 @@ include __DIR__ . '/includes/header.php';
   <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
     <div>
       <span class="badge bg-warning text-dark font-weight-bold mb-2 px-3 py-1 rounded-pill" style="font-size:0.7rem;">
-        <i class="bi bi-shield-check me-1"></i> CANLI SAHA PORTALI
+        <i class="bi bi-shield-check me-1"></i> CANLI SAHA RİSK PORTALI
       </span>
       <h3 class="fw-extrabold mb-1 text-white">Hoş Geldiniz, <?php echo htmlspecialchars($user['name_surname']); ?>! 👋</h3>
-      <p class="m-0 text-light opacity-90 fs-7">Saha İSG denetimlerini dokunmatik telefon ve tabletinizden anında başlatıp doldurabilirsiniz.</p>
+      <p class="m-0 text-light opacity-90 fs-7">Saha İSG risk denetimlerini dokunmatik telefon ve tabletinizden anında başlatıp doldurabilirsiniz.</p>
     </div>
     <?php if (has_permission('audit_conduct')): ?>
     <div class="flex-shrink-0">
@@ -62,7 +62,7 @@ include __DIR__ . '/includes/header.php';
   </div>
 </div>
 
-<!-- Metrik / Stat Kartları (Modern Yüksek Yoğunluklu Grid) -->
+<!-- Metrik / Stat Kartları -->
 <div class="row g-3 mb-4">
   <div class="col-6 col-md-3">
     <div class="custom-card p-3 h-100 border-start border-4 border-success">
@@ -75,11 +75,11 @@ include __DIR__ . '/includes/header.php';
   </div>
 
   <div class="col-6 col-md-3">
-    <div class="custom-card p-3 h-100 border-start border-4 border-info">
-      <div class="text-muted fs-8 text-uppercase font-weight-bold mb-1">Genel Uygunluk</div>
+    <div class="custom-card p-3 h-100 border-start border-4 border-danger">
+      <div class="text-muted fs-8 text-uppercase font-weight-bold mb-1">Tespit Edilen Riskler</div>
       <div class="d-flex align-items-center justify-content-between">
-        <span class="fs-2 fw-extrabold text-dark">%<?php echo $avgScoreFormatted; ?></span>
-        <div class="p-2 bg-info-light text-info rounded-circle"><i class="bi bi-graph-up-arrow fs-4"></i></div>
+        <span class="fs-2 fw-extrabold text-dark"><?php echo $totalRiskItemsCount; ?></span>
+        <div class="p-2 bg-danger-light text-danger rounded-circle"><i class="bi bi-exclamation-triangle fs-4"></i></div>
       </div>
     </div>
   </div>
@@ -131,15 +131,27 @@ include __DIR__ . '/includes/header.php';
                 <th>Birim</th>
                 <th>Anket</th>
                 <th>Tarih</th>
-                <th>Skor</th>
+                <th>İSG Risk Seviyesi</th>
                 <th class="text-end">İşlem</th>
               </tr>
             </thead>
             <tbody>
               <?php foreach ($recentAudits as $audit): ?>
                 <?php
-                $pct = (float)$audit['percentage_score'];
-                $badgeClass = $pct >= 80 ? 'bg-success' : ($pct >= 50 ? 'bg-warning text-dark' : 'bg-danger');
+                $mRisk = (int)($audit['max_audit_risk'] ?? $audit['total_score']);
+                $badgeClass = 'bg-success text-white';
+                $statusText = 'Kabul Edilebilir Risk';
+
+                if ($mRisk >= 16) {
+                    $badgeClass = 'bg-danger text-white';
+                    $statusText = 'Kabul Edilemez Risk';
+                } elseif ($mRisk >= 10) {
+                    $badgeClass = 'bg-warning text-dark';
+                    $statusText = 'Dikkate Değer Risk';
+                } elseif ($mRisk >= 6) {
+                    $badgeClass = 'bg-info text-dark';
+                    $statusText = 'Önemli Risk';
+                }
                 ?>
                 <tr>
                   <td class="fw-bold text-dark"><?php echo htmlspecialchars($audit['unit_name']); ?></td>
@@ -147,11 +159,11 @@ include __DIR__ . '/includes/header.php';
                   <td class="fs-8 text-muted"><?php echo date('d.m.Y H:i', strtotime($audit['audit_date'])); ?></td>
                   <td>
                     <span class="badge <?php echo $badgeClass; ?> p-2 rounded-pill fs-8">
-                      %<?php echo number_format($pct, 0); ?> Uygun
+                      <?php echo $statusText; ?>
                     </span>
                   </td>
                   <td class="text-end">
-                    <a href="audit_detail.php?id=<?php echo $audit['id']; ?>" class="btn btn-sm btn-light text-primary rounded-circle shadow-sm" title="Karneli Detay Göster">
+                    <a href="audit_detail.php?id=<?php echo $audit['id']; ?>" class="btn btn-sm btn-light text-primary rounded-circle shadow-sm" title="Risk Formunu Göster">
                       <i class="bi bi-chevron-right"></i>
                     </a>
                   </td>
@@ -164,12 +176,12 @@ include __DIR__ . '/includes/header.php';
     </div>
   </div>
 
-  <!-- Birim Bazlı İSG Uygunluk Durumları -->
+  <!-- Birim Bazlı İSG Durumları -->
   <div class="col-12 col-lg-4">
     <div class="custom-card h-100">
       <div class="custom-card-header">
         <h5 class="custom-card-title m-0">
-          <i class="bi bi-building-check text-primary"></i> Birim Skor Karnesi
+          <i class="bi bi-building-check text-primary"></i> Birim Denetim Özeti
         </h5>
       </div>
       <div class="d-flex flex-column gap-3">
@@ -177,17 +189,10 @@ include __DIR__ . '/includes/header.php';
           <div class="text-muted fs-8 text-center py-3">Henüz birim verisi yok.</div>
         <?php else: ?>
           <?php foreach ($unitScores as $uScore): ?>
-            <?php
-            $uAvg = $uScore['avg_unit_score'] !== null ? round((float)$uScore['avg_unit_score']) : 0;
-            $uColor = $uAvg >= 80 ? '#10b981' : ($uAvg >= 50 ? '#f59e0b' : '#ef4444');
-            ?>
             <div>
               <div class="d-flex justify-content-between align-items-center mb-1">
                 <span class="fw-bold fs-7 text-dark"><?php echo htmlspecialchars($uScore['unit_name']); ?></span>
-                <span class="fs-8 text-muted"><?php echo $uScore['audit_count']; ?> denetim / %<?php echo $uAvg; ?></span>
-              </div>
-              <div class="progress" style="height: 8px; border-radius: 4px; background:#e2e8f0;">
-                <div class="progress-bar" role="progressbar" style="width: <?php echo $uAvg; ?>%; background: <?php echo $uColor; ?>;" aria-valuenow="<?php echo $uAvg; ?>" aria-valuemin="0" aria-valuemax="100"></div>
+                <span class="fs-8 badge bg-light text-dark border"><?php echo $uScore['audit_count']; ?> denetim</span>
               </div>
             </div>
           <?php endforeach; ?>

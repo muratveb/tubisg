@@ -1,6 +1,6 @@
 <?php
 /**
- * Tubİsg - Tamamlanan Saha Denetimleri Listesi & Filtreleme
+ * Tubİsg - Tamamlanan Saha Denetimleri Listesi & İSG Risk Matris Filtreleme
  */
 require_once __DIR__ . '/includes/auth.php';
 require_permission('audit_view');
@@ -75,9 +75,10 @@ if ($totalPages > 0 && $page > $totalPages) {
 $offset = ($page - 1) * $per_page;
 if ($offset < 0) $offset = 0;
 
-// Ana Veri Sorgusu
+// Ana Veri Sorgusu (Max Risk Skoru İle)
 $sql = "
-    SELECT a.*, u.unit_name, st.title as survey_title, usr.name_surname as auditor_name
+    SELECT a.*, u.unit_name, st.title as survey_title, usr.name_surname as auditor_name,
+           (SELECT MAX(risk_score) FROM audit_answers WHERE audit_id = a.id) as max_audit_risk
     FROM audits a
     JOIN units u ON a.unit_id = u.id
     JOIN survey_templates st ON a.template_id = st.id
@@ -102,7 +103,7 @@ include __DIR__ . '/includes/header.php';
 <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-4">
   <div>
     <h3 class="fw-extrabold m-0">Denetim Raporları</h3>
-    <p class="text-muted fs-7 m-0">Tamamlanan saha denetimleri, karne skorları ve dışa aktarma seçenekleri</p>
+    <p class="text-muted fs-7 m-0">Tamamlanan saha denetimleri ve İSG Risk Analiz Formu çıktıları</p>
   </div>
   <?php if (has_permission('audit_conduct')): ?>
     <a href="audit_new.php" class="btn btn-primary-custom">
@@ -166,10 +167,10 @@ include __DIR__ . '/includes/header.php';
           <th>Denetim No</th>
           <th>Birim / Saha</th>
           <th>Anket Profili</th>
-          <th>Denetçi</th>
+          <th>İSG Uzmanı</th>
           <th>Tarih</th>
-          <th>Puan / Skor</th>
-          <th>Uygunluk Seviyesi</th>
+          <th>Max Risk Skoru ($R$)</th>
+          <th>İSG Risk Seviyesi</th>
           <th class="text-end">İşlemler</th>
         </tr>
       </thead>
@@ -181,9 +182,21 @@ include __DIR__ . '/includes/header.php';
         <?php else: ?>
           <?php foreach ($audits as $audit): ?>
             <?php
-            $pct = (float)$audit['percentage_score'];
-            $badgeClass = $pct >= 80 ? 'bg-success' : ($pct >= 50 ? 'bg-warning text-dark' : 'bg-danger');
-            $statusText = $pct >= 80 ? 'Düşük Risk / Uygun' : ($pct >= 50 ? 'Orta Risk' : 'Yüksek Risk');
+            $mRisk = (int)($audit['max_audit_risk'] ?? $audit['total_score']);
+            
+            $badgeClass = 'bg-success text-white';
+            $statusText = 'Kabul Edilebilir Risk';
+
+            if ($mRisk >= 16) {
+                $badgeClass = 'bg-danger text-white';
+                $statusText = 'Kabul Edilemez Risk';
+            } elseif ($mRisk >= 10) {
+                $badgeClass = 'bg-warning text-dark';
+                $statusText = 'Dikkate Değer Risk';
+            } elseif ($mRisk >= 6) {
+                $badgeClass = 'bg-info text-dark';
+                $statusText = 'Önemli Risk';
+            }
             ?>
             <tr>
               <td class="fw-bold text-muted">#DEN-<?php echo sprintf('%04d', $audit['id']); ?></td>
@@ -191,20 +204,22 @@ include __DIR__ . '/includes/header.php';
               <td class="text-muted fs-7"><?php echo htmlspecialchars($audit['survey_title']); ?></td>
               <td class="fs-7"><i class="bi bi-person text-muted"></i> <?php echo htmlspecialchars($audit['auditor_name']); ?></td>
               <td class="fs-8 text-muted"><?php echo date('d.m.Y H:i', strtotime($audit['audit_date'])); ?></td>
-              <td class="fw-bold"><?php echo $audit['total_score']; ?> / <?php echo $audit['max_possible_score']; ?></td>
+              <td class="fw-bold fs-6">
+                <span class="badge bg-light text-dark border"><?php echo $mRisk > 0 ? 'R = ' . $mRisk : 'R = 1'; ?></span>
+              </td>
               <td>
                 <span class="badge <?php echo $badgeClass; ?> p-2 rounded-pill fs-8">
-                  %<?php echo number_format($pct, 0); ?> - <?php echo $statusText; ?>
+                  <i class="bi bi-shield-exclamation me-1"></i> <?php echo $statusText; ?>
                 </span>
               </td>
               <td class="text-end text-nowrap">
                 <div class="d-inline-flex align-items-center justify-content-end gap-1">
                   <a href="audit_detail.php?id=<?php echo $audit['id']; ?>" class="btn btn-sm btn-outline-primary fw-bold text-nowrap">
-                    <i class="bi bi-eye-fill"></i> Detay
+                    <i class="bi bi-eye-fill"></i> Detay & Rapor
                   </a>
 
                   <?php if (has_permission('audit_delete')): ?>
-                    <form method="POST" action="audits_list.php" class="d-inline confirm-delete-form" data-confirm-title="Denetim Raporunu Sil" data-confirm-text="Bu denetim kaydını (#DEN-<?php echo sprintf('%04d', $audit['id']); ?>) ve tüm karne verilerini silmek istediğinize emin misiniz?">
+                    <form method="POST" action="audits_list.php" class="d-inline confirm-delete-form" data-confirm-title="Denetim Raporunu Sil" data-confirm-text="Bu denetim kaydını (#DEN-<?php echo sprintf('%04d', $audit['id']); ?>) ve tüm verilerini silmek istediğinize emin misiniz?">
                       <input type="hidden" name="action" value="delete_audit">
                       <input type="hidden" name="audit_id" value="<?php echo $audit['id']; ?>">
                       <button type="submit" class="btn btn-sm btn-outline-danger" title="Denetimi Sil">
@@ -244,7 +259,6 @@ include __DIR__ . '/includes/header.php';
       <?php if ($totalPages > 1): ?>
         <nav>
           <ul class="pagination pagination-sm m-0">
-            <!-- Önceki -->
             <?php
             $prevParams = $_GET;
             $prevParams['page'] = max(1, $page - 1);
@@ -265,7 +279,6 @@ include __DIR__ . '/includes/header.php';
               </li>
             <?php endfor; ?>
 
-            <!-- Sonraki -->
             <?php
             $nextParams = $_GET;
             $nextParams['page'] = min($totalPages, $page + 1);

@@ -1,6 +1,6 @@
 <?php
 /**
- * Tubİsg - Anket Soruları, İSG Risk Matrisi & Tetikleyici Editörü
+ * Tubİsg - Anket Soruları, Kütüphane Seçimi & İSG Risk Matris Editörü (Puanlamasız)
  */
 require_once __DIR__ . '/includes/auth.php';
 require_permission('surveys_manage');
@@ -28,14 +28,27 @@ if (!$template) {
 // Risk Gruplarını Çek
 $riskGroups = $db->query("SELECT * FROM risk_groups ORDER BY sort_order ASC, group_name ASC")->fetchAll();
 
-// İSG Kütüphanelerinden Autocomplete Verilerini Çek
+// Kütüphane Verilerini Çek
 $libSources = $db->query("SELECT item_text FROM risk_libraries WHERE category = 'hazard_source' ORDER BY item_text ASC")->fetchAll(PDO::FETCH_COLUMN);
 $libHazards = $db->query("SELECT item_text FROM risk_libraries WHERE category = 'hazard_name' ORDER BY item_text ASC")->fetchAll(PDO::FETCH_COLUMN);
 $libAffected = $db->query("SELECT item_text FROM risk_libraries WHERE category = 'affected_people' ORDER BY item_text ASC")->fetchAll(PDO::FETCH_COLUMN);
 
-// Form Post İşlemleri (Güncelleme / Soru Ekleme / Silme)
+// Form Post İşlemleri
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
+    // 0. Kütüphaneye Hızlı Öğe Ekleme (Modal Formu)
+    if (isset($_POST['action']) && $_POST['action'] === 'add_library_item') {
+        $cat = trim($_POST['category'] ?? '');
+        $itemText = trim($_POST['item_text'] ?? '');
+        if (!empty($cat) && !empty($itemText)) {
+            $db->prepare("INSERT INTO risk_libraries (category, item_text) VALUES (?, ?)")->execute([$cat, $itemText]);
+            log_action('İSG Kütüphanesine Öğe Eklendi', "Anket Editöründen Eklendi - Kategori: {$cat}, Metin: {$itemText}");
+            set_flash('success', "Kütüphaneye yeni öge ({$itemText}) başarıyla eklendi.");
+        }
+        header("Location: survey_edit.php?id=" . $template_id);
+        exit;
+    }
+
     // 1. Soru Silme İşlemi
     if (isset($_POST['delete_question_id'])) {
         $qId = (int)$_POST['delete_question_id'];
@@ -86,10 +99,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (isset($qData['options']) && is_array($qData['options'])) {
                     foreach ($qData['options'] as $optId => $optData) {
                         $optText = trim($optData['text'] ?? '');
-                        $points = (int)($optData['points'] ?? 0);
                         $trigger = isset($optData['trigger_action']) && $optData['trigger_action'] == 1 ? 1 : 0;
                         if (!empty($optText)) {
-                            $db->prepare("UPDATE question_options SET option_text = ?, points = ?, trigger_action = ? WHERE id = ? AND question_id = ?")->execute([$optText, $points, $trigger, $optId, $qId]);
+                            $db->prepare("UPDATE question_options SET option_text = ?, points = 0, trigger_action = ? WHERE id = ? AND question_id = ?")->execute([$optText, $trigger, $optId, $qId]);
                         }
                     }
                 }
@@ -124,26 +136,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $qId = $db->lastInsertId();
 
                 if (isset($newQ['options']) && is_array($newQ['options'])) {
-                    $stmtOpt = $db->prepare("INSERT INTO question_options (question_id, option_text, points, trigger_action) VALUES (?, ?, ?, ?)");
+                    $stmtOpt = $db->prepare("INSERT INTO question_options (question_id, option_text, points, trigger_action) VALUES (?, ?, 0, ?)");
                     foreach ($newQ['options'] as $opt) {
                         $optText = trim($opt['text'] ?? '');
-                        $points = (int)($opt['points'] ?? 0);
                         $trigger = isset($opt['trigger_action']) && $opt['trigger_action'] == 1 ? 1 : 0;
                         if (!empty($optText)) {
-                            $stmtOpt->execute([$qId, $optText, $points, $trigger]);
+                            $stmtOpt->execute([$qId, $optText, $trigger]);
                         }
                     }
                 } else {
                     // Varsayılan 4 Standart İSG Seçeneği Ekle (Evet, Hayır, Kısmen, Denetim Dışı)
                     $defaultOptions = [
-                        ['text' => 'Evet (Uygun)', 'points' => 10, 'trigger' => 0],
-                        ['text' => 'Hayır (Uygun Değil)', 'points' => 0, 'trigger' => 1],
-                        ['text' => 'Kısmen (Kısmen Uygun)', 'points' => 5, 'trigger' => 1],
-                        ['text' => 'Denetim Dışı / Muaf', 'points' => 10, 'trigger' => 0]
+                        ['text' => 'Evet (Uygun)', 'trigger' => 0],
+                        ['text' => 'Hayır (Uygun Değil)', 'trigger' => 1],
+                        ['text' => 'Kısmen (Kısmen Uygun)', 'trigger' => 1],
+                        ['text' => 'Denetim Dışı / Muaf', 'trigger' => 0]
                     ];
-                    $stmtOpt = $db->prepare("INSERT INTO question_options (question_id, option_text, points, trigger_action) VALUES (?, ?, ?, ?)");
+                    $stmtOpt = $db->prepare("INSERT INTO question_options (question_id, option_text, points, trigger_action) VALUES (?, ?, 0, ?)");
                     foreach ($defaultOptions as $defOpt) {
-                        $stmtOpt->execute([$qId, $defOpt['text'], $defOpt['points'], $defOpt['trigger']]);
+                        $stmtOpt->execute([$qId, $defOpt['text'], $defOpt['trigger']]);
                     }
                 }
             }
@@ -151,7 +162,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     log_action('Anket Soruları Güncellendi', "Anket: {$template['title']} (ID: #{$template_id}) soruları ve kütüphane bağlantıları güncellendi.");
-    set_flash('success', 'Anket soruları, seçenek tetikleyicileri ve risk matrisi bilgileri güncellendi.');
+    set_flash('success', 'Anket soruları ve İSG kütüphane bağlantıları başarıyla güncellendi.');
     header("Location: survey_edit.php?id=" . $template_id);
     exit;
 }
@@ -174,7 +185,7 @@ foreach ($questions as &$q) {
 }
 unset($q);
 
-$pageTitle = 'Anket Soruları & Risk Editörü: ' . $template['title'];
+$pageTitle = 'Anket & İSG Risk Editörü: ' . $template['title'];
 include __DIR__ . '/includes/header.php';
 ?>
 
@@ -203,12 +214,12 @@ include __DIR__ . '/includes/header.php';
       <i class="bi bi-arrow-left"></i> Anket Profillerine Dön
     </a>
     <h3 class="fw-extrabold m-0"><?php echo htmlspecialchars($template['title']); ?></h3>
-    <p class="text-muted fs-7 m-0">Risk Grupları, Kütüphane Otomatik Tamamlamaları ve Seçenek Tetikleyicilerini yönetin</p>
+    <p class="text-muted fs-7 m-0">Risk Grupları, Kütüphaneden Doğrudan Seçim ve Tetikleyicileri Yönetin</p>
   </div>
   <div class="d-flex gap-2">
-    <a href="risk_libraries.php" target="_blank" class="btn btn-outline-primary font-weight-bold">
-      <i class="bi bi-book-fill"></i> İSG Kütüphanesi
-    </a>
+    <button type="button" class="btn btn-outline-primary font-weight-bold" data-bs-toggle="modal" data-bs-target="#quickAddLibModal">
+      <i class="bi bi-plus-circle-fill"></i> Kütüphaneye Yeni Öğe Ekle
+    </button>
     <button type="button" id="addQuestionBtn" class="btn btn-outline-success font-weight-bold">
       <i class="bi bi-plus-circle-fill"></i> Yeni Risk Sorusu Ekle
     </button>
@@ -252,13 +263,13 @@ include __DIR__ . '/includes/header.php';
               </div>
 
               <div class="col-12 col-md-4">
-                <label class="form-label fw-bold fs-8 text-muted">Tehlike Kaynağı (Otomatik Tamamlamalı)</label>
-                <input type="text" name="questions[<?php echo $q['id']; ?>][hazard_source]" list="hazard_sources_list" class="form-control form-control-sm" placeholder="Örn: Lavabo/WC tavanı, Ekranlı Araçlar" value="<?php echo htmlspecialchars($q['hazard_source'] ?? ''); ?>">
+                <label class="form-label fw-bold fs-8 text-muted">Tehlike Kaynağı (Kütüphaneden Seçilebilir)</label>
+                <input type="text" name="questions[<?php echo $q['id']; ?>][hazard_source]" list="hazard_sources_list" class="form-control form-control-sm" placeholder="Seçin veya yazın..." value="<?php echo htmlspecialchars($q['hazard_source'] ?? ''); ?>">
               </div>
 
               <div class="col-12 col-md-4">
-                <label class="form-label fw-bold fs-8 text-muted">Tehlike Metni (Otomatik Tamamlamalı)</label>
-                <input type="text" name="questions[<?php echo $q['id']; ?>][hazard_name]" list="hazards_list" class="form-control form-control-sm" placeholder="Örn: Enfeksiyon, Uzun süre sabit oturma" value="<?php echo htmlspecialchars($q['hazard_name'] ?? ''); ?>">
+                <label class="form-label fw-bold fs-8 text-muted">Tehlike Metni (Kütüphaneden Seçilebilir)</label>
+                <input type="text" name="questions[<?php echo $q['id']; ?>][hazard_name]" list="hazards_list" class="form-control form-control-sm" placeholder="Seçin veya yazın..." value="<?php echo htmlspecialchars($q['hazard_name'] ?? ''); ?>">
               </div>
             </div>
 
@@ -270,8 +281,8 @@ include __DIR__ . '/includes/header.php';
               </div>
 
               <div class="col-12 col-md-6">
-                <label class="form-label fw-bold fs-8 text-muted">Etkilenenler (Otomatik Tamamlamalı)</label>
-                <input type="text" name="questions[<?php echo $q['id']; ?>][affected_people]" list="affected_list" class="form-control form-control-sm" placeholder="Örn: Çalışanlar (Doktor, Hemşire), Hasta ve yakınları" value="<?php echo htmlspecialchars($q['affected_people'] ?? ''); ?>">
+                <label class="form-label fw-bold fs-8 text-muted">Etkilenenler (Kütüphaneden Seçilebilir)</label>
+                <input type="text" name="questions[<?php echo $q['id']; ?>][affected_people]" list="affected_list" class="form-control form-control-sm" placeholder="Seçin veya yazın..." value="<?php echo htmlspecialchars($q['affected_people'] ?? ''); ?>">
               </div>
             </div>
 
@@ -281,28 +292,22 @@ include __DIR__ . '/includes/header.php';
               <input type="text" name="questions[<?php echo $q['id']; ?>][text]" class="form-control" value="<?php echo htmlspecialchars($q['question_text']); ?>" placeholder="Örn: Lavabo tavanlarında su sızıntısı veya yalıtım eksikliği var mı?" required>
             </div>
 
-            <!-- Cevap Seçenekleri & Tetikleyici Şartları -->
+            <!-- Cevap Seçenekleri & Tetikleyici Şartları (Puanlama Kaldırıldı) -->
             <div class="mb-2 d-flex align-items-center justify-content-between">
-              <label class="form-label fw-bold m-0 fs-8 text-muted"><i class="bi bi-list-check"></i> Cevap Seçenekleri, Puanlar & Önlem Kartı Tetikleyicisi</label>
+              <label class="form-label fw-bold m-0 fs-8 text-muted"><i class="bi bi-list-check"></i> Cevap Seçenekleri & İSG Önlem Kartı Tetikleyicisi</label>
             </div>
 
             <div class="options-list-container">
               <?php foreach ($q['options'] as $opt): ?>
                 <div class="row g-2 mb-2 option-row align-items-center">
-                  <div class="col-5">
+                  <div class="col-7">
                     <input type="text" name="questions[<?php echo $q['id']; ?>][options][<?php echo $opt['id']; ?>][text]" class="form-control form-control-sm" value="<?php echo htmlspecialchars($opt['option_text']); ?>" required>
                   </div>
-                  <div class="col-3">
-                    <div class="input-group input-group-sm">
-                      <span class="input-group-text bg-light fw-bold">Puan</span>
-                      <input type="number" name="questions[<?php echo $q['id']; ?>][options][<?php echo $opt['id']; ?>][points]" class="form-control" value="<?php echo (int)$opt['points']; ?>" required>
-                    </div>
-                  </div>
-                  <div class="col-3">
+                  <div class="col-4">
                     <div class="form-check form-switch pt-1">
                       <input class="form-check-input" type="checkbox" name="questions[<?php echo $q['id']; ?>][options][<?php echo $opt['id']; ?>][trigger_action]" value="1" id="trig_<?php echo $opt['id']; ?>" <?php echo $opt['trigger_action'] == 1 ? 'checked' : ''; ?>>
                       <label class="form-check-label fs-8 fw-bold text-danger" for="trig_<?php echo $opt['id']; ?>">
-                        Önlem Kartı Açsın
+                        İSG Önlem & Risk Kartı Açsın
                       </label>
                     </div>
                   </div>
@@ -322,12 +327,47 @@ include __DIR__ . '/includes/header.php';
 
   <!-- Kaydet Butonu Barı -->
   <div class="custom-card p-3 d-flex align-items-center justify-content-between sticky-bottom bg-white shadow-lg border-top border-2 border-primary mb-5" style="z-index:90;">
-    <span class="text-muted fs-8"><i class="bi bi-info-circle me-1"></i> Yapılan tüm soru, risk, puan ve tetikleyici değişikliklerini kaydetmek için tıklayın.</span>
+    <span class="text-muted fs-8"><i class="bi bi-info-circle me-1"></i> Yapılan tüm soru, risk ve tetikleyici değişikliklerini kaydetmek için tıklayın.</span>
     <button type="submit" class="btn btn-primary-custom px-4 py-2 font-weight-bold">
       <i class="bi bi-check-circle-fill"></i> Tüm Değişiklikleri Kaydet
     </button>
   </div>
 
 </form>
+
+<!-- Kütüphaneye Hızlı Öğe Ekleme Modal -->
+<div class="modal fade" id="quickAddLibModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <form method="POST" action="survey_edit.php?id=<?php echo $template_id; ?>">
+        <input type="hidden" name="action" value="add_library_item">
+        <div class="modal-header">
+          <h5 class="modal-title fw-bold"><i class="bi bi-plus-circle-fill text-primary"></i> İSG Kütüphanesine Yeni Öğe Ekle</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label fw-bold">Kategori</label>
+            <select name="category" class="form-select" required>
+              <option value="hazard_source">Tehlike Kaynakları</option>
+              <option value="hazard_name">Tehlikeler</option>
+              <option value="affected_people">Etkilenen Gruplar</option>
+              <option value="responsible_person">Sorumlu Birimler</option>
+              <option value="action_recommendation">Önlem & İyileştirme Bankası</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-bold">Tanımlanacak İfade / Metin</label>
+            <textarea name="item_text" class="form-control" rows="3" placeholder="Örn: Lavabo, WC tavan sızıntısı" required></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Vazgeç</button>
+          <button type="submit" class="btn btn-primary font-weight-bold"><i class="bi bi-plus-lg"></i> Kütüphaneye Ekle</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
 
 <?php include __DIR__ . '/includes/footer.php'; ?>

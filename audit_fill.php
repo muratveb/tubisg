@@ -1,6 +1,6 @@
 <?php
 /**
- * Tubİsg - Saha Risk Denetimi & Akıllı Matris Doldurma Ekranı (Autocomplete & Dinamik Tetikleyicili)
+ * Tubİsg - Saha Risk Denetimi & Matris Doldurma Ekranı (İSG Uzmanı Risk Skoru Odaklı)
  */
 require_once __DIR__ . '/includes/auth.php';
 require_permission('audit_conduct');
@@ -82,9 +82,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $answersInput = $_POST['answers'] ?? [];
     $notes = trim($_POST['notes'] ?? '');
 
-    $totalScore = 0;
-    $maxPossibleScore = count($questions) * 10;
     $answeredCount = 0;
+    $maxRiskScoreRecorded = 0;
 
     $answersToSave = [];
 
@@ -105,40 +104,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($severity > 5) $severity = 5;
 
         $riskScore = $probability * $severity;
+        if ($riskScore > $maxRiskScoreRecorded) {
+            $maxRiskScoreRecorded = $riskScore;
+        }
 
         $actionPlan = trim($qInput['action_plan'] ?? '');
         $responsible = trim($qInput['responsible_person'] ?? '');
         $deadline = trim($qInput['deadline'] ?? '');
 
-        // Puanlama Mantığı
-        $ptsAwarded = 0;
-        if (strpos($selectedOptText, 'Evet') !== false) {
-            $ptsAwarded = 10;
-        } elseif (strpos($selectedOptText, 'Kısmen') !== false) {
-            $ptsAwarded = 5;
-        } elseif (strpos($selectedOptText, 'Hayır') !== false) {
-            $ptsAwarded = 0;
-        } elseif (strpos($selectedOptText, 'Muaf') !== false || strpos($selectedOptText, 'Denetim Dışı') !== false) {
-            $ptsAwarded = 10;
-        } else {
-            foreach ($q['options'] as $opt) {
-                if ((int)$opt['id'] === $selectedOptId) {
-                    $ptsAwarded = (int)$opt['points'];
-                    break;
-                }
-            }
-        }
-
         if (!empty($selectedOptText)) {
             $answeredCount++;
-            $totalScore += $ptsAwarded;
         }
 
         $answersToSave[] = [
             'question_id'        => $qId,
             'option_id'          => $selectedOptId > 0 ? $selectedOptId : null,
             'answer_option'      => $selectedOptText,
-            'points_awarded'     => $ptsAwarded,
+            'points_awarded'     => 0, // Sayısal puanlama kaldırıldı
             'current_status'     => $currentStatus,
             'probability'        => $probability,
             'severity'           => $severity,
@@ -148,34 +130,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'deadline'           => $deadline
         ];
 
-        // Eğer yeni bir önlem veya sorumlu yazılmışsa Kütüphaneye de Ekle (Gelişmiş Öğrenme)
+        // Yeni Önlem veya Sorumlu Yazıldıysa Kütüphaneye Otomatik Ekle
         if (!empty($actionPlan) && !in_array($actionPlan, $libRecommendations)) {
             $db->prepare("INSERT INTO risk_libraries (category, item_text) VALUES ('action_recommendation', ?)")->execute([$actionPlan]);
+            log_action('Kütüphaneye Otomatik Önlem Eklendi', "Sahada yazıldı: {$actionPlan}");
         }
         if (!empty($responsible) && !in_array($responsible, $libResponsibles)) {
             $db->prepare("INSERT INTO risk_libraries (category, item_text) VALUES ('responsible_person', ?)")->execute([$responsible]);
+            log_action('Kütüphaneye Otomatik Sorumlu Eklendi', "Sahada yazıldı: {$responsible}");
         }
     }
 
-    $percentageScore = 0.00;
-    if ($maxPossibleScore > 0) {
-        $percentageScore = round(($totalScore / $maxPossibleScore) * 100, 2);
-        if ($percentageScore < 0) $percentageScore = 0.00;
-    }
-
-    // Denetim Kaydını Oluştur
+    // Denetim Kaydını Oluştur (Skor alanlarına max risk skorunu kaydet)
     $stmtAudit = $db->prepare("
         INSERT INTO audits (template_id, unit_id, auditor_id, total_score, max_possible_score, percentage_score, status, notes) 
-        VALUES (?, ?, ?, ?, ?, ?, 'Tamamlandı', ?)
+        VALUES (?, ?, ?, ?, 25, ?, 'Tamamlandı', ?)
     ");
-    $stmtAudit->execute([$template_id, $unit_id, $user['id'], $totalScore, $maxPossibleScore, $percentageScore, $notes]);
+    $stmtAudit->execute([$template_id, $unit_id, $user['id'], $maxRiskScoreRecorded, (float)$maxRiskScoreRecorded, $notes]);
     $auditId = $db->lastInsertId();
 
     // Risk Matrisi Cevaplarını Kaydet
     $stmtAns = $db->prepare("
         INSERT INTO audit_answers 
         (audit_id, question_id, option_id, answer_option, points_awarded, current_status, probability, severity, risk_score, action_plan, responsible_person, deadline) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?)
     ");
     foreach ($answersToSave as $ans) {
         $stmtAns->execute([
@@ -183,7 +161,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $ans['question_id'], 
             $ans['option_id'], 
             $ans['answer_option'], 
-            $ans['points_awarded'], 
             $ans['current_status'], 
             $ans['probability'], 
             $ans['severity'], 
@@ -194,9 +171,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ]);
     }
 
-    log_action('Saha Denetimi Tamamlandı', "Birim: {$unit['unit_name']}, Anket: {$template['title']}, Skor: %{$percentageScore} (#DEN-" . sprintf('%04d', $auditId) . ")");
+    log_action('Saha İSG Risk Denetimi Tamamlandı', "Birim: {$unit['unit_name']}, Anket: {$template['title']}, Max Risk Skoru: {$maxRiskScoreRecorded} (#DEN-" . sprintf('%04d', $auditId) . ")");
 
-    set_flash('success', 'Birim bazlı İSG risk denetimi ve otomatik önlem analizi kaydedildi.');
+    set_flash('success', 'Birim bazlı İSG risk denetimi ve risk analizi raporu başarıyla kaydedildi.');
     header("Location: audit_detail.php?id=" . $auditId);
     exit;
 }
@@ -233,25 +210,24 @@ include __DIR__ . '/includes/header.php';
     <h3 class="fw-extrabold m-0"><?php echo htmlspecialchars($template['title']); ?></h3>
   </div>
   <div class="text-muted fs-8">
-    <i class="bi bi-person-fill"></i> Denetçi: <strong><?php echo htmlspecialchars($user['name_surname']); ?></strong>
+    <i class="bi bi-person-fill"></i> İSG Uzmanı / Denetçi: <strong><?php echo htmlspecialchars($user['name_surname']); ?></strong>
   </div>
 </div>
 
-<!-- Canlı Risk Skor Barı (Sticky) -->
-<div class="sticky-audit-scorebar">
-  <div class="d-flex align-items-center gap-3 flex-grow-1">
-    <div class="text-center">
-      <div class="score-number" id="liveTotalScore">0</div>
-      <div class="fs-8 opacity-75" style="font-size: 0.65rem;">Toplam Puan</div>
+<!-- Canlı İSG Risk Matrisi Durum Özet Barı (Sticky) -->
+<div class="sticky-audit-scorebar bg-dark text-white p-3 rounded-3 shadow-lg mb-4">
+  <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+    <div class="d-flex align-items-center gap-2">
+      <i class="bi bi-shield-exclamation text-warning fs-4"></i>
+      <div>
+        <div class="fw-bold fs-7">İSG Saha Risk Değerlendirme Canlı Karnesi</div>
+        <div class="fs-8 text-light opacity-75">Sorular İSG Uzmanı tarafından Olasılık (1-5) ve Şiddet (1-5) skoru ile değerlendirilir.</div>
+      </div>
     </div>
-    
-    <div class="score-progress-bar">
-      <div class="score-progress-fill" id="scoreProgressFill"></div>
-    </div>
-
-    <div class="text-end">
-      <div class="fw-extrabold" id="livePercentage">%0</div>
-      <span id="scoreStatusBadge" class="badge bg-secondary">HESAPLANIYOR</span>
+    <div class="d-flex gap-2">
+      <span class="badge bg-success p-2" id="cntAcceptable">0 Uygun / Düşük</span>
+      <span class="badge bg-warning text-dark p-2" id="cntWarning">0 Dikkate Değer</span>
+      <span class="badge bg-danger p-2" id="cntUnacceptable">0 Kabul Edilemez</span>
     </div>
   </div>
 </div>
@@ -315,43 +291,43 @@ include __DIR__ . '/includes/header.php';
               <!-- Varsayılan Butonlar -->
               <div class="col-6 col-md-3">
                 <label class="btn btn-outline-success w-100 font-weight-bold py-2 answer-btn-label">
-                  <input type="radio" name="answers[<?php echo $q['id']; ?>][answer_option]" value="Evet" data-trigger="0" class="d-none answer-radio" data-qid="<?php echo $q['id']; ?>">
+                  <input type="radio" name="answers[<?php echo $q['id']; ?>][answer_option]" value="Evet (Uygun)" data-trigger="0" class="d-none answer-radio" data-qid="<?php echo $q['id']; ?>">
                   <i class="bi bi-check-circle-fill me-1"></i> Evet (Uygun)
                 </label>
               </div>
               <div class="col-6 col-md-3">
                 <label class="btn btn-outline-danger w-100 font-weight-bold py-2 answer-btn-label">
-                  <input type="radio" name="answers[<?php echo $q['id']; ?>][answer_option]" value="Hayır" data-trigger="1" class="d-none answer-radio" data-qid="<?php echo $q['id']; ?>">
+                  <input type="radio" name="answers[<?php echo $q['id']; ?>][answer_option]" value="Hayır (Uygun Değil)" data-trigger="1" class="d-none answer-radio" data-qid="<?php echo $q['id']; ?>">
                   <i class="bi bi-x-circle-fill me-1"></i> Hayır (Riskli)
                 </label>
               </div>
               <div class="col-6 col-md-3">
                 <label class="btn btn-outline-warning text-dark w-100 font-weight-bold py-2 answer-btn-label">
-                  <input type="radio" name="answers[<?php echo $q['id']; ?>][answer_option]" value="Kısmen" data-trigger="1" class="d-none answer-radio" data-qid="<?php echo $q['id']; ?>">
+                  <input type="radio" name="answers[<?php echo $q['id']; ?>][answer_option]" value="Kısmen (Kısmen Uygun)" data-trigger="1" class="d-none answer-radio" data-qid="<?php echo $q['id']; ?>">
                   <i class="bi bi-exclamation-triangle-fill me-1"></i> Kısmen
                 </label>
               </div>
               <div class="col-6 col-md-3">
                 <label class="btn btn-outline-secondary w-100 font-weight-bold py-2 answer-btn-label">
-                  <input type="radio" name="answers[<?php echo $q['id']; ?>][answer_option]" value="Denetim Dışı" data-trigger="0" class="d-none answer-radio" data-qid="<?php echo $q['id']; ?>">
+                  <input type="radio" name="answers[<?php echo $q['id']; ?>][answer_option]" value="Denetim Dışı / Muaf" data-trigger="0" class="d-none answer-radio" data-qid="<?php echo $q['id']; ?>">
                   <i class="bi bi-dash-circle-fill me-1"></i> Denetim Dışı
                 </label>
               </div>
             <?php endif; ?>
           </div>
 
-          <!-- Riskli / Kısmen Veya Tetikleyici Aktif Olduğunda Açılan 5x5 Risk Matrisi & Otomatik Tamamlamalı Önlem Kartı -->
+          <!-- Riskli / Kısmen Veya Tetikleyici Aktif Olduğunda Açılan 5x5 Risk Matrisi & Önlem Kartı -->
           <div class="risk-matrix-panel d-none p-3 rounded-3 bg-light border border-warning" id="risk_panel_<?php echo $q['id']; ?>">
             <div class="d-flex align-items-center justify-content-between mb-3 border-bottom pb-2">
               <h6 class="fw-bold text-danger m-0 fs-7">
-                <i class="bi bi-clipboard2-pulse-fill"></i> Risk Değerlendirme & Alınacak Önlem Kartı
+                <i class="bi bi-clipboard2-pulse-fill"></i> İSG Uzmanı Risk Değerlendirme & Önlem Kartı
               </h6>
               <span class="badge bg-danger" id="risk_badge_<?php echo $q['id']; ?>">RİSK SKORU: 1 (Kabul Edilebilir)</span>
             </div>
 
             <!-- Mevcut Durum Açıklaması (Otomatik Tamamlamalı) -->
             <div class="mb-3">
-              <label class="form-label fw-bold fs-8 text-dark">Mevcut Durum / Tespit Edilen Eksiklik (Yazdıkça Önerilir)</label>
+              <label class="form-label fw-bold fs-8 text-dark">Mevcut Durum / Tespit Edilen Eksiklik</label>
               <input type="text" name="answers[<?php echo $q['id']; ?>][current_status]" list="statuses_list" class="form-control form-control-sm" placeholder="Örn: Lavabolar tavanda su akıntısı mevcut...">
             </div>
 
@@ -382,13 +358,13 @@ include __DIR__ . '/includes/header.php';
 
             <!-- Alınacak Önlemler (Otomatik Tamamlamalı) -->
             <div class="mb-3">
-              <label class="form-label fw-bold fs-8 text-dark"><i class="bi bi-lightbulb-fill text-warning"></i> Alınacak Önlemler / İyileştirmeler (Yazdıkça Kütüphaneden Önerilir)</label>
+              <label class="form-label fw-bold fs-8 text-dark"><i class="bi bi-lightbulb-fill text-warning"></i> Alınacak Önlemler / İyileştirmeler</label>
               <input type="text" name="answers[<?php echo $q['id']; ?>][action_plan]" list="recommendations_list" class="form-control form-control-sm" placeholder="Örn: Lavabo (WC) tavanlarında gerekli yalıtımın sağlanması...">
             </div>
 
             <div class="row g-2">
               <div class="col-12 col-md-6">
-                <label class="form-label fw-bold fs-8 text-muted">Sorumlu Birim / Kişi (Otomatik Tamamlamalı)</label>
+                <label class="form-label fw-bold fs-8 text-muted">Sorumlu Birim / Kişi</label>
                 <input type="text" name="answers[<?php echo $q['id']; ?>][responsible_person]" list="responsibles_list" class="form-control form-control-sm" placeholder="Örn: Tekn. Hiz. Yön.">
               </div>
               <div class="col-12 col-md-6">
@@ -448,7 +424,7 @@ document.addEventListener('DOMContentLoaded', function() {
       }
 
       calculateRiskScore(qId);
-      updateTotalScore();
+      updateRiskCounts();
     });
   });
 
@@ -457,6 +433,7 @@ document.addEventListener('DOMContentLoaded', function() {
     select.addEventListener('change', function() {
       const qId = this.dataset.qid;
       calculateRiskScore(qId);
+      updateRiskCounts();
     });
   });
 
@@ -486,23 +463,28 @@ document.addEventListener('DOMContentLoaded', function() {
 
     badge.className = 'badge ' + badgeBg;
     badge.textContent = `RİSK DERECE SKORU: ${score} (${category})`;
+    badge.dataset.score = score;
   }
 
-  function updateTotalScore() {
-    let total = 0;
-    const radios = document.querySelectorAll('.answer-radio:checked');
-    radios.forEach(r => {
-      if (r.value.includes('Evet') || r.value.includes('Muaf') || r.value.includes('Denetim Dışı')) total += 10;
-      else if (r.value.includes('Kısmen')) total += 5;
+  function updateRiskCounts() {
+    let acceptable = 0;
+    let warning = 0;
+    let unacceptable = 0;
+
+    document.querySelectorAll('.risk-matrix-panel:not(.d-none)').forEach(panel => {
+      const qId = panel.id.replace('risk_panel_', '');
+      const prob = parseInt(document.getElementById('prob_' + qId)?.value || '1');
+      const sev = parseInt(document.getElementById('sev_' + qId)?.value || '1');
+      const score = prob * sev;
+
+      if (score >= 16) unacceptable++;
+      else if (score >= 6) warning++;
+      else acceptable++;
     });
 
-    const totalQuestions = document.querySelectorAll('.question-card').length;
-    const maxScore = totalQuestions * 10;
-    const pct = maxScore > 0 ? Math.round((total / maxScore) * 100) : 0;
-
-    document.getElementById('liveTotalScore').textContent = total;
-    document.getElementById('livePercentage').textContent = '%' + pct;
-    document.getElementById('scoreProgressFill').style.width = pct + '%';
+    document.getElementById('cntAcceptable').textContent = acceptable + ' Kabul Edilebilir / Düşük';
+    document.getElementById('cntWarning').textContent = warning + ' Önemli / Dikkate Değer';
+    document.getElementById('cntUnacceptable').textContent = unacceptable + ' Kabul Edilemez';
   }
 
 });
