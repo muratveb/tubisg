@@ -1,7 +1,7 @@
 <?php
 /**
  * Tubİsg - Kurum Tanımları Yönetimi (institutions.php)
- * Ultra-Modern SaaS Dashboard UI (Grid Cards & Live Filter)
+ * Ultra-Modern SaaS Dashboard UI (Grid Cards & Direct Audit Filter Link)
  */
 require_once __DIR__ . '/includes/auth.php';
 require_permission('units_manage');
@@ -98,6 +98,21 @@ include __DIR__ . '/includes/header.php';
   font-size: 1.35rem;
   flex-shrink: 0;
   box-shadow: 0 4px 10px rgba(220, 38, 38, 0.15);
+  transition: transform 0.2s ease;
+}
+.inst-card:hover .inst-avatar {
+  transform: scale(1.08);
+}
+.hover-title-link:hover .hover-title {
+  color: #dc2626 !important;
+  text-decoration: underline;
+}
+.audit-pill-link {
+  transition: all 0.2s ease;
+}
+.audit-pill-link:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(2, 132, 199, 0.2);
 }
 .btn-soft-primary {
   background-color: #f0f9ff;
@@ -170,7 +185,7 @@ include __DIR__ . '/includes/header.php';
         </div>
         <div class="col-4">
           <div class="bg-white bg-opacity-10 p-3 rounded-3 text-center border border-white border-opacity-10">
-            <span class="d-block fs-8 text-white-50 font-weight-bold">AKTİF DUMUM</span>
+            <span class="d-block fs-8 text-white-50 font-weight-bold">AKTİF DURUM</span>
             <span class="fw-extrabold fs-4 text-success"><?php echo $activeCount; ?></span>
           </div>
         </div>
@@ -210,19 +225,19 @@ include __DIR__ . '/includes/header.php';
         <div class="inst-card p-4 h-100 d-flex flex-column justify-content-between">
           
           <div>
-            <!-- Üst Kurum Bilgisi & Rozetler -->
+            <!-- Üst Kurum Bilgisi & Rozetler (Tıklanabilir Link İle Raporlar Sayfasına Yönlendirir) -->
             <div class="d-flex align-items-start justify-content-between gap-2 mb-3">
-              <div class="d-flex align-items-center gap-3">
+              <a href="audits_list.php?institution_id=<?php echo $inst['id']; ?>" class="d-flex align-items-center gap-3 text-decoration-none hover-title-link" title="<?php echo htmlspecialchars($inst['institution_name']); ?> Denetim Raporlarını İncele">
                 <div class="inst-avatar">
                   <i class="bi bi-hospital"></i>
                 </div>
                 <div>
-                  <h6 class="fw-extrabold text-dark m-0 fs-6 leading-tight"><?php echo htmlspecialchars($inst['institution_name']); ?></h6>
+                  <h6 class="fw-extrabold text-dark m-0 fs-6 leading-tight hover-title"><?php echo htmlspecialchars($inst['institution_name']); ?></h6>
                   <span class="badge bg-light text-secondary border font-weight-bold px-2 py-0.5 fs-8 mt-1">
                     <?php echo htmlspecialchars($inst['code'] ?? 'KODSUZ'); ?>
                   </span>
                 </div>
-              </div>
+              </a>
 
               <?php if ($inst['is_active']): ?>
                 <span class="badge bg-success-subtle text-success font-weight-bold px-2.5 py-1 rounded-pill fs-8 flex-shrink-0">
@@ -241,11 +256,14 @@ include __DIR__ . '/includes/header.php';
             </p>
           </div>
 
-          <!-- Alt Metrik & Aksiyon Butonları -->
+          <!-- Alt Metrik (Kuruma Ait Denetim Raporlarına Bağlantı) & Aksiyon Butonları -->
           <div class="pt-3 border-top d-flex align-items-center justify-content-between gap-2 mt-2">
-            <span class="badge bg-info-subtle text-info-emphasis font-weight-bold px-3 py-1.5 rounded-pill fs-8">
-              <i class="bi bi-clipboard2-check-fill me-1"></i> <?php echo $inst['audit_count']; ?> Denetim
-            </span>
+            
+            <a href="audits_list.php?institution_id=<?php echo $inst['id']; ?>" 
+               class="badge bg-info-subtle text-info-emphasis font-weight-bold px-3 py-2 rounded-pill fs-8 text-decoration-none audit-pill-link" 
+               title="<?php echo htmlspecialchars($inst['institution_name']); ?> Saha Denetim Raporlarını Aç">
+              <i class="bi bi-clipboard2-check-fill me-1"></i> <?php echo $inst['audit_count']; ?> Denetim <i class="bi bi-arrow-right-short ms-0.5"></i>
+            </a>
 
             <div class="d-flex align-items-center gap-1.5">
               <button type="button" class="btn btn-sm btn-soft-primary px-3 py-1.5 rounded-3 fs-8" 
