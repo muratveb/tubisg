@@ -1,6 +1,7 @@
 <?php
 /**
- * Tubİsg - Birebir Resmi "Birim Bazlı Risk Analiz Formu" 12 Sütunlu Matris Editörü
+ * Tubİsg - 9 Adımlı Seçimli Risk Maddesi & Anket Profili Sihirbazı (survey_edit.php)
+ * Kağıt Form Belgenizdeki 12 Sütunlu Yapı İle Birebir Senkronize
  */
 require_once __DIR__ . '/includes/auth.php';
 require_permission('surveys_manage');
@@ -61,7 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    // 2. Mevcut Risk Satırlarını Güncelleme (12 Sütunlu Form Yapısı)
+    // 2. Mevcut Risk Satırlarını Güncelleme
     if (isset($_POST['questions']) && is_array($_POST['questions'])) {
         foreach ($_POST['questions'] as $qId => $qData) {
             $riskGroupId = (int)($qData['risk_group_id'] ?? 0);
@@ -106,7 +107,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    // 3. Yeni Risk Satırları Ekleme
+    // 3. 9 Adımlı Sihirbazdan Gelen Yeni Risk Satırları Ekleme
     if (isset($_POST['new_questions']) && is_array($_POST['new_questions'])) {
         foreach ($_POST['new_questions'] as $newQ) {
             $riskGroupId = (int)($newQ['risk_group_id'] ?? 0);
@@ -149,7 +150,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ]);
                 $qId = $db->lastInsertId();
 
-                // Standart Cevap Şıklarını Ekle
+                // Standart İSG Cevap Şıkları
                 $defaultOptions = [
                     ['text' => 'Evet (Uygun)', 'trigger' => 0],
                     ['text' => 'Hayır (Uygun Değil)', 'trigger' => 1],
@@ -164,8 +165,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    log_action('Birim Bazlı Risk Formu Güncellendi', "Anket Profili: {$template['title']} (ID: #{$template_id}) 12 sütunlu risk matrisi güncellendi.");
-    set_flash('success', 'Birim bazlı İSG risk analiz form matrisi başarıyla güncellendi.');
+    log_action('Birim Bazlı Risk Formu Güncellendi', "Anket Profili: {$template['title']} (ID: #{$template_id}) güncellendi.");
+    set_flash('success', 'Birim bazlı İSG risk analiz form maddeleri başarıyla kaydedildi.');
     header("Location: survey_edit.php?id=" . $template_id);
     exit;
 }
@@ -187,6 +188,11 @@ include __DIR__ . '/includes/header.php';
 
 <script>
 window.riskGroupsData = <?php echo json_encode($riskGroups); ?>;
+window.libSourcesData = <?php echo json_encode($libSources); ?>;
+window.libHazardsData = <?php echo json_encode($libHazards); ?>;
+window.libAffectedData = <?php echo json_encode($libAffected); ?>;
+window.libResponsiblesData = <?php echo json_encode($libResponsibles); ?>;
+window.libRecommendationsData = <?php echo json_encode($libRecommendations); ?>;
 </script>
 
 <!-- Autocomplete Datalist Öğeleri -->
@@ -227,17 +233,14 @@ window.riskGroupsData = <?php echo json_encode($riskGroups); ?>;
       <i class="bi bi-arrow-left"></i> Anket Profillerine Dön
     </a>
     <h3 class="fw-extrabold m-0"><?php echo htmlspecialchars($template['title']); ?></h3>
-    <p class="text-muted fs-7 m-0">Resmi 12 Sütunlu İSG Birim Bazlı Risk Analiz Formu & Şablon Düzenleyici</p>
+    <p class="text-muted fs-7 m-0">Kağıt Belgenizdeki 12 Sütunlu İSG Birim Bazlı Risk Analiz Form Şablonu</p>
   </div>
   <div class="d-flex flex-wrap gap-2">
-    <button type="button" class="btn btn-outline-warning text-dark font-weight-bold" data-bs-toggle="modal" data-bs-target="#selectRiskGroupModal">
-      <i class="bi bi-exclamation-triangle-fill me-1"></i> Pop-Up Risk Grubu Seç
-    </button>
     <button type="button" class="btn btn-outline-primary font-weight-bold" data-bs-toggle="modal" data-bs-target="#quickAddLibModal">
       <i class="bi bi-plus-circle-fill"></i> Kütüphaneye Öğe Ekle
     </button>
-    <button type="button" id="addQuestionBtn" class="btn btn-success font-weight-bold shadow-sm">
-      <i class="bi bi-plus-lg"></i> Yeni Risk Satırı Ekle
+    <button type="button" class="btn btn-success font-weight-bold shadow-lg" data-bs-toggle="modal" data-bs-target="#wizardAddRiskItemModal">
+      <i class="bi bi-magic me-1"></i> + Adım Adım Seçimli Risk Maddesi Ekle
     </button>
   </div>
 </div>
@@ -246,10 +249,10 @@ window.riskGroupsData = <?php echo json_encode($riskGroups); ?>;
 
   <div id="questionsContainer">
     <?php if (empty($questions)): ?>
-      <div class="alert alert-warning text-center py-5 shadow-sm">
-        <i class="bi bi-clipboard-x fs-1 d-block mb-2 text-warning"></i>
-        Bu anket profilinde henüz hiç risk satırı tanımlanmamış.<br>
-        Yukarıdaki <strong>"+ Yeni Risk Satırı Ekle"</strong> butonuna tıklayarak Kağıt Formdaki 12 sütunlu risk maddelerini tanımlayabilirsiniz.
+      <div class="alert alert-warning text-center py-5 shadow-sm rounded-4">
+        <i class="bi bi-magic fs-1 d-block mb-2 text-warning"></i>
+        Bu anket profilinde henüz hiç risk maddesi bulunmuyor.<br>
+        Yukarıdaki <strong>"+ Adım Adım Seçimli Risk Maddesi Ekle"</strong> butonuna tıklayarak rehberli sihirbaz ile kolayca ekleyebilirsiniz.
       </div>
     <?php else: ?>
       <?php $qNum = 1; foreach ($questions as $q): ?>
@@ -271,7 +274,7 @@ window.riskGroupsData = <?php echo json_encode($riskGroups); ?>;
             <div class="d-flex align-items-center gap-2">
               <span class="badge bg-warning text-dark rounded-circle" style="width:28px; height:28px; display:flex; align-items:center; justify-content:center;"><?php echo $qNum; ?></span>
               <h6 class="m-0 font-weight-bold text-white">Risk Satırı #<?php echo $qNum; ?></h6>
-              <span class="badge bg-secondary ms-2" id="rg_badge_<?php echo $q['id']; ?>"><?php echo htmlspecialchars($q['group_name'] ?? 'Genel Riskler'); ?></span>
+              <span class="badge bg-secondary ms-2"><?php echo htmlspecialchars($q['group_name'] ?? 'Genel Riskler'); ?></span>
             </div>
             <div class="d-flex align-items-center gap-2">
               <span class="badge <?php echo $badgeBg; ?>" id="risk_calc_badge_<?php echo $q['id']; ?>">R = <?php echo $r; ?> (<?php echo $statusText; ?>)</span>
@@ -287,7 +290,7 @@ window.riskGroupsData = <?php echo json_encode($riskGroups); ?>;
               <div class="col-12 col-md-4">
                 <label class="form-label fw-bold fs-8 text-dark"><i class="bi bi-diagram-3-fill text-warning me-1"></i> 1. Risk Grubu</label>
                 <select name="questions[<?php echo $q['id']; ?>][risk_group_id]" class="form-select form-select-sm fw-bold">
-                  <option value="0">-- Pop-up veya Listeden Seçin --</option>
+                  <option value="0">-- Risk Grubu Seçin --</option>
                   <?php foreach ($riskGroups as $rg): ?>
                     <option value="<?php echo $rg['id']; ?>" <?php echo $q['risk_group_id'] == $rg['id'] ? 'selected' : ''; ?>>
                       <?php echo htmlspecialchars($rg['group_name']); ?>
@@ -400,33 +403,184 @@ window.riskGroupsData = <?php echo json_encode($riskGroups); ?>;
 
 </form>
 
-<!-- POP-UP MODAL: Pop-Up Pencereden Risk Grubu Seçme -->
-<div class="modal fade" id="selectRiskGroupModal" tabindex="-1" aria-hidden="true">
+<!-- 9 ADIMLI İNTERAKTİF RİSK MADDESİ OLUŞTURMA SİHİRBAZI MODAL (WIZARD MODAL) -->
+<div class="modal fade" id="wizardAddRiskItemModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
   <div class="modal-dialog modal-dialog-centered modal-lg">
-    <div class="modal-content">
-      <div class="modal-header bg-dark text-white">
-        <h5 class="modal-title fw-bold text-white"><i class="bi bi-exclamation-triangle-fill text-warning me-2"></i> Pop-Up Risk Grubu Seçin</h5>
+    <div class="modal-content border-0 shadow-lg rounded-4">
+      
+      <div class="modal-header bg-dark text-white p-3 rounded-top-4">
+        <div class="d-flex align-items-center gap-2">
+          <i class="bi bi-magic text-warning fs-4"></i>
+          <div>
+            <h5 class="modal-title fw-extrabold text-white mb-0">Adım Adım Risk Maddesi Oluşturma Sihirbazı</h5>
+            <span class="fs-8 text-light opacity-75">Resmi Kağıt Belgenizdeki 12 Sütuna Göre Adım Adım Seçim Yapın</span>
+          </div>
+        </div>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
+
       <div class="modal-body p-4">
-        <p class="text-muted fs-7 mb-3">Aşağıdaki tanımlı İSG Risk Gruplarından birine tıklayarak yeni ekleyeceğiniz soru ve risk satırının grubunu hızlıca belirleyebilirsiniz:</p>
         
-        <div class="row g-3">
-          <?php foreach ($riskGroups as $rg): ?>
-            <div class="col-12 col-md-6">
-              <div class="card h-100 p-3 border hover-shadow border-warning cursor-pointer select-rg-modal-card" data-rgid="<?php echo $rg['id']; ?>" data-rgname="<?php echo htmlspecialchars($rg['group_name']); ?>">
-                <div class="d-flex align-items-center justify-content-between">
-                  <h6 class="fw-bold text-dark m-0"><i class="bi bi-shield-exclamation text-warning me-1"></i> <?php echo htmlspecialchars($rg['group_name']); ?></h6>
-                  <span class="badge bg-warning text-dark">Seç</span>
+        <!-- Üst Adım Barı (Stepper) -->
+        <div class="d-flex align-items-center justify-content-between mb-4 border-bottom pb-3">
+          <span class="badge bg-primary fs-7" id="itemWizardStepBadge">Adım 1 / 9: Risk Grubu</span>
+          <div class="progress w-50" style="height: 8px;">
+            <div class="progress-bar bg-success" id="itemWizardProgressBar" role="progressbar" style="width: 11%;"></div>
+          </div>
+        </div>
+
+        <!-- 9 ADIM PANEL İÇERİKLERİ -->
+        <div id="itemWizardStepsContainer">
+          
+          <!-- ADIM 1: RİSK GRUBU SEÇİMİ -->
+          <div class="item-wizard-step" id="itemStep1">
+            <h6 class="fw-bold text-dark mb-3"><i class="bi bi-diagram-3-fill text-warning me-1"></i> 1. Adım: Risk Grubu Seçin</h6>
+            <div class="row g-3">
+              <?php foreach ($riskGroups as $rg): ?>
+                <div class="col-12 col-md-6">
+                  <div class="card p-3 border hover-shadow cursor-pointer wiz-chip-card wiz-rg-card" data-rgid="<?php echo $rg['id']; ?>" data-rgname="<?php echo htmlspecialchars($rg['group_name']); ?>">
+                    <div class="d-flex align-items-center justify-content-between">
+                      <span class="fw-bold text-dark"><i class="bi bi-shield-exclamation text-warning me-1"></i> <?php echo htmlspecialchars($rg['group_name']); ?></span>
+                      <i class="bi bi-chevron-right text-muted"></i>
+                    </div>
+                  </div>
                 </div>
-                <?php if ($rg['description']): ?>
-                  <p class="text-muted fs-8 m-0 mt-1"><?php echo htmlspecialchars($rg['description']); ?></p>
-                <?php endif; ?>
+              <?php endforeach; ?>
+            </div>
+            <input type="hidden" id="wiz_risk_group_id" value="0">
+            <input type="hidden" id="wiz_risk_group_name" value="">
+          </div>
+
+          <!-- ADIM 2: TEHLİKE KAYNAĞI SEÇİMİ -->
+          <div class="item-wizard-step d-none" id="itemStep2">
+            <h6 class="fw-bold text-dark mb-2"><i class="bi bi-box-seam text-primary me-1"></i> 2. Adım: Tehlike Kaynağı Seçin veya Yazın</h6>
+            <p class="text-muted fs-8 mb-3">Kütüphanedeki hazır tanımlara tıklayabilir veya kendi ifadenizi yazabilirsiniz:</p>
+            <div class="d-flex flex-wrap gap-2 mb-3">
+              <?php foreach ($libSources as $src): ?>
+                <button type="button" class="btn btn-sm btn-outline-secondary wiz-chip-btn" onclick="setWizInput('wiz_hazard_source', '<?php echo addslashes(htmlspecialchars($src)); ?>', this)"><?php echo htmlspecialchars($src); ?></button>
+              <?php endforeach; ?>
+            </div>
+            <input type="text" id="wiz_hazard_source" class="form-control" placeholder="Örn: Lavabo, Wc tavanı veya Ekranlı Araçlar">
+          </div>
+
+          <!-- ADIM 3: TEHLİKE SEÇİMİ -->
+          <div class="item-wizard-step d-none" id="itemStep3">
+            <h6 class="fw-bold text-dark mb-2"><i class="bi bi-exclamation-triangle text-danger me-1"></i> 3. Adım: Tehlike Seçin veya Yazın</h6>
+            <p class="text-muted fs-8 mb-3">Kütüphanedeki hazır tehlikelere tıklayabilir veya yazabilirsiniz:</p>
+            <div class="d-flex flex-wrap gap-2 mb-3">
+              <?php foreach ($libHazards as $hz): ?>
+                <button type="button" class="btn btn-sm btn-outline-secondary wiz-chip-btn" onclick="setWizInput('wiz_hazard_name', '<?php echo addslashes(htmlspecialchars($hz)); ?>', this)"><?php echo htmlspecialchars($hz); ?></button>
+              <?php endforeach; ?>
+            </div>
+            <input type="text" id="wiz_hazard_name" class="form-control" placeholder="Örn: Enfeksiyon veya Uzun süre sabit oturma">
+          </div>
+
+          <!-- ADIM 4: ETKİLENME (YAŞANABİLECEK RİSKLER) -->
+          <div class="item-wizard-step d-none" id="itemStep4">
+            <h6 class="fw-bold text-dark mb-2"><i class="bi bi-activity text-warning me-1"></i> 4. Adım: Etkilenme (Yaşanabilecek Riskler)</h6>
+            <p class="text-muted fs-8 mb-3">Bu tehlike sonucunda ne tür sağlık/güvenlik riski yaşanabilir?</p>
+            <input type="text" id="wiz_affected_risk" class="form-control mb-3" placeholder="Örn: Pis su bulaşma, enfeksiyon maruziyeti veya Kas-iskelet hast.">
+          </div>
+
+          <!-- ADIM 5: ETKİLENENLER SEÇİMİ -->
+          <div class="item-wizard-step d-none" id="itemStep5">
+            <h6 class="fw-bold text-dark mb-2"><i class="bi bi-people text-info me-1"></i> 5. Adım: Etkilenen Grupları Seçin veya Yazın</h6>
+            <div class="d-flex flex-wrap gap-2 mb-3">
+              <?php foreach ($libAffected as $aff): ?>
+                <button type="button" class="btn btn-sm btn-outline-secondary wiz-chip-btn" onclick="setWizInput('wiz_affected_people', '<?php echo addslashes(htmlspecialchars($aff)); ?>', this)"><?php echo htmlspecialchars($aff); ?></button>
+              <?php endforeach; ?>
+            </div>
+            <input type="text" id="wiz_affected_people" class="form-control" placeholder="Örn: Çalışanlar(Doktor, Hemşire, Sağ. Tek. vd.) Hasta ve hasta yakını">
+          </div>
+
+          <!-- ADIM 6: MEVCUT DURUM VE KONTROL SORUSU -->
+          <div class="item-wizard-step d-none" id="itemStep6">
+            <h6 class="fw-bold text-dark mb-2"><i class="bi bi-journal-text text-secondary me-1"></i> 6. Adım: Mevcut Durum & Denetim Sorusu Metni</h6>
+            <div class="mb-3">
+              <label class="form-label fw-bold fs-8">Mevcut Durum / Saha Tespiti</label>
+              <input type="text" id="wiz_current_status" class="form-control" placeholder="Örn: Lavabolar tavanda su akıntısı mevcut">
+            </div>
+            <div>
+              <label class="form-label fw-bold fs-8">Saha Denetim Sorusu Metni</label>
+              <input type="text" id="wiz_question_text" class="form-control" placeholder="Örn: WC tavanında su sızıntısı var mı?">
+            </div>
+          </div>
+
+          <!-- ADIM 7: OLASILIK & ŞİDDET RİSK SKORU -->
+          <div class="item-wizard-step d-none" id="itemStep7">
+            <h6 class="fw-bold text-dark mb-2"><i class="bi bi-bar-chart-fill text-success me-1"></i> 7. Adım: Olasılık ($O$) & Şiddet ($Ş$) Derecelendirmesi</h6>
+            <div class="row g-3 mb-3">
+              <div class="col-12 col-md-6">
+                <label class="form-label fw-bold fs-8">Olasılık ($O: 1-5$)</label>
+                <select id="wiz_probability" class="form-select onchange-wiz-calc">
+                  <option value="1">1 - Çok Küçük (Çok nadir)</option>
+                  <option value="2" selected>2 - Küçük (Nadir)</option>
+                  <option value="3">3 - Orta (Olabilir)</option>
+                  <option value="4">4 - Yüksek (Sık sık)</option>
+                  <option value="5">5 - Çok Yüksek (Her an)</option>
+                </select>
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="form-label fw-bold fs-8">Şiddet ($Ş: 1-5$)</label>
+                <select id="wiz_severity" class="form-select onchange-wiz-calc">
+                  <option value="1">1 - Çok Hafif (İlk yardım gerektirmez)</option>
+                  <option value="2">2 - Hafif (İlk yardım gerekir)</option>
+                  <option value="3" selected>3 - Ciddi (Hastane tedavisi gerekir)</option>
+                  <option value="4">4 - Çok Ciddi (Ağır yaralanma / kalıcı hasar)</option>
+                  <option value="5">5 - Felaket (Ölümcül / Çoklu kayıp)</option>
+                </select>
               </div>
             </div>
-          <?php endforeach; ?>
+            <div class="p-3 bg-light rounded-3 text-center border">
+              <div class="text-muted fs-8 fw-bold">Hesaplanan Risk Derecesi ($R = O \times Ş$)</div>
+              <div class="fs-3 fw-extrabold text-primary" id="wiz_risk_result">R = 6 (Önemli Risk)</div>
+            </div>
+          </div>
+
+          <!-- ADIM 8: ALINACAK ÖNLEMLER -->
+          <div class="item-wizard-step d-none" id="itemStep8">
+            <h6 class="fw-bold text-dark mb-2"><i class="bi bi-lightbulb-fill text-warning me-1"></i> 8. Adım: Alınacak Önlemler / İyileştirmeler</h6>
+            <div class="d-flex flex-wrap gap-2 mb-3">
+              <?php foreach ($libRecommendations as $rec): ?>
+                <button type="button" class="btn btn-sm btn-outline-secondary wiz-chip-btn" onclick="setWizInput('wiz_action_plan', '<?php echo addslashes(htmlspecialchars($rec)); ?>', this)"><?php echo htmlspecialchars($rec); ?></button>
+              <?php endforeach; ?>
+            </div>
+            <input type="text" id="wiz_action_plan" class="form-control" placeholder="Örn: Lavabo (WC) tavanlarında gerekli yalıtımın sağlanması">
+          </div>
+
+          <!-- ADIM 9: SORUMLU VE SÜRE -->
+          <div class="item-wizard-step d-none" id="itemStep9">
+            <h6 class="fw-bold text-dark mb-2"><i class="bi bi-person-gear text-primary me-1"></i> 9. Adım: Sorumlu Birim & Süre/Termin</h6>
+            <div class="mb-3">
+              <label class="form-label fw-bold fs-8">Sorumlu Birim</label>
+              <div class="d-flex flex-wrap gap-2 mb-2">
+                <?php foreach ($libResponsibles as $resp): ?>
+                  <button type="button" class="btn btn-sm btn-outline-secondary wiz-chip-btn" onclick="setWizInput('wiz_responsible', '<?php echo addslashes(htmlspecialchars($resp)); ?>', this)"><?php echo htmlspecialchars($resp); ?></button>
+                <?php endforeach; ?>
+              </div>
+              <input type="text" id="wiz_responsible" class="form-control" placeholder="Örn: Tekn. Hiz. Yön.">
+            </div>
+            <div>
+              <label class="form-label fw-bold fs-8">Termin / Süre</label>
+              <input type="text" id="wiz_deadline" class="form-control" placeholder="Örn: 6 Ay, Sürekli">
+            </div>
+          </div>
+
         </div>
+
       </div>
+
+      <!-- Alt Buton Barı -->
+      <div class="modal-footer d-flex align-items-center justify-content-between p-3 bg-light rounded-bottom-4">
+        <button type="button" class="btn btn-outline-secondary font-weight-bold d-none" id="wizPrevBtn">
+          <i class="bi bi-arrow-left"></i> Önceki Adım
+        </button>
+        <div></div>
+        <button type="button" class="btn btn-success font-weight-bold px-4" id="wizNextBtn">
+          Sonraki Adım <i class="bi bi-arrow-right"></i>
+        </button>
+      </div>
+
     </div>
   </div>
 </div>
@@ -467,6 +621,15 @@ window.riskGroupsData = <?php echo json_encode($riskGroups); ?>;
 </div>
 
 <script>
+function setWizInput(inputId, val, btnEl) {
+  document.getElementById(inputId).value = val;
+  if (btnEl) {
+    const parent = btnEl.parentElement;
+    parent.querySelectorAll('.wiz-chip-btn').forEach(b => b.classList.remove('btn-success', 'text-white'));
+    btnEl.classList.add('btn-success', 'text-white');
+  }
+}
+
 document.addEventListener('DOMContentLoaded', function() {
   
   // Risk Matris Editöründe Canlı $O \times Ş$ Hesaplama
@@ -493,31 +656,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
         badgeSpan.className = 'badge ' + badgeBg;
         badgeSpan.textContent = `R = ${r} (${category})`;
-      }
-    });
-  });
-
-  // Pop-Up Modal Risk Grubu Seçimi
-  window.selectedModalRiskGroupId = 0;
-  window.selectedModalRiskGroupName = '';
-
-  document.querySelectorAll('.select-rg-modal-card').forEach(card => {
-    card.addEventListener('click', function() {
-      window.selectedModalRiskGroupId = this.dataset.rgid;
-      window.selectedModalRiskGroupName = this.dataset.rgname;
-
-      const modalEl = document.getElementById('selectRiskGroupModal');
-      const bsModal = bootstrap.Modal.getInstance(modalEl);
-      if (bsModal) bsModal.hide();
-
-      if (window.Swal) {
-        Swal.fire({
-          icon: 'success',
-          title: 'Risk Grubu Seçildi',
-          text: `"${window.selectedModalRiskGroupName}" grubu seçildi. Yeni ekleyeceğiniz sorular bu gruba atanacaktır.`,
-          timer: 2000,
-          showConfirmButton: false
-        });
       }
     });
   });
