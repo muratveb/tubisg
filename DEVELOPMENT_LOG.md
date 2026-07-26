@@ -6,17 +6,17 @@ Tüm geliştirmeler, eklenen/güncellenen dosyalar mevcuttur.
 
 ## 📌 Mevcut Durum Özeti (Current Status)
 - **Tarih**: 26 Temmuz 2026
-- **Aşama**: Saha Denetim Kaydında `option_id` Veritabanı Kısıt Hatasının (Integrity Constraint Violation) Çözülmesi Tamamlandı.
-- **Aktif Sürüm**: v4.0.0
+- **Aşama**: Sıralı Adım Adım İlerleyen Soru Akışı (`audit_fill.php`), "Sonraki Soru" Butonu ve Görsel Hata Düzeltmeleri Tamamlandı.
+- **Aktif Sürüm**: v4.1.0
 
 ---
 
 ## 📅 Geliştirme Adımları
 
-### 🟢 Adım 1: SQL Hata Çözümü & Veritabanı Güncellemesi (`audit_fill.php`)
-- [x] Ekran görüntüsündeki `1048 Column 'option_id' cannot be null` hatası çözüldü.
-- [x] Veritabanında `audit_answers.option_id` sütunu `NULLABLE` hale getirildi ve PHP tarafında seçilen şık otomatik olarak eşleştirildi.
-- [x] Saha denetimi tamamlandığında `audit_detail.php` sayfasına kesintisiz ve hatasız yönlendirme sağlandı.
+### 🟢 Adım 1: Sıralı (Sequential) Soru Sihirbazı (`audit_fill.php`)
+- [x] Saha denetiminde ilk soru aktif olarak gelir, sorular yanıtlandıkça ve **"Sonraki Soru ▶"** butonuna basıldıkça önceki sorular üstte yanıtlanmış olarak kalır ve yeni soru bir alta açılır.
+- [x] Her gruptaki tüm sorular tamamlandığında **"Sonraki Risk Grubuna Geç ▶"** butonu ile otomatik olarak bir sonraki adım sekmesine geçiş sağlanır.
+- [x] Sayfa başlığındaki `full_name` PHP uyarısı ve deprecation hatası giderildi.
 
 ### 🟢 Adım 2: Loglama ve Otomatik Push
 - [x] `system_logs` kaydı ve git sync adımları tamamlandı.

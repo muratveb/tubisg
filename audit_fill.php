@@ -1,7 +1,7 @@
 <?php
 /**
  * Tubİsg - Saha Risk Denetimi Doldurma Ekranı (audit_fill.php)
- * 12 Sütunlu İSG Risk Analiz Belgenize Göre Risk Skoru ($R = O \times Ş$) & İyileştirme Kartlı Yapı
+ * 12 Sütunlu İSG Risk Analiz Belgenize Göre Adım Adım İlerleyen (Sequential) Soru Akışı
  */
 require_once __DIR__ . '/includes/auth.php';
 require_permission('audit_conduct');
@@ -97,7 +97,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $selectedOptText = trim($qInput['answer_option'] ?? '');
         $selectedOptId = (int)($qInput['option_id'] ?? 0);
 
-        // Eğer option_id gelmediyse şık metninden eşleştir
         if ($selectedOptId <= 0 && !empty($selectedOptText) && isset($questionOptions[$qId])) {
             foreach ($questionOptions[$qId] as $opt) {
                 if ($opt['option_text'] === $selectedOptText) {
@@ -177,7 +176,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $stmtAudit->execute([$template_id, $unit_id, $user['id'], $maxRiskScoreRecorded, (float)$maxRiskScoreRecorded, $notes]);
     $auditId = $db->lastInsertId();
 
-    // Risk Cevaplarını Kaydet (option_id Güvenli Kullanım)
+    // Risk Cevaplarını Kaydet
     $stmtAns = $db->prepare("
         INSERT INTO audit_answers 
         (audit_id, question_id, option_id, answer_option, points_awarded, current_status, probability, severity, risk_score, action_plan, responsible_person, deadline) 
@@ -206,6 +205,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     exit;
 }
 
+$userNameDisplay = $user['full_name'] ?? $user['name'] ?? $user['username'] ?? 'İSG Uzmanı';
 $pageTitle = 'Saha Risk Denetimi Sihirbazı: ' . $unit['unit_name'];
 include __DIR__ . '/includes/header.php';
 ?>
@@ -235,7 +235,7 @@ include __DIR__ . '/includes/header.php';
     </div>
     <div class="text-md-end">
       <span class="badge bg-light text-dark border p-2 px-3 rounded-pill fs-8">
-        <i class="bi bi-person-fill text-success"></i> İSG Uzmanı: <strong><?php echo htmlspecialchars($user['full_name']); ?></strong>
+        <i class="bi bi-person-fill text-success"></i> İSG Uzmanı: <strong><?php echo htmlspecialchars($userNameDisplay); ?></strong>
       </span>
     </div>
   </div>
@@ -269,24 +269,36 @@ include __DIR__ . '/includes/header.php';
     <?php if (empty($groupedQuestions)): ?>
       <div class="alert alert-warning">Bu anket profilinde henüz tanımlanmış soru veya risk maddesi bulunmuyor.</div>
     <?php else: ?>
-      <?php $stepIdx = 1; $qGlobalIndex = 1; foreach ($groupedQuestions as $groupName => $gQuestions): ?>
+      <?php 
+      $totalGroupsCount = count($groupedQuestions);
+      $stepIdx = 1; 
+      $qGlobalIndex = 1; 
+      foreach ($groupedQuestions as $groupName => $gQuestions): 
+        $groupQuestionsCount = count($gQuestions);
+      ?>
         
-        <div class="tab-pane fade <?php echo $stepIdx === 1 ? 'show active' : ''; ?>" id="wizard-step-<?php echo $stepIdx; ?>" role="tabpanel">
+        <div class="tab-pane fade <?php echo $stepIdx === 1 ? 'show active' : ''; ?>" id="wizard-step-<?php echo $stepIdx; ?>" role="tabpanel" data-group-index="<?php echo $stepIdx; ?>" data-total-questions="<?php echo $groupQuestionsCount; ?>">
           
           <!-- Risk Grubu Başlık Kartı -->
           <div class="card border-0 bg-dark text-white rounded-3 p-3 mb-3 shadow-sm">
             <div class="d-flex align-items-center justify-content-between">
               <h5 class="fw-bold m-0 text-white"><i class="bi bi-shield-exclamation text-warning me-2"></i> <?php echo htmlspecialchars($groupName); ?></h5>
-              <span class="badge bg-secondary rounded-pill">Adım <?php echo $stepIdx; ?> / <?php echo count($groupedQuestions); ?></span>
+              <span class="badge bg-secondary rounded-pill">Grup <?php echo $stepIdx; ?> / <?php echo $totalGroupsCount; ?> (<?php echo $groupQuestionsCount; ?> Soru)</span>
             </div>
           </div>
 
-          <?php foreach ($gQuestions as $q): ?>
+          <?php $groupQIndex = 1; foreach ($gQuestions as $q): ?>
             <?php
             $defP = (int)($q['default_probability'] ?? 2);
             $defS = (int)($q['default_severity'] ?? 3);
+            $isFirstQuestionInGroup = ($groupQIndex === 1);
             ?>
-            <div class="custom-card question-card mb-4 border-2" id="q_card_<?php echo $q['id']; ?>">
+            <!-- Soru Kartı (İlk soru görünür, sonrakiler 'Sonraki Soru' tıklandıkça sıralı açılır) -->
+            <div class="custom-card question-card mb-4 border-2 step-question-card <?php echo $isFirstQuestionInGroup ? '' : 'd-none'; ?>" 
+                 id="q_card_<?php echo $q['id']; ?>" 
+                 data-group-step="<?php echo $stepIdx; ?>" 
+                 data-q-seq="<?php echo $groupQIndex; ?>" 
+                 data-q-total="<?php echo $groupQuestionsCount; ?>">
               
               <input type="hidden" name="answers[<?php echo $q['id']; ?>][option_id]" id="opt_id_input_<?php echo $q['id']; ?>" value="0">
 
@@ -303,9 +315,12 @@ include __DIR__ . '/includes/header.php';
                     </div>
                   </div>
                 </div>
-                <?php if ($q['affected_people']): ?>
-                  <span class="badge bg-light text-secondary border fs-8 text-nowrap"><i class="bi bi-people"></i> <?php echo htmlspecialchars($q['affected_people']); ?></span>
-                <?php endif; ?>
+                <div class="d-flex align-items-center gap-2">
+                  <span class="badge bg-success d-none answered-badge" id="answered_badge_<?php echo $q['id']; ?>"><i class="bi bi-check-lg me-1"></i> Yanıtlandı</span>
+                  <?php if ($q['affected_people']): ?>
+                    <span class="badge bg-light text-secondary border fs-8 text-nowrap"><i class="bi bi-people"></i> <?php echo htmlspecialchars($q['affected_people']); ?></span>
+                  <?php endif; ?>
+                </div>
               </div>
 
               <!-- Cevap Seçenek Butonları -->
@@ -329,7 +344,7 @@ include __DIR__ . '/includes/header.php';
               </div>
 
               <!-- Riskli / Kısmen Veya Tetikleyici Aktif Olduğunda Açılan 5x5 Risk Matrisi & Önlem Kartı -->
-              <div class="risk-matrix-panel d-none p-3 rounded-3 bg-light border border-warning" id="risk_panel_<?php echo $q['id']; ?>">
+              <div class="risk-matrix-panel d-none p-3 rounded-3 bg-light border border-warning mb-3" id="risk_panel_<?php echo $q['id']; ?>">
                 <div class="d-flex align-items-center justify-content-between mb-3 border-bottom pb-2">
                   <h6 class="fw-bold text-danger m-0 fs-7">
                     <i class="bi bi-clipboard2-pulse-fill"></i> İSG Uzmanı Risk Değerlendirme & Önlem Kartı
@@ -385,8 +400,26 @@ include __DIR__ . '/includes/header.php';
 
               </div>
 
+              <!-- SONRAKİ SORU / İLERLEME BUTONU -->
+              <div class="d-flex align-items-center justify-content-between pt-2 border-top">
+                <span class="text-muted fs-8 font-weight-bold">Soru <?php echo $groupQIndex; ?> / <?php echo $groupQuestionsCount; ?></span>
+                <?php if ($groupQIndex < $groupQuestionsCount): ?>
+                  <button type="button" class="btn btn-sm btn-success font-weight-bold px-3 next-q-btn" data-group-step="<?php echo $stepIdx; ?>" data-next-seq="<?php echo $groupQIndex + 1; ?>">
+                    Sonraki Soru <i class="bi bi-arrow-down-circle-fill me-1"></i>
+                  </button>
+                <?php else: ?>
+                  <?php if ($stepIdx < $totalGroupsCount): ?>
+                    <button type="button" class="btn btn-sm btn-primary font-weight-bold px-3 next-group-btn" data-next-step="<?php echo $stepIdx + 1; ?>">
+                      Sonraki Risk Grubuna Geç (Adım <?php echo $stepIdx + 1; ?>) <i class="bi bi-arrow-right-circle-fill me-1"></i>
+                    </button>
+                  <?php else: ?>
+                    <span class="badge bg-success p-2 px-3 fs-8"><i class="bi bi-check-all"></i> Tüm Sorular Tamamlandı</span>
+                  <?php endif; ?>
+                <?php endif; ?>
+              </div>
+
             </div>
-          <?php $qGlobalIndex++; endforeach; ?>
+          <?php $groupQIndex++; $qGlobalIndex++; endforeach; ?>
 
         </div>
       <?php $stepIdx++; endforeach; ?>
@@ -425,6 +458,10 @@ document.addEventListener('DOMContentLoaded', function() {
       const optIdInput = document.getElementById('opt_id_input_' + qId);
       if (optIdInput) optIdInput.value = optId;
 
+      // Yanıtlandı rozetini aç
+      const answeredBadge = document.getElementById('answered_badge_' + qId);
+      if (answeredBadge) answeredBadge.classList.remove('d-none');
+
       // Label aktiflik sınıflarını temizle
       const qCard = document.getElementById('q_card_' + qId);
       const labels = qCard.querySelectorAll('.answer-btn-label');
@@ -457,7 +494,37 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   });
 
-  // 2. Canlı Risk Skoru Hesaplama ($R = O \times Ş$)
+  // 2. Sıralı Soru Akışı (Sonraki Soru Butonu Tıklandığında Bir Alt Soruyu Aç)
+  const nextQBtns = document.querySelectorAll('.next-q-btn');
+  nextQBtns.forEach(btn => {
+    btn.addEventListener('click', function() {
+      const groupStep = this.dataset.groupStep;
+      const nextSeq = this.dataset.nextSeq;
+
+      // Sıradaki soru kartını bul ve d-none sınıfını kaldır
+      const nextQCard = document.querySelector(`.step-question-card[data-group-step="${groupStep}"][data-q-seq="${nextSeq}"]`);
+      if (nextQCard) {
+        nextQCard.classList.remove('d-none');
+        nextQCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    });
+  });
+
+  // 3. Sonraki Risk Grubuna Geçiş Butonu
+  const nextGroupBtns = document.querySelectorAll('.next-group-btn');
+  nextGroupBtns.forEach(btn => {
+    btn.addEventListener('click', function() {
+      const nextStep = this.dataset.nextStep;
+      const targetTabBtn = document.getElementById('wizard-tab-' + nextStep);
+      if (targetTabBtn) {
+        const bsTab = new bootstrap.Tab(targetTabBtn);
+        bsTab.show();
+        window.scrollTo({ top: 150, behavior: 'smooth' });
+      }
+    });
+  });
+
+  // 4. Canlı Risk Skoru Hesaplama ($R = O \times Ş$)
   const calcSelects = document.querySelectorAll('.risk-calc-select');
   calcSelects.forEach(select => {
     select.addEventListener('change', function() {
@@ -480,7 +547,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   });
 
-  // 3. Tab Değişiminde Adım Rozetini Güncelleme
+  // 5. Tab Değişiminde Adım Rozetini Güncelleme
   const pillBtns = document.querySelectorAll('#wizardPillsTab button');
   pillBtns.forEach(btn => {
     btn.addEventListener('shown.bs.tab', function(e) {
