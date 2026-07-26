@@ -1,6 +1,7 @@
 <?php
 /**
- * Tubİsg - Saha Risk Denetimi & Adım Adım Matris Doldurma Ekranı (Step-by-Step Wizard & 12 Sütunlu Matris Entegreli)
+ * Tubİsg - Saha Risk Denetimi Doldurma Ekranı (audit_fill.php)
+ * 12 Sütunlu İSG Risk Analiz Belgenize Göre Risk Skoru ($R = O \times Ş$) & İyileştirme Kartlı Yapı
  */
 require_once __DIR__ . '/includes/auth.php';
 require_permission('audit_conduct');
@@ -12,13 +13,13 @@ $template_id = (int)($_GET['template_id'] ?? 0);
 $unit_id = (int)($_GET['unit_id'] ?? 0);
 
 if ($template_id <= 0 || $unit_id <= 0) {
-    set_flash('warning', 'Lütfen denetim başlatmak için anket profili ve birim seçin.');
+    set_flash('danger', 'Geçersiz denetim parametreleri.');
     header("Location: audit_new.php");
     exit;
 }
 
-// Anket ve Birim Detaylarını Çek
-$stmtTpl = $db->prepare("SELECT * FROM survey_templates WHERE id = ?");
+// Şablon ve Birim Bilgilerini Çek
+$stmtTpl = $db->prepare("SELECT * FROM survey_templates WHERE id = ? AND is_active = 1");
 $stmtTpl->execute([$template_id]);
 $template = $stmtTpl->fetch();
 
@@ -27,70 +28,63 @@ $stmtUnit->execute([$unit_id]);
 $unit = $stmtUnit->fetch();
 
 if (!$template || !$unit) {
-    set_flash('danger', 'Geçersiz anket veya birim seçimi.');
+    set_flash('danger', 'Seçilen anket profili veya birim aktif değil.');
     header("Location: audit_new.php");
     exit;
 }
 
-// Genel Tanımlı Cevap Seçeneklerini Çek
-$globalOptions = $db->query("SELECT * FROM global_options WHERE is_active = 1 ORDER BY sort_order ASC, id ASC")->fetchAll();
-
-// Soruları ve Risk Gruplarını Çek (12 Sütunlu Mimaride)
+// Risk Grupları Sırasıyla Soruları Çek
 $questionsStmt = $db->prepare("
-    SELECT sq.*, rg.group_name 
-    FROM survey_questions sq 
-    LEFT JOIN risk_groups rg ON sq.risk_group_id = rg.id 
+    SELECT sq.*, rg.group_name, COALESCE(rg.sort_order, 99) as group_sort
+    FROM survey_questions sq
+    LEFT JOIN risk_groups rg ON sq.risk_group_id = rg.id
     WHERE sq.template_id = ? 
-    ORDER BY COALESCE(rg.sort_order, 99) ASC, sq.sort_order ASC, sq.id ASC
+    ORDER BY group_sort ASC, sq.sort_order ASC, sq.id ASC
 ");
 $questionsStmt->execute([$template_id]);
 $questions = $questionsStmt->fetchAll();
 
-foreach ($questions as &$q) {
-    $optStmt = $db->prepare("SELECT * FROM question_options WHERE question_id = ? ORDER BY sort_order ASC, id ASC");
-    $optStmt->execute([$q['id']]);
-    $qOptions = $optStmt->fetchAll();
-    
-    if (!empty($qOptions)) {
-        $q['options'] = $qOptions;
-    } else {
-        $q['options'] = $globalOptions;
+// Her Soru İçin Cevap Şıklarını Çek
+$questionIds = array_column($questions, 'id');
+$questionOptions = [];
+
+if (!empty($questionIds)) {
+    $inClause = implode(',', array_fill(0, count($questionIds), '?'));
+    $optionsStmt = $db->prepare("SELECT * FROM question_options WHERE question_id IN ($inClause) ORDER BY id ASC");
+    $optionsStmt->execute($questionIds);
+    $allOptions = $optionsStmt->fetchAll();
+
+    foreach ($allOptions as $opt) {
+        $questionOptions[$opt['question_id']][] = $opt;
     }
 }
-unset($q);
+
+// Varsayılan Standart Şıklar (Eğer özel şık tanımlı değilse)
+$defaultStandardOptions = [
+    ['id' => 0, 'option_text' => 'Evet (Uygun)', 'points' => 0, 'trigger_action' => 0],
+    ['id' => 0, 'option_text' => 'Hayır (Uygun Değil)', 'points' => 0, 'trigger_action' => 1],
+    ['id' => 0, 'option_text' => 'Kısmen (Kısmen Uygun)', 'points' => 0, 'trigger_action' => 1],
+    ['id' => 0, 'option_text' => 'Denetim Dışı / Muaf', 'points' => 0, 'trigger_action' => 0]
+];
 
 // Soruları Risk Gruplarına Göre Grupla
 $groupedQuestions = [];
 foreach ($questions as $q) {
-    $groupName = !empty($q['group_name']) ? $q['group_name'] : 'Genel İSG Riskleri';
-    $groupedQuestions[$groupName][] = $q;
+    $gName = $q['group_name'] ? $q['group_name'] : 'Genel Saha & Risk Tespiti';
+    $q['options'] = !empty($questionOptions[$q['id']]) ? $questionOptions[$q['id']] : $defaultStandardOptions;
+    $groupedQuestions[$gName][] = $q;
 }
 
-// Autocomplete Verilerini Çek
-$libRecommendations = $db->query("
-    SELECT item_text FROM risk_libraries WHERE category = 'action_recommendation'
-    UNION
-    SELECT DISTINCT action_plan AS item_text FROM audit_answers WHERE action_plan IS NOT NULL AND action_plan != ''
-    ORDER BY item_text ASC
-")->fetchAll(PDO::FETCH_COLUMN);
+// Kütüphane Verileri (Otomatik Tamamlama İçin)
+$libResponsibles = $db->query("SELECT item_text FROM risk_libraries WHERE category = 'responsible_person' ORDER BY item_text ASC")->fetchAll(PDO::FETCH_COLUMN);
+$libRecommendations = $db->query("SELECT item_text FROM risk_libraries WHERE category = 'action_recommendation' ORDER BY item_text ASC")->fetchAll(PDO::FETCH_COLUMN);
 
-$libResponsibles = $db->query("
-    SELECT item_text FROM risk_libraries WHERE category = 'responsible_person'
-    UNION
-    SELECT DISTINCT responsible_person AS item_text FROM audit_answers WHERE responsible_person IS NOT NULL AND responsible_person != ''
-    ORDER BY item_text ASC
-")->fetchAll(PDO::FETCH_COLUMN);
-
-$libStatuses = $db->query("
-    SELECT DISTINCT current_status AS item_text FROM audit_answers WHERE current_status IS NOT NULL AND current_status != ''
-    ORDER BY item_text ASC
-")->fetchAll(PDO::FETCH_COLUMN);
-
-// Denetim Formu Kaydedildiğinde
+// Form Post Edildiğinde (Denetim Tamamlama)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $answersInput = $_POST['answers'] ?? [];
     $notes = trim($_POST['notes'] ?? '');
-
+    
+    $totalQuestions = count($questions);
     $answeredCount = 0;
     $maxRiskScoreRecorded = 0;
 
@@ -102,6 +96,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         $selectedOptText = trim($qInput['answer_option'] ?? '');
         $selectedOptId = (int)($qInput['option_id'] ?? 0);
+
+        // Eğer option_id gelmediyse şık metninden eşleştir
+        if ($selectedOptId <= 0 && !empty($selectedOptText) && isset($questionOptions[$qId])) {
+            foreach ($questionOptions[$qId] as $opt) {
+                if ($opt['option_text'] === $selectedOptText) {
+                    $selectedOptId = (int)$opt['id'];
+                    break;
+                }
+            }
+        }
         
         $currentStatus = trim($qInput['current_status'] ?? '');
         if (empty($currentStatus) && !empty($q['current_status'])) {
@@ -173,7 +177,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $stmtAudit->execute([$template_id, $unit_id, $user['id'], $maxRiskScoreRecorded, (float)$maxRiskScoreRecorded, $notes]);
     $auditId = $db->lastInsertId();
 
-    // Risk Cevaplarını Kaydet
+    // Risk Cevaplarını Kaydet (option_id Güvenli Kullanım)
     $stmtAns = $db->prepare("
         INSERT INTO audit_answers 
         (audit_id, question_id, option_id, answer_option, points_awarded, current_status, probability, severity, risk_score, action_plan, responsible_person, deadline) 
@@ -197,7 +201,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     log_action('Saha İSG Risk Denetimi Tamamlandı', "Birim: {$unit['unit_name']}, Anket: {$template['title']}, Max Risk: {$maxRiskScoreRecorded} (#DEN-" . sprintf('%04d', $auditId) . ")");
 
-    set_flash('success', 'Adım adım İSG risk denetimi ve analizi kaydedildi.');
+    set_flash('success', 'Adım adım İSG risk denetimi ve analizi başarıyla kaydedildi.');
     header("Location: audit_detail.php?id=" . $auditId);
     exit;
 }
@@ -219,33 +223,32 @@ include __DIR__ . '/includes/header.php';
   <?php endforeach; ?>
 </datalist>
 
-<datalist id="statuses_list">
-  <?php foreach ($libStatuses as $st): ?>
-    <option value="<?php echo htmlspecialchars($st); ?>"></option>
-  <?php endforeach; ?>
-</datalist>
-
-<!-- Üst Başlık & Birim Bilgisi -->
-<div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2 mb-3">
-  <div>
-    <span class="badge bg-primary-light text-primary font-weight-bold mb-1">
-      <i class="bi bi-building"></i> BİRİM / SAHA: <?php echo htmlspecialchars($unit['unit_name']); ?>
-    </span>
-    <h3 class="fw-extrabold m-0"><?php echo htmlspecialchars($template['title']); ?></h3>
-  </div>
-  <div class="text-muted fs-8">
-    <i class="bi bi-person-fill"></i> İSG Uzmanı: <strong><?php echo htmlspecialchars($user['name_surname']); ?></strong>
+<!-- Sayfa Üst Barı -->
+<div class="custom-card p-3 mb-4 bg-white border-0 shadow-sm rounded-4">
+  <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
+    <div>
+      <span class="badge bg-primary-light text-primary font-weight-bold fs-8 mb-1">
+        <i class="bi bi-building me-1"></i> BİRİM / SAHA: <?php echo htmlspecialchars($unit['unit_name']); ?>
+      </span>
+      <h3 class="fw-extrabold m-0 text-dark"><?php echo htmlspecialchars($unit['unit_name']); ?></h3>
+      <span class="text-muted fs-8">Anket Profili: <strong><?php echo htmlspecialchars($template['title']); ?></strong></span>
+    </div>
+    <div class="text-md-end">
+      <span class="badge bg-light text-dark border p-2 px-3 rounded-pill fs-8">
+        <i class="bi bi-person-fill text-success"></i> İSG Uzmanı: <strong><?php echo htmlspecialchars($user['full_name']); ?></strong>
+      </span>
+    </div>
   </div>
 </div>
 
-<!-- ADIM ADIM DENETİM SİHİRBAZI STEPPER BAR (STEP WIZARD) -->
-<div class="custom-card p-3 mb-4 shadow-sm">
+<!-- Risk Grubu Adım Barı (Stepper Tabs) -->
+<div class="custom-card p-3 mb-4 bg-white border-0 shadow-sm rounded-4">
   <div class="d-flex align-items-center justify-content-between mb-2">
-    <h6 class="fw-bold text-dark m-0"><i class="bi bi-magic text-success"></i> Adım Adım Risk Grubu Sihirbazı</h6>
-    <span class="badge bg-dark" id="stepCounterBadge">Adım 1 / <?php echo count($groupedQuestions); ?></span>
+    <h6 class="fw-bold text-dark m-0"><i class="bi bi-magic text-warning me-1"></i> Adım Adım Risk Grubu Sihirbazı</h6>
+    <span class="badge bg-dark text-white fs-8" id="currentWizardStepBadge">Adım 1 / <?php echo count($groupedQuestions); ?></span>
   </div>
-
-  <div class="nav nav-pills custom-card-tabs flex-nowrap overflow-auto py-1" id="wizardTabs" role="tablist">
+  
+  <div class="nav nav-pills flex-nowrap overflow-auto pb-2" id="wizardPillsTab" role="tablist">
     <?php $stepIdx = 1; foreach ($groupedQuestions as $groupName => $gQuestions): ?>
       <button class="nav-link text-nowrap fw-bold px-3 py-2 me-2 <?php echo $stepIdx === 1 ? 'active bg-success text-white' : 'bg-light text-dark border'; ?>" 
               id="wizard-tab-<?php echo $stepIdx; ?>" 
@@ -285,6 +288,8 @@ include __DIR__ . '/includes/header.php';
             ?>
             <div class="custom-card question-card mb-4 border-2" id="q_card_<?php echo $q['id']; ?>">
               
+              <input type="hidden" name="answers[<?php echo $q['id']; ?>][option_id]" id="opt_id_input_<?php echo $q['id']; ?>" value="0">
+
               <!-- Soru / Tehlike Header -->
               <div class="question-title d-flex align-items-start justify-content-between gap-2 border-bottom pb-2 mb-3">
                 <div class="d-flex align-items-start gap-2">
@@ -335,7 +340,7 @@ include __DIR__ . '/includes/header.php';
                 <!-- Mevcut Durum Açıklaması -->
                 <div class="mb-3">
                   <label class="form-label fw-bold fs-8 text-dark">Mevcut Durum / Tespit Edilen Eksiklik</label>
-                  <input type="text" name="answers[<?php echo $q['id']; ?>][current_status]" list="statuses_list" class="form-control form-control-sm" placeholder="Örn: Lavabolar tavanda su akıntısı mevcut..." value="<?php echo htmlspecialchars($q['current_status'] ?? ''); ?>">
+                  <input type="text" name="answers[<?php echo $q['id']; ?>][current_status]" class="form-control form-control-sm" placeholder="Örn: Lavabolar tavanda su akıntısı mevcut..." value="<?php echo htmlspecialchars($q['current_status'] ?? ''); ?>">
                 </div>
 
                 <!-- Olasılık ($O$) ve Şiddet ($Ş$) Seçimi -->
@@ -350,7 +355,6 @@ include __DIR__ . '/includes/header.php';
                       <option value="5" <?php echo $defP == 5 ? 'selected' : ''; ?>>5 - Çok Yüksek (Her an)</option>
                     </select>
                   </div>
-
                   <div class="col-12 col-md-6">
                     <label class="form-label fw-bold fs-8 text-muted">Şiddet ($Ş$)</label>
                     <select name="answers[<?php echo $q['id']; ?>][severity]" class="form-select form-select-sm risk-calc-select" data-qid="<?php echo $q['id']; ?>" id="sev_<?php echo $q['id']; ?>">
@@ -363,68 +367,42 @@ include __DIR__ . '/includes/header.php';
                   </div>
                 </div>
 
-                <!-- Alınacak Önlemler -->
-                <div class="mb-3">
-                  <label class="form-label fw-bold fs-8 text-dark"><i class="bi bi-lightbulb-fill text-warning"></i> Alınacak Önlemler / İyileştirmeler</label>
-                  <input type="text" name="answers[<?php echo $q['id']; ?>][action_plan]" list="recommendations_list" class="form-control form-control-sm" placeholder="Örn: Lavabo (WC) tavanlarında gerekli yalıtımın sağlanması..." value="<?php echo htmlspecialchars($q['default_action_plan'] ?? ''); ?>">
+                <!-- Önlem Önerisi, Sorumlu ve Süre -->
+                <div class="row g-3">
+                  <div class="col-12 col-md-5">
+                    <label class="form-label fw-bold fs-8 text-dark">Alınacak Önlemler / İyileştirmeler</label>
+                    <input type="text" name="answers[<?php echo $q['id']; ?>][action_plan]" list="recommendations_list" class="form-control form-control-sm" placeholder="Kütüphaneden veya manuel yazın..." value="<?php echo htmlspecialchars($q['default_action_plan'] ?? ''); ?>">
+                  </div>
+                  <div class="col-12 col-md-4">
+                    <label class="form-label fw-bold fs-8 text-dark">Sorumlu Birim / Kişi</label>
+                    <input type="text" name="answers[<?php echo $q['id']; ?>][responsible_person]" list="responsibles_list" class="form-control form-control-sm" placeholder="Kütüphaneden veya manuel yazın..." value="<?php echo htmlspecialchars($q['default_responsible'] ?? ''); ?>">
+                  </div>
+                  <div class="col-12 col-md-3">
+                    <label class="form-label fw-bold fs-8 text-dark">Termin / Süre</label>
+                    <input type="text" name="answers[<?php echo $q['id']; ?>][deadline]" class="form-control form-control-sm" placeholder="Örn: 6 ay" value="<?php echo htmlspecialchars($q['default_deadline'] ?? ''); ?>">
+                  </div>
                 </div>
 
-                <div class="row g-2">
-                  <div class="col-12 col-md-6">
-                    <label class="form-label fw-bold fs-8 text-muted">Sorumlu Birim / Kişi</label>
-                    <input type="text" name="answers[<?php echo $q['id']; ?>][responsible_person]" list="responsibles_list" class="form-control form-control-sm" placeholder="Örn: Tekn. Hiz. Yön." value="<?php echo htmlspecialchars($q['default_responsible'] ?? ''); ?>">
-                  </div>
-                  <div class="col-12 col-md-6">
-                    <label class="form-label fw-bold fs-8 text-muted">Termin / Süre</label>
-                    <input type="text" name="answers[<?php echo $q['id']; ?>][deadline]" class="form-control form-control-sm" placeholder="Örn: 6 Ay, Sürekli" value="<?php echo htmlspecialchars($q['default_deadline'] ?? ''); ?>">
-                  </div>
-                </div>
               </div>
 
             </div>
           <?php $qGlobalIndex++; endforeach; ?>
 
-          <!-- Adım İlerleme Butonları Barı -->
-          <div class="d-flex align-items-center justify-content-between mt-4 pt-3 border-top">
-            <?php if ($stepIdx > 1): ?>
-              <button type="button" class="btn btn-outline-secondary font-weight-bold prev-step-btn" data-prev="<?php echo $stepIdx - 1; ?>">
-                <i class="bi bi-arrow-left"></i> Önceki Adım
-              </button>
-            <?php else: ?>
-              <div></div>
-            <?php endif; ?>
-
-            <?php if ($stepIdx < count($groupedQuestions)): ?>
-              <button type="button" class="btn btn-success font-weight-bold px-4 next-step-btn" data-next="<?php echo $stepIdx + 1; ?>">
-                Sonraki Adım <i class="bi bi-arrow-right"></i>
-              </button>
-            <?php else: ?>
-              <button type="submit" class="btn btn-primary-custom px-4 py-2 font-weight-bold shadow">
-                <i class="bi bi-check-circle-fill fs-5 me-1"></i> Tüm Adımları Tamamla ve Kaydet
-              </button>
-            <?php endif; ?>
-          </div>
-
         </div>
-
       <?php $stepIdx++; endforeach; ?>
     <?php endif; ?>
   </div>
 
-  <!-- Saha Notları -->
-  <div class="custom-card my-4">
-    <div class="custom-card-header">
-      <h6 class="custom-card-title m-0">
-        <i class="bi bi-pencil-square text-warning"></i> Genel Saha Denetim Notları (Opsiyonel)
-      </h6>
-    </div>
-    <textarea name="notes" class="form-control" rows="3" placeholder="Saha denetimi esnasında tespit edilen özel hususlar veya genel görüşler..."></textarea>
+  <!-- Genel Notlar Kartı -->
+  <div class="custom-card p-3 mb-4 bg-white border-0 shadow-sm rounded-4">
+    <label class="form-label fw-bold text-dark fs-7"><i class="bi bi-journal-text text-primary me-1"></i> Saha Denetimi Genel Notları / Ek Gözlemler</label>
+    <textarea name="notes" class="form-control form-control-sm" rows="3" placeholder="Saha genelinde tespit edilen ek hususlar, hava durumu veya genel izlenimler..."></textarea>
   </div>
 
-  <!-- Sabit Alt Kaydet Barı -->
-  <div class="custom-card p-3 d-flex align-items-center justify-content-between sticky-bottom bg-white shadow-lg border-top border-2 border-primary mb-5" style="z-index:90;">
+  <!-- Alt İşlem Barı (Sabit ve Şık) -->
+  <div class="custom-card p-3 d-flex align-items-center justify-content-between sticky-bottom bg-white shadow-lg border-top border-2 border-success mb-5" style="z-index:90;">
     <span class="text-muted fs-8"><i class="bi bi-info-circle me-1"></i> Tüm soruları yanıtladıktan sonra kaydet butonuna basabilirsiniz.</span>
-    <button type="submit" class="btn btn-primary-custom px-4 py-2 font-weight-bold shadow-lg">
+    <button type="submit" class="btn btn-success px-4 py-2 font-weight-bold shadow">
       <i class="bi bi-check-circle-fill"></i> Saha Denetimini Tamamla ve Kaydet
     </button>
   </div>
@@ -434,102 +412,86 @@ include __DIR__ . '/includes/header.php';
 <script>
 document.addEventListener('DOMContentLoaded', function() {
   
-  const totalSteps = <?php echo count($groupedQuestions); ?>;
-
-  document.querySelectorAll('.next-step-btn').forEach(btn => {
-    btn.addEventListener('click', function() {
-      const nextStep = this.dataset.next;
-      const nextTab = document.getElementById('wizard-tab-' + nextStep);
-      if (nextTab) {
-        new bootstrap.Tab(nextTab).show();
-        updateStepBadge(nextStep);
-        window.scrollTo({ top: 120, behavior: 'smooth' });
-      }
-    });
-  });
-
-  document.querySelectorAll('.prev-step-btn').forEach(btn => {
-    btn.addEventListener('click', function() {
-      const prevStep = this.dataset.prev;
-      const prevTab = document.getElementById('wizard-tab-' + prevStep);
-      if (prevTab) {
-        new bootstrap.Tab(prevTab).show();
-        updateStepBadge(prevStep);
-        window.scrollTo({ top: 120, behavior: 'smooth' });
-      }
-    });
-  });
-
-  document.querySelectorAll('#wizardTabs button').forEach(tabBtn => {
-    tabBtn.addEventListener('shown.bs.tab', function(e) {
-      const step = this.dataset.step;
-      updateStepBadge(step);
-    });
-  });
-
-  function updateStepBadge(step) {
-    document.getElementById('stepCounterBadge').textContent = `Adım ${step} / ${totalSteps}`;
-  }
-
-  document.querySelectorAll('.answer-radio').forEach(radio => {
+  // 1. Cevap Şıkkı Buton Tıklama ve Risk Kartı Açma
+  const answerRadios = document.querySelectorAll('.answer-radio');
+  answerRadios.forEach(radio => {
     radio.addEventListener('change', function() {
       const qId = this.dataset.qid;
+      const optId = this.dataset.optid || 0;
+      const isTrigger = parseInt(this.dataset.trigger) === 1;
       const val = this.value;
-      const trigger = parseInt(this.dataset.trigger || '0');
-      const label = this.closest('.answer-btn-label');
-      const qCard = document.getElementById('q_card_' + qId);
-      const riskPanel = document.getElementById('risk_panel_' + qId);
 
-      qCard.querySelectorAll('.answer-btn-label').forEach(lbl => {
-        lbl.classList.remove('active', 'btn-success', 'btn-danger', 'btn-warning', 'btn-secondary');
+      // Hidden input'a option_id yaz
+      const optIdInput = document.getElementById('opt_id_input_' + qId);
+      if (optIdInput) optIdInput.value = optId;
+
+      // Label aktiflik sınıflarını temizle
+      const qCard = document.getElementById('q_card_' + qId);
+      const labels = qCard.querySelectorAll('.answer-btn-label');
+      labels.forEach(lbl => {
+        lbl.classList.remove('active', 'bg-danger', 'text-white', 'bg-warning', 'bg-success');
       });
 
-      if (trigger === 1 || val.includes('Hayır') || val.includes('Kısmen')) {
-        label.classList.add('active', val.includes('Kısmen') ? 'btn-warning' : 'btn-danger');
-        if (riskPanel) riskPanel.classList.remove('d-none');
-      } else {
-        label.classList.add('active', 'btn-success');
-        if (riskPanel) riskPanel.classList.add('d-none');
+      // Seçili butona active efekti ekle
+      const parentLabel = this.closest('.answer-btn-label');
+      if (parentLabel) {
+        parentLabel.classList.add('active');
+        if (val.includes('Hayır')) {
+          parentLabel.classList.add('bg-danger', 'text-white');
+        } else if (val.includes('Kısmen')) {
+          parentLabel.classList.add('bg-warning', 'text-dark');
+        } else {
+          parentLabel.classList.add('bg-success', 'text-white');
+        }
       }
 
-      calculateRiskScore(qId);
+      // Risk Değerlendirme & İyileştirme Kartını Göster / Gizle
+      const riskPanel = document.getElementById('risk_panel_' + qId);
+      if (riskPanel) {
+        if (val.includes('Hayır') || val.includes('Kısmen') || isTrigger) {
+          riskPanel.classList.remove('d-none');
+        } else {
+          riskPanel.classList.add('d-none');
+        }
+      }
     });
   });
 
-  document.querySelectorAll('.risk-calc-select').forEach(select => {
+  // 2. Canlı Risk Skoru Hesaplama ($R = O \times Ş$)
+  const calcSelects = document.querySelectorAll('.risk-calc-select');
+  calcSelects.forEach(select => {
     select.addEventListener('change', function() {
       const qId = this.dataset.qid;
-      calculateRiskScore(qId);
+      const pVal = parseInt(document.getElementById('prob_' + qId).value) || 1;
+      const sVal = parseInt(document.getElementById('sev_' + qId).value) || 1;
+      const score = pVal * sVal;
+
+      const badge = document.getElementById('risk_badge_' + qId);
+      if (badge) {
+        badge.textContent = `RİSK SKORU: ${score}`;
+        if (score >= 16) {
+          badge.className = 'badge bg-danger';
+        } else if (score >= 10) {
+          badge.className = 'badge bg-warning text-dark';
+        } else {
+          badge.className = 'badge bg-info text-dark';
+        }
+      }
     });
   });
 
-  function calculateRiskScore(qId) {
-    const probSelect = document.getElementById('prob_' + qId);
-    const sevSelect = document.getElementById('sev_' + qId);
-    const badge = document.getElementById('risk_badge_' + qId);
-    if (!probSelect || !sevSelect || !badge) return;
-
-    const prob = parseInt(probSelect.value) || 1;
-    const sev = parseInt(sevSelect.value) || 1;
-    const score = prob * sev;
-
-    let category = 'Kabul Edilebilir Risk';
-    let badgeBg = 'bg-success';
-
-    if (score >= 16) {
-      category = 'Kabul Edilemez Risk';
-      badgeBg = 'bg-danger';
-    } else if (score >= 10) {
-      category = 'Dikkate Değer Risk';
-      badgeBg = 'bg-warning text-dark';
-    } else if (score >= 6) {
-      category = 'Önemli Risk';
-      badgeBg = 'bg-info text-dark';
-    }
-
-    badge.className = 'badge ' + badgeBg;
-    badge.textContent = `RİSK DERECE SKORU: ${score} (${category})`;
-  }
+  // 3. Tab Değişiminde Adım Rozetini Güncelleme
+  const pillBtns = document.querySelectorAll('#wizardPillsTab button');
+  pillBtns.forEach(btn => {
+    btn.addEventListener('shown.bs.tab', function(e) {
+      const step = this.dataset.step;
+      const total = pillBtns.length;
+      const badge = document.getElementById('currentWizardStepBadge');
+      if (badge) {
+        badge.textContent = `Adım ${step} / ${total}`;
+      }
+    });
+  });
 
 });
 </script>
