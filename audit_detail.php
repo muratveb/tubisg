@@ -76,13 +76,14 @@ include __DIR__ . '/includes/header.php';
   writing-mode: vertical-rl;
   transform: rotate(180deg);
   white-space: nowrap;
-  padding: 6px 4px !important;
-  font-size: 0.72rem;
+  padding: 4px 2px !important;
+  font-size: 0.68rem;
   font-weight: 800;
-  letter-spacing: 0.5px;
-  height: 110px;
+  letter-spacing: 0.3px;
+  height: 140px;
   vertical-align: middle !important;
   text-align: center !important;
+  line-height: 1.2;
 }
 .rg-vcell {
   writing-mode: vertical-rl;
@@ -100,7 +101,7 @@ include __DIR__ . '/includes/header.php';
   .vhead-th {
     writing-mode: vertical-rl;
     transform: rotate(180deg);
-    height: 100px;
+    height: 130px;
   }
   .rg-vcell {
     writing-mode: vertical-rl;
@@ -203,7 +204,7 @@ include __DIR__ . '/includes/header.php';
             <th style="width: 130px;">MEVCUT DURUM / CEVAP</th>
             <th class="vhead-th" style="width: 42px;">OLASILIK (O)</th>
             <th class="vhead-th" style="width: 42px;">ŞİDDET (Ş)</th>
-            <th class="vhead-th" style="width: 48px;">RİSK DERECESİ (R)</th>
+            <th class="vhead-th" style="width: 55px;">RİSK DERECESİ (R)</th>
             <th style="width: 135px;">ALINACAK ÖNLEMLER / İYİLEŞTİRMELER</th>
             <th style="width: 85px;">SORUMLU</th>
             <th style="width: 70px;">SÜRE / TERMİN</th>

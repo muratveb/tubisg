@@ -6,22 +6,18 @@ Tüm geliştirmeler, eklenen/güncellenen dosyalar mevcuttur.
 
 ## 📌 Mevcut Durum Özeti (Current Status)
 - **Tarih**: 26 Temmuz 2026
-- **Aşama**: Genişletilmiş Dikey Sütun Genişlikleri & "Evet" Durumlarında Gereksiz Alt Yazının Kaldırılması Tamamlandı.
-- **Aktif Sürüm**: v4.5.0
+- **Aşama**: Risk Derecesi Dikey Yükseklik Genişletmesi (`height: 140px`) ve Dikey Başlık Kırpılma Düzeltmesi Tamamlandı.
+- **Aktif Sürüm**: v4.6.0
 
 ---
 
 ## 📅 Geliştirme Adımları
 
-### 🟢 Adım 1: Dikey Sütun Genişletmeleri (`audit_detail.php` & `export.php`)
-- [x] `RİSK GRUPLARI` dikey birleştirilmiş hücre genişliği `58px` yapılarak metinlerin ferah sığması sağlandı.
-- [x] `OLASILIK (O)`, `ŞİDDET (Ş)` ve `RİSK DERECESİ (R)` dikey başlık genişlikleri ve yükseklikleri artırıldı (`height: 110px`, `width: 42px - 48px`).
+### 🟢 Adım 1: Dikey Başlık Yükseklik & Genişlik İyileştirmesi (`audit_detail.php` & `export.php`)
+- [x] Dikey başlık yüksekliği `140px` seviyesine çıkarıldı (`.vhead-th`).
+- [x] `RİSK DERECESİ (R)` sütun genişliği `55px` yapılarak kapatma parantezi `)` dahil tüm metnin eksiksiz ekrana sığması sağlandı.
 
-### 🟢 Adım 2: Temiz "Evet (Uygun)" Cevap Hücresi Görünümü
-- [x] "Evet (Uygun)" veya "Denetim Dışı" seçildiğinde yeşil/gri rozetin altında çıkan tekrarlayıcı italik alt metin kaldırıldı.
-- [x] Sadece "Hayır" veya "Kısmen" cevaplarında rozet altında sahadan girilen eksiklik metni (`current_status`) gösterildi.
-
-### 🟢 Adım 3: Loglama ve Otomatik Push
+### 🟢 Adım 2: Loglama ve Otomatik Push
 - [x] `system_logs` kaydı ve git sync adımları tamamlandı.
 
 ---

@@ -67,7 +67,7 @@ if ($format === 'excel') {
       table { border-collapse: collapse; width: 100%; font-family: Arial, sans-serif; font-size: 11px; }
       th, td { border: 1px solid #94a3b8; padding: 6px; text-align: left; vertical-align: middle; }
       th { background-color: #0f172a; color: white; font-weight: bold; text-align: center; }
-      .vhead-th { writing-mode: vertical-rl; mso-direction-alt: bottom-to-top; white-space: nowrap; height: 110px; vertical-align: middle; text-align: center; font-size: 10px; padding: 6px; }
+      .vhead-th { writing-mode: vertical-rl; mso-direction-alt: bottom-to-top; white-space: nowrap; height: 140px; vertical-align: middle; text-align: center; font-size: 10px; padding: 6px; }
       .rg-vcell { writing-mode: vertical-rl; mso-direction-alt: bottom-to-top; white-space: nowrap; text-align: center; vertical-align: middle; font-weight: bold; background-color: #f1f5f9; padding: 10px; }
       .header-title { background-color: #059669; color: white; font-size: 14px; font-weight: bold; text-align: center; }
       .risk-high { background-color: #fee2e2; color: #991b1b; font-weight: bold; text-align: center; }
@@ -217,7 +217,7 @@ if ($format === 'word') {
         table.matrix-table { border-collapse: collapse; width: 100%; margin-top: 10px; }
         table.matrix-table th, table.matrix-table td { border: 1px solid #cbd5e1; padding: 6px; text-align: left; }
         table.matrix-table th { background: #0f172a; color: #fff; text-align: center; font-size: 10px; }
-        .vhead-th { writing-mode: vertical-rl; white-space: nowrap; height: 110px; vertical-align: middle; text-align: center; font-size: 10px; padding: 6px; }
+        .vhead-th { writing-mode: vertical-rl; white-space: nowrap; height: 140px; vertical-align: middle; text-align: center; font-size: 10px; padding: 6px; }
         .rg-vcell { writing-mode: vertical-rl; white-space: nowrap; text-align: center; vertical-align: middle; font-weight: bold; background-color: #f1f5f9; padding: 10px; }
       </style>
     </head>
