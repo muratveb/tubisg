@@ -337,28 +337,44 @@ function initQuickUnitCreator() {
 }
 
 /**
- * Interactive Visual Audit Wizard in audit_new.php (Fixed Selection Handler)
+ * Interactive Visual Audit Wizard in audit_new.php (Kurum, Anket Profili ve Birim)
  */
 function initAuditWizard() {
   const wizardForm = document.getElementById('startAuditWizardForm');
   if (!wizardForm) return;
 
+  const selectedInstitutionInput = document.getElementById('selectedInstitutionInput');
   const selectedTemplateInput = document.getElementById('selectedTemplateInput');
   const selectedUnitInput = document.getElementById('selectedUnitInput');
   const startBtn = document.getElementById('startAuditSubmitBtn');
   const summaryDiv = document.getElementById('wizardSelectionSummary');
 
+  let selectedInstitutionName = '';
   let selectedTemplateName = '';
   let selectedUnitName = '';
 
   wizardForm.addEventListener('click', function(e) {
+    const instCard = e.target.closest('.institution-card');
+    if (instCard) {
+      document.querySelectorAll('.institution-card').forEach(c => c.classList.remove('selected'));
+      instCard.classList.add('selected');
+
+      const iId = instCard.dataset.id;
+      if (selectedInstitutionInput) selectedInstitutionInput.value = iId;
+
+      const titleEl = instCard.querySelector('.wizard-card-title');
+      selectedInstitutionName = titleEl ? titleEl.textContent.trim() : 'Kurum';
+
+      checkWizardReady();
+    }
+
     const tCard = e.target.closest('.template-card');
     if (tCard) {
       document.querySelectorAll('.template-card').forEach(c => c.classList.remove('selected'));
       tCard.classList.add('selected');
 
       const tId = tCard.dataset.id;
-      selectedTemplateInput.value = tId;
+      if (selectedTemplateInput) selectedTemplateInput.value = tId;
 
       const titleEl = tCard.querySelector('.wizard-card-title');
       selectedTemplateName = titleEl ? titleEl.textContent.trim() : 'Anket Profili';
@@ -372,7 +388,7 @@ function initAuditWizard() {
       uCard.classList.add('selected');
 
       const uId = uCard.dataset.id;
-      selectedUnitInput.value = uId;
+      if (selectedUnitInput) selectedUnitInput.value = uId;
 
       const titleEl = uCard.querySelector('.wizard-card-title');
       selectedUnitName = titleEl ? titleEl.textContent.trim() : 'Birim';
@@ -382,33 +398,46 @@ function initAuditWizard() {
   });
 
   function checkWizardReady() {
+    const iVal = selectedInstitutionInput ? selectedInstitutionInput.value : '';
     const tVal = selectedTemplateInput ? selectedTemplateInput.value : '';
     const uVal = selectedUnitInput ? selectedUnitInput.value : '';
 
-    if (tVal && uVal && parseInt(tVal) > 0 && parseInt(uVal) > 0) {
+    if (iVal && tVal && uVal && parseInt(iVal) > 0 && parseInt(tVal) > 0 && parseInt(uVal) > 0) {
       if (startBtn) {
         startBtn.classList.remove('disabled');
         startBtn.removeAttribute('disabled');
       }
       if (summaryDiv) {
-        summaryDiv.innerHTML = `<span class="text-primary fw-bold">${selectedTemplateName}</span> &rarr; <span class="text-success fw-bold">${selectedUnitName}</span>`;
+        summaryDiv.innerHTML = `<span class="text-danger fw-bold"><i class="bi bi-hospital me-1"></i>${selectedInstitutionName}</span> &rarr; <span class="text-primary fw-bold">${selectedTemplateName}</span> &rarr; <span class="text-success fw-bold">${selectedUnitName}</span>`;
       }
     } else {
       if (startBtn) {
         startBtn.classList.add('disabled');
       }
       if (summaryDiv) {
-        if (parseInt(tVal) > 0) {
-          summaryDiv.innerHTML = `<span class="text-primary fw-bold">${selectedTemplateName}</span> &rarr; <span class="text-muted">Birim seçiniz</span>`;
-        } else if (parseInt(uVal) > 0) {
-          summaryDiv.innerHTML = `<span class="text-muted">Anket seçiniz</span> &rarr; <span class="text-success fw-bold">${selectedUnitName}</span>`;
-        } else {
-          summaryDiv.textContent = 'Lütfen yukarıdan Anket Profili ve Birim seçin';
-        }
+        let parts = [];
+        if (parseInt(iVal) > 0) parts.push(`<span class="text-danger fw-bold">${selectedInstitutionName}</span>`);
+        else parts.push('<span class="text-muted">Kurum seçiniz</span>');
+
+        if (parseInt(tVal) > 0) parts.push(`<span class="text-primary fw-bold">${selectedTemplateName}</span>`);
+        else parts.push('<span class="text-muted">Anket seçiniz</span>');
+
+        if (parseInt(uVal) > 0) parts.push(`<span class="text-success fw-bold">${selectedUnitName}</span>`);
+        else parts.push('<span class="text-muted">Birim seçiniz</span>');
+
+        summaryDiv.innerHTML = parts.join(' &rarr; ');
       }
     }
   }
 
+  if (selectedInstitutionInput && selectedInstitutionInput.value > 0) {
+    const activeICard = document.querySelector(`.institution-card[data-id="${selectedInstitutionInput.value}"]`);
+    if (activeICard) {
+      activeICard.classList.add('selected');
+      const titleEl = activeICard.querySelector('.wizard-card-title');
+      selectedInstitutionName = titleEl ? titleEl.textContent.trim() : 'Kurum';
+    }
+  }
   if (selectedTemplateInput && selectedTemplateInput.value > 0) {
     const activeTCard = document.querySelector(`.template-card[data-id="${selectedTemplateInput.value}"]`);
     if (activeTCard) {

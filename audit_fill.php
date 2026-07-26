@@ -1,7 +1,7 @@
 <?php
 /**
  * Tubİsg - Saha Risk Denetimi Doldurma Ekranı (audit_fill.php)
- * 12 Sütunlu İSG Risk Analiz Belgenize Göre Adım Adım İlerleyen (Sequential) Soru Akışı
+ * Kurum, Anket ve Birim Seçimi İle 12 Sütunlu İSG Risk Analiz Belgesine Göre Denetim Doldurma
  */
 require_once __DIR__ . '/includes/auth.php';
 require_permission('audit_conduct');
@@ -9,8 +9,9 @@ require_permission('audit_conduct');
 $db = getDB();
 $user = get_current_user_data();
 
-$template_id = (int)($_GET['template_id'] ?? 0);
-$unit_id = (int)($_GET['unit_id'] ?? 0);
+$institution_id = (int)($_GET['institution_id'] ?? ($_POST['institution_id'] ?? 0));
+$template_id = (int)($_GET['template_id'] ?? ($_POST['template_id'] ?? 0));
+$unit_id = (int)($_GET['unit_id'] ?? ($_POST['unit_id'] ?? 0));
 
 if ($template_id <= 0 || $unit_id <= 0) {
     set_flash('danger', 'Geçersiz denetim parametreleri.');
@@ -18,7 +19,14 @@ if ($template_id <= 0 || $unit_id <= 0) {
     exit;
 }
 
-// Şablon ve Birim Bilgilerini Çek
+// Kurum, Şablon ve Birim Bilgilerini Çek
+$institution = null;
+if ($institution_id > 0) {
+    $stmtInst = $db->prepare("SELECT * FROM institutions WHERE id = ?");
+    $stmtInst->execute([$institution_id]);
+    $institution = $stmtInst->fetch();
+}
+
 $stmtTpl = $db->prepare("SELECT * FROM survey_templates WHERE id = ? AND is_active = 1");
 $stmtTpl->execute([$template_id]);
 $template = $stmtTpl->fetch();
@@ -196,10 +204,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // Denetim Kaydını Oluştur
     $stmtAudit = $db->prepare("
-        INSERT INTO audits (template_id, unit_id, auditor_id, total_score, max_possible_score, percentage_score, status, notes) 
-        VALUES (?, ?, ?, ?, 25, ?, 'Tamamlandı', ?)
+        INSERT INTO audits (institution_id, template_id, unit_id, auditor_id, total_score, max_possible_score, percentage_score, status, notes) 
+        VALUES (?, ?, ?, ?, ?, 25, ?, 'Tamamlandı', ?)
     ");
-    $stmtAudit->execute([$template_id, $unit_id, $user['id'], $maxRiskScoreRecorded, (float)$maxRiskScoreRecorded, $notes]);
+    $stmtAudit->execute([
+        $institution_id > 0 ? $institution_id : null,
+        $template_id, 
+        $unit_id, 
+        $user['id'], 
+        $maxRiskScoreRecorded, 
+        (float)$maxRiskScoreRecorded, 
+        $notes
+    ]);
     $auditId = $db->lastInsertId();
 
     // Risk Cevaplarını Kaydet
@@ -224,7 +240,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ]);
     }
 
-    log_action('Saha İSG Risk Denetimi Tamamlandı', "Birim: {$unit['unit_name']}, Anket: {$template['title']}, Max Risk: {$maxRiskScoreRecorded} (#DEN-" . sprintf('%04d', $auditId) . ")");
+    log_action('Saha İSG Risk Denetimi Tamamlandı', "Kurum: " . ($institution['institution_name'] ?? 'Kurum') . ", Birim: {$unit['unit_name']}, Anket: {$template['title']} (#DEN-" . sprintf('%04d', $auditId) . ")");
 
     set_flash('success', 'Adım adım İSG risk denetimi ve analizi başarıyla kaydedildi.');
     header("Location: audit_detail.php?id=" . $auditId);
@@ -253,9 +269,16 @@ include __DIR__ . '/includes/header.php';
 <div class="custom-card p-3 mb-4 bg-white border-0 shadow-sm rounded-4">
   <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
     <div>
-      <span class="badge bg-primary-light text-primary font-weight-bold fs-8 mb-1">
-        <i class="bi bi-building me-1"></i> BİRİM / SAHA: <?php echo htmlspecialchars($unit['unit_name']); ?>
-      </span>
+      <div class="d-flex flex-wrap gap-2 mb-1">
+        <?php if ($institution): ?>
+          <span class="badge bg-danger-light text-danger font-weight-bold fs-8">
+            <i class="bi bi-hospital me-1"></i> KURUM: <?php echo htmlspecialchars($institution['institution_name']); ?>
+          </span>
+        <?php endif; ?>
+        <span class="badge bg-primary-light text-primary font-weight-bold fs-8">
+          <i class="bi bi-building me-1"></i> BİRİM / SAHA: <?php echo htmlspecialchars($unit['unit_name']); ?>
+        </span>
+      </div>
       <h3 class="fw-extrabold m-0 text-dark"><?php echo htmlspecialchars($unit['unit_name']); ?></h3>
       <span class="text-muted fs-8">Anket Profili: <strong><?php echo htmlspecialchars($template['title']); ?></strong></span>
     </div>
@@ -289,7 +312,7 @@ include __DIR__ . '/includes/header.php';
   </div>
 </div>
 
-<form method="POST" action="audit_fill.php?template_id=<?php echo $template_id; ?>&unit_id=<?php echo $unit_id; ?>" id="auditFillForm">
+<form method="POST" action="audit_fill.php?institution_id=<?php echo $institution_id; ?>&template_id=<?php echo $template_id; ?>&unit_id=<?php echo $unit_id; ?>" id="auditFillForm">
 
   <div class="tab-content" id="wizardTabContent">
     <?php if (empty($groupedQuestions)): ?>

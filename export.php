@@ -15,8 +15,9 @@ if ($audit_id <= 0) {
 
 // Denetim Detayını Çek
 $stmt = $db->prepare("
-    SELECT a.*, u.unit_name, u.description as unit_desc, st.title as survey_title, st.category as survey_cat, usr.name_surname as auditor_name
+    SELECT a.*, inst.institution_name, inst.code as inst_code, u.unit_name, u.description as unit_desc, st.title as survey_title, st.category as survey_cat, usr.name_surname as auditor_name
     FROM audits a
+    LEFT JOIN institutions inst ON a.institution_id = inst.id
     JOIN units u ON a.unit_id = u.id
     JOIN survey_templates st ON a.template_id = st.id
     JOIN users usr ON a.auditor_id = usr.id
@@ -50,6 +51,8 @@ foreach ($answers as $ans) {
     $groupedAnswersList[$gName][] = $ans;
 }
 
+$institutionTitle = !empty($audit['institution_name']) ? mb_strtoupper($audit['institution_name'], 'UTF-8') : 'İŞ YERİ SAĞLIK VE GÜVENLİK BİRİMİ';
+
 $fileName = 'TubISG_Birim_Risk_Analizi_#DEN-' . sprintf('%04d', $audit['id']) . '_' . date('Ymd');
 
 // ==========================================
@@ -77,7 +80,7 @@ if ($format === 'excel') {
 
     <table>
       <tr class="header-title">
-        <td colspan="12">İŞ YERİ SAĞLIK VE GÜVENLİK BİRİMİ - BİRİM BAZLI RİSK ANALİZ VE DENETİM FORMU</td>
+        <td colspan="12"><?php echo htmlspecialchars($institutionTitle); ?> - BİRİM BAZLI RİSK ANALİZ VE DENETİM FORMU</td>
       </tr>
       <tr>
         <td colspan="4"><strong>RİSK ANALİZİ YAPILAN YER:</strong> <?php echo htmlspecialchars($audit['unit_name']); ?></td>
@@ -222,7 +225,7 @@ if ($format === 'word') {
       </style>
     </head>
     <body>
-      <h2>🛡️ İŞ YERİ SAĞLIK VE GÜVENLİK BİRİMİ - BİRİM BAZLI RİSK ANALİZ FORMU</h2>
+      <h2>🛡️ <?php echo htmlspecialchars($institutionTitle); ?> - BİRİM BAZLI RİSK ANALİZ FORMU</h2>
       
       <table class="info-table">
         <tr>

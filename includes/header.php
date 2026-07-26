@@ -1,8 +1,9 @@
 <?php
 /**
- * Tubİsg - Responsive Application Header & Navigation Layout
+ * Tubİsg - Layout Header (Sol Menü, Üst Navbar ve Stil Tanımları)
  */
 require_once __DIR__ . '/auth.php';
+require_login();
 
 $user = get_current_user_data();
 $currentPage = basename($_SERVER['PHP_SELF']);
@@ -11,33 +12,43 @@ $currentPage = basename($_SERVER['PHP_SELF']);
 <html lang="tr">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title><?php echo isset($pageTitle) ? htmlspecialchars($pageTitle) . ' | Tubİsg' : 'Tubİsg - Saha İSG Anket & Denetim Sistemi'; ?></title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><?php echo isset($pageTitle) ? htmlspecialchars($pageTitle) . ' | Tubİsg Platformu' : 'Tubİsg Saha Platformu'; ?></title>
   
-  <!-- Bootstrap 5 CSS & Icons -->
+  <!-- Bootstrap 5 CSS CDN -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.min.css" rel="stylesheet">
-  
-  <!-- Custom Modern CSS System -->
-  <link href="assets/css/style.css" rel="stylesheet">
+  <!-- Bootstrap Icons CDN -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+  <!-- Google Fonts: Inter -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Custom Modern CSS -->
+  <link rel="stylesheet" href="assets/css/style.css">
+
+  <!-- SweetAlert2 CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
-<body class="<?php echo is_logged_in() ? 'logged-in-mobile' : ''; ?>">
+<body>
 
-<div class="app-wrapper">
-
-  <!-- Desktop & Tablet Sidebar -->
+<div class="app-layout">
+  
+  <!-- Sidebar Navigation -->
   <aside class="sidebar">
     <div class="sidebar-header">
-      <a href="dashboard.php" class="brand-logo">
-        <i class="bi bi-shield-check brand-icon fs-3"></i>
-        <span>Tub<span class="text-success">İsg</span></span>
-        <span class="brand-badge">Sahadaki Güç</span>
+      <a href="index.php" class="brand-logo">
+        <div class="brand-icon">
+          <i class="bi bi-shield-check"></i>
+        </div>
+        <div class="brand-text">
+          <span class="brand-title">Tubİsg</span>
+          <span class="brand-subtitle">Sahadaki Güç</span>
+        </div>
       </a>
     </div>
 
     <div class="sidebar-nav">
       <div class="nav-category">Ana Menü</div>
-      <a href="dashboard.php" class="nav-link-custom <?php echo ($currentPage == 'dashboard.php' || $currentPage == 'index.php') ? 'active' : ''; ?>">
+      
+      <a href="index.php" class="nav-link-custom <?php echo $currentPage == 'index.php' ? 'active' : ''; ?>">
         <i class="bi bi-grid-1x2-fill"></i>
         <span>Kontrol Paneli</span>
       </a>
@@ -78,6 +89,10 @@ $currentPage = basename($_SERVER['PHP_SELF']);
       <?php endif; ?>
 
       <?php if (has_permission('units_manage')): ?>
+      <a href="institutions.php" class="nav-link-custom <?php echo $currentPage == 'institutions.php' ? 'active' : ''; ?>">
+        <i class="bi bi-hospital-fill text-danger"></i>
+        <span>Kurum Tanımları</span>
+      </a>
       <a href="units.php" class="nav-link-custom <?php echo $currentPage == 'units.php' ? 'active' : ''; ?>">
         <i class="bi bi-building-gear"></i>
         <span>Birim Tanımları</span>

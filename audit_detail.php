@@ -26,8 +26,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
 // Denetim Detayını Çek
 $stmt = $db->prepare("
-    SELECT a.*, u.unit_name, u.description as unit_desc, st.title as survey_title, st.category as survey_cat, usr.name_surname as auditor_name, usr.email as auditor_email
+    SELECT a.*, inst.institution_name, inst.code as inst_code, u.unit_name, u.description as unit_desc, st.title as survey_title, st.category as survey_cat, usr.name_surname as auditor_name, usr.email as auditor_email
     FROM audits a
+    LEFT JOIN institutions inst ON a.institution_id = inst.id
     JOIN units u ON a.unit_id = u.id
     JOIN survey_templates st ON a.template_id = st.id
     JOIN users usr ON a.auditor_id = usr.id
@@ -66,6 +67,8 @@ foreach ($answers as $ans) {
 $pct = (float)$audit['percentage_score'];
 $badgeClass = $pct >= 80 ? 'bg-success text-white' : ($pct >= 50 ? 'bg-warning text-dark' : 'bg-danger text-white');
 $riskLevel = $pct >= 80 ? 'DÜŞÜK RİSK / UYGUN' : ($pct >= 50 ? 'ORTA RİSK / DİKKAT' : 'YÜKSEK RİSK / TEHLİKE');
+
+$institutionTitle = !empty($audit['institution_name']) ? mb_strtoupper($audit['institution_name'], 'UTF-8') : 'İŞ YERİ SAĞLIK VE GÜVENLİK BİRİMİ';
 
 $pageTitle = 'İSG Risk Analiz Karnesi #DEN-' . sprintf('%04d', $audit['id']);
 include __DIR__ . '/includes/header.php';
@@ -156,7 +159,7 @@ include __DIR__ . '/includes/header.php';
   <div class="custom-card mb-4 p-3 border-2 border-primary" style="background: #f8fafc;">
     <div class="text-center border-bottom pb-3 mb-3">
       <h4 class="fw-extrabold text-dark m-0 fs-5" style="letter-spacing: -0.3px;">
-        İŞ YERİ SAĞLIK VE GÜVENLİK BİRİMİ<br>
+        <?php echo htmlspecialchars($institutionTitle); ?><br>
         <span class="text-primary text-uppercase">BİRİM BAZLI RİSK ANALİZ VE DENETİM FORMU</span>
       </h4>
     </div>

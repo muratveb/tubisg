@@ -1,11 +1,14 @@
 <?php
 /**
- * Tubİsg - Modern Saha Denetimi Başlatma Ekranı (Kompakt Sihirbaz)
+ * Tubİsg - Modern Saha Denetimi Başlatma Ekranı (Kurum, Anket Profili & Birim Sihirbazı)
  */
 require_once __DIR__ . '/includes/auth.php';
 require_permission('audit_conduct');
 
 $db = getDB();
+
+// Aktif Kurumları Çek
+$institutions = $db->query("SELECT * FROM institutions WHERE is_active = 1 ORDER BY institution_name ASC")->fetchAll();
 
 // Aktif Anket Profillerini ve Soruların Sayısını Çek
 $templates = $db->query("
@@ -20,6 +23,7 @@ $templates = $db->query("
 // Birimleri Çek
 $units = $db->query("SELECT * FROM units ORDER BY unit_name ASC")->fetchAll();
 
+$selectedInstitutionId = (int)($_GET['institution_id'] ?? ($institutions[0]['id'] ?? 0));
 $selectedTemplateId = (int)($_GET['template_id'] ?? 0);
 $selectedUnitId = (int)($_GET['unit_id'] ?? 0);
 
@@ -31,7 +35,7 @@ include __DIR__ . '/includes/header.php';
 <div class="d-flex align-items-center justify-content-between gap-3 mb-3">
   <div>
     <h4 class="fw-extrabold text-dark m-0">Saha Denetim Sihirbazı</h4>
-    <p class="text-muted fs-8 m-0">Lütfen denetim yapacağınız <strong>Anket Profilini</strong> ve <strong>Birimi</strong> seçin.</p>
+    <p class="text-muted fs-8 m-0">Denetime başlamak için sırasıyla <strong>Kurum</strong>, <strong>Anket Profili</strong> ve <strong>Birim / Saha</strong> seçin.</p>
   </div>
   <span class="badge bg-success-light text-success font-weight-bold px-3 py-2 rounded-pill fs-8">
     <i class="bi bi-shield-check"></i> Canlı Saha Modu
@@ -40,14 +44,45 @@ include __DIR__ . '/includes/header.php';
 
 <form method="GET" action="audit_fill.php" id="startAuditWizardForm">
 
+  <!-- ADIM 1: Kurum Seçim Kartları (Üst Tam Genişlik) -->
+  <div class="custom-card mb-4 p-3 border-2 border-danger">
+    <div class="custom-card-header mb-3 pb-2 d-flex align-items-center justify-content-between">
+      <h6 class="custom-card-title m-0 fs-7">
+        <span class="badge bg-danger rounded-circle me-1" style="width:24px; height:24px; display:inline-flex; align-items:center; justify-content:center;">1</span>
+        Denetim Yapılacak Kurumu Seçin
+      </h6>
+      <span class="text-muted fs-8">Hangi kurumda denetim yapılıyor?</span>
+    </div>
+
+    <input type="hidden" name="institution_id" id="selectedInstitutionInput" value="<?php echo $selectedInstitutionId > 0 ? $selectedInstitutionId : ''; ?>" required>
+
+    <div class="row g-2" id="institutionCardsContainer">
+      <?php foreach ($institutions as $inst): ?>
+        <?php $isSelected = ($selectedInstitutionId == $inst['id']); ?>
+        <div class="col-12 col-md-4">
+          <div class="wizard-select-card institution-card p-3 <?php echo $isSelected ? 'selected' : ''; ?>" data-id="<?php echo $inst['id']; ?>">
+            <div class="d-flex align-items-center gap-2 mb-1">
+              <i class="bi bi-hospital text-danger fs-5"></i>
+              <h6 class="fw-bold text-dark m-0 wizard-card-title fs-7 text-truncate"><?php echo htmlspecialchars($inst['institution_name']); ?></h6>
+            </div>
+            <p class="text-muted fs-8 m-0 text-truncate wizard-card-desc" style="font-size:0.75rem;"><?php echo htmlspecialchars($inst['description'] ?? 'Kayıtlı Kurum'); ?></p>
+            <div class="wizard-card-check">
+              <i class="bi bi-check-circle-fill"></i>
+            </div>
+          </div>
+        </div>
+      <?php endforeach; ?>
+    </div>
+  </div>
+
   <div class="row g-3 mb-3">
     
-    <!-- ADIM 1: Anket Profili Seçim Kartları (Kompakt Sütun) -->
+    <!-- ADIM 2: Anket Profili Seçim Kartları -->
     <div class="col-12 col-lg-6">
       <div class="custom-card h-100 mb-0 p-3">
         <div class="custom-card-header mb-3 pb-2">
           <h6 class="custom-card-title m-0 fs-7">
-            <span class="badge bg-primary rounded-circle" style="width:24px; height:24px; display:inline-flex; align-items:center; justify-content:center;">1</span>
+            <span class="badge bg-primary rounded-circle me-1" style="width:24px; height:24px; display:inline-flex; align-items:center; justify-content:center;">2</span>
             Anket Profilini Seçin
           </h6>
           <span class="text-muted fs-8">İSG kontrol şablonu</span>
@@ -55,7 +90,7 @@ include __DIR__ . '/includes/header.php';
 
         <input type="hidden" name="template_id" id="selectedTemplateInput" value="<?php echo $selectedTemplateId > 0 ? $selectedTemplateId : ''; ?>" required>
 
-        <div class="row g-2" id="templateCardsContainer">
+        <div class="row g-2" id="templateCardsContainer" style="max-height: 380px; overflow-y: auto;">
           <?php foreach ($templates as $tpl): ?>
             <?php $isSelected = ($selectedTemplateId == $tpl['id']); ?>
             <div class="col-12">
@@ -77,12 +112,12 @@ include __DIR__ . '/includes/header.php';
       </div>
     </div>
 
-    <!-- ADIM 2: Birim / Saha Seçim Kartları (Kompakt Sütun) -->
+    <!-- ADIM 3: Birim / Saha Seçim Kartları -->
     <div class="col-12 col-lg-6">
       <div class="custom-card h-100 mb-0 p-3">
         <div class="custom-card-header mb-3 pb-2">
           <h6 class="custom-card-title m-0 fs-7">
-            <span class="badge bg-primary rounded-circle" style="width:24px; height:24px; display:inline-flex; align-items:center; justify-content:center;">2</span>
+            <span class="badge bg-success rounded-circle me-1" style="width:24px; height:24px; display:inline-flex; align-items:center; justify-content:center;">3</span>
             Birim / Saha Seçin
           </h6>
           
@@ -123,7 +158,7 @@ include __DIR__ . '/includes/header.php';
 
   </div>
 
-  <!-- ADIM 3: Denetimi Başlat Alt İşlem Barı -->
+  <!-- Denetimi Başlat Alt İşlem Barı -->
   <div class="custom-card bg-white p-3 shadow-md border-2 border-success d-flex flex-column flex-sm-row align-items-sm-center justify-content-between gap-3 mb-4">
     <div class="d-flex align-items-center gap-3">
       <div class="p-2 px-3 bg-success-light text-success rounded-circle">
@@ -132,7 +167,7 @@ include __DIR__ . '/includes/header.php';
       <div>
         <div class="fs-8 text-muted text-uppercase font-weight-bold" style="font-size:0.7rem;">SEÇİLEN DENETİM BİLGİSİ</div>
         <div class="fw-extrabold text-dark fs-7" id="wizardSelectionSummary">
-          Lütfen yukarıdan Anket Profili ve Birim seçin
+          Lütfen Kurum, Anket Profili ve Birim seçin
         </div>
       </div>
     </div>
