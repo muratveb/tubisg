@@ -109,8 +109,8 @@ if ($format === 'excel') {
           <th class="vhead-th">ŞİDDET (Ş)</th>
           <th class="vhead-th">RİSK DERECESİ (R)</th>
           <th>ALINACAK ÖNLEMLER / İYİLEŞTİRMELER</th>
-          <th>SORUMLU</th>
-          <th>BAŞLAMA / SÜRE</th>
+          <th class="vhead-th">SORUMLU</th>
+          <th class="vhead-th">SÜRE / TERMİN</th>
         </tr>
       </thead>
       <tbody>
@@ -175,8 +175,8 @@ if ($format === 'excel') {
               <td style="text-align:center;"><?php echo $sevDisplay; ?></td>
               <td class="<?php echo $rClass; ?>"><?php echo $rScoreDisplay; ?></td>
               <td><?php echo $actionDisplay; ?></td>
-              <td><?php echo htmlspecialchars($responsibleDisplay); ?></td>
-              <td><?php echo htmlspecialchars($deadlineDisplay); ?></td>
+              <td style="text-align:center;"><?php echo htmlspecialchars($responsibleDisplay); ?></td>
+              <td style="text-align:center;"><?php echo htmlspecialchars($deadlineDisplay); ?></td>
             </tr>
           <?php endforeach; ?>
         <?php endforeach; ?>
@@ -249,8 +249,8 @@ if ($format === 'word') {
             <th class="vhead-th">ŞİDDET (Ş)</th>
             <th class="vhead-th">RİSK DERECESİ (R)</th>
             <th>ALINACAK ÖNLEMLER</th>
-            <th>SORUMLU</th>
-            <th>TERMİN</th>
+            <th class="vhead-th">SORUMLU</th>
+            <th class="vhead-th">SÜRE / TERMİN</th>
           </tr>
         </thead>
         <tbody>
@@ -309,8 +309,8 @@ if ($format === 'word') {
                 <td style="text-align:center;"><?php echo $sevDisplay; ?></td>
                 <td style="text-align:center; font-weight:bold;"><?php echo $rScoreDisplay; ?></td>
                 <td><?php echo $actionDisplay; ?></td>
-                <td><?php echo htmlspecialchars($responsibleDisplay); ?></td>
-                <td><?php echo htmlspecialchars($deadlineDisplay); ?></td>
+                <td style="text-align:center;"><?php echo htmlspecialchars($responsibleDisplay); ?></td>
+                <td style="text-align:center;"><?php echo htmlspecialchars($deadlineDisplay); ?></td>
               </tr>
             <?php endforeach; ?>
           <?php endforeach; ?>

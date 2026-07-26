@@ -200,17 +200,17 @@ include __DIR__ . '/includes/header.php';
         <thead class="table-dark text-center align-middle" style="font-size: 0.72rem; letter-spacing: 0.3px;">
           <tr>
             <th class="vhead-th" style="width: 58px;">RİSK GRUPLARI</th>
-            <th style="width: 95px;">TEHLİKE KAYNAĞI</th>
-            <th style="width: 95px;">TEHLİKE</th>
-            <th style="width: 105px;">ETKİLENME (YAŞANABİLECEK RİSKLER)</th>
-            <th style="width: 95px;">ETKİLENENLER</th>
-            <th style="width: 130px;">MEVCUT DURUM / CEVAP</th>
+            <th style="width: 105px;">TEHLİKE KAYNAĞI</th>
+            <th style="width: 105px;">TEHLİKE</th>
+            <th style="width: 115px;">ETKİLENME (YAŞANABİLECEK RİSKLER)</th>
+            <th style="width: 100px;">ETKİLENENLER</th>
+            <th style="width: 140px;">MEVCUT DURUM / CEVAP</th>
             <th class="vhead-th" style="width: 42px;">OLASILIK (O)</th>
             <th class="vhead-th" style="width: 42px;">ŞİDDET (Ş)</th>
             <th class="vhead-th" style="width: 55px;">RİSK DERECESİ (R)</th>
-            <th style="width: 135px;">ALINACAK ÖNLEMLER / İYİLEŞTİRMELER</th>
-            <th style="width: 85px;">SORUMLU</th>
-            <th style="width: 70px;">SÜRE / TERMİN</th>
+            <th style="width: 145px;">ALINACAK ÖNLEMLER / İYİLEŞTİRMELER</th>
+            <th class="vhead-th" style="width: 48px;">SORUMLU</th>
+            <th class="vhead-th" style="width: 52px;">SÜRE / TERMİN</th>
           </tr>
         </thead>
         <tbody>
@@ -295,8 +295,8 @@ include __DIR__ . '/includes/header.php';
                     <?php endif; ?>
                   </td>
                   <td><?php echo $actionDisplay; ?></td>
-                  <td class="fw-bold text-secondary"><?php echo htmlspecialchars($responsibleDisplay); ?></td>
-                  <td class="text-muted"><?php echo htmlspecialchars($deadlineDisplay); ?></td>
+                  <td class="fw-bold text-secondary text-center"><?php echo htmlspecialchars($responsibleDisplay); ?></td>
+                  <td class="text-muted text-center"><?php echo htmlspecialchars($deadlineDisplay); ?></td>
                 </tr>
               <?php endforeach; ?>
             <?php endforeach; ?>
