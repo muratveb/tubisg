@@ -147,6 +147,7 @@ function initModernConfirmHandler() {
 
 /**
  * 9-Step Interactive Survey Item Wizard Modal in survey_edit.php
+ * Auto-Saves to Database on Completion
  */
 function initItemWizardModal() {
   const wizardModalEl = document.getElementById('wizardAddRiskItemModal');
@@ -252,7 +253,7 @@ function initItemWizardModal() {
 
     if (nextBtn) {
       if (currentStep === totalSteps) {
-        nextBtn.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i> Sihirbazı Tamamla ve Ekle';
+        nextBtn.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i> Sihirbazı Tamamla ve Veritabanına Kaydet';
         nextBtn.className = 'btn btn-primary font-weight-bold px-4 shadow';
       } else {
         nextBtn.innerHTML = 'Sonraki Adım <i class="bi bi-arrow-right"></i>';
@@ -262,16 +263,12 @@ function initItemWizardModal() {
   }
 
   function finishWizardAndAddItem() {
-    const container = document.getElementById('questionsContainer');
-    let qIndex = document.querySelectorAll('.question-builder-card').length + 1;
+    const mainForm = document.getElementById('surveyEditForm');
+    if (!mainForm) return;
 
-    const warningAlert = container.querySelector('.alert-warning');
-    if (warningAlert) {
-      warningAlert.remove();
-    }
+    let qIndex = Date.now(); // Benzersiz anahtar
 
     const rgId = document.getElementById('wiz_risk_group_id').value || 0;
-    const rgName = document.getElementById('wiz_risk_group_name').value || 'Genel Riskler';
     const hazardSource = document.getElementById('wiz_hazard_source').value || '';
     const hazardName = document.getElementById('wiz_hazard_name').value || '';
     const affectedRisk = document.getElementById('wiz_affected_risk').value || '';
@@ -284,158 +281,29 @@ function initItemWizardModal() {
 
     const prob = parseInt(document.getElementById('wiz_probability').value) || 2;
     const sev = parseInt(document.getElementById('wiz_severity').value) || 3;
-    const riskVal = prob * sev;
-
-    let category = 'Kabul Edilebilir Risk';
-    let badgeBg = 'bg-success';
-    if (riskVal >= 16) { category = 'Kabul Edilemez Risk'; badgeBg = 'bg-danger'; }
-    else if (riskVal >= 10) { category = 'Dikkate Değer Risk'; badgeBg = 'bg-warning text-dark'; }
-    else if (riskVal >= 6) { category = 'Önemli Risk'; badgeBg = 'bg-info text-dark'; }
-
     const actionPlan = document.getElementById('wiz_action_plan').value || '';
     const responsible = document.getElementById('wiz_responsible').value || '';
     const deadline = document.getElementById('wiz_deadline').value || '';
 
-    const riskGroups = window.riskGroupsData || [];
-    let riskGroupOptionsHtml = '<option value="0">-- Risk Grubu Seçin --</option>';
-    riskGroups.forEach(function(rg) {
-      const isSel = (rg.id == rgId) ? 'selected' : '';
-      riskGroupOptionsHtml += `<option value="${rg.id}" ${isSel}>${rg.group_name}</option>`;
-    });
-
-    const qCard = document.createElement('div');
-    qCard.className = 'custom-card question-builder-card mb-4 border-2';
-    qCard.setAttribute('data-qindex', qIndex);
-
-    qCard.innerHTML = `
-      <div class="custom-card-header bg-dark text-white p-3 rounded-top d-flex align-items-center justify-content-between">
-        <div class="d-flex align-items-center gap-2">
-          <span class="badge bg-warning text-dark rounded-circle" style="width:28px; height:28px; display:flex; align-items:center; justify-content:center;">${qIndex}</span>
-          <h6 class="m-0 font-weight-bold text-white">Yeni Risk Satırı #${qIndex}</h6>
-          <span class="badge bg-secondary ms-2">${rgName}</span>
-        </div>
-        <div class="d-flex align-items-center gap-2">
-          <span class="badge ${badgeBg}">R = ${riskVal} (${category})</span>
-          <button type="button" class="btn btn-sm btn-outline-danger text-white remove-question-btn">
-            <i class="bi bi-trash"></i> Sil
-          </button>
-        </div>
-      </div>
-
-      <div class="p-3">
-        <div class="row g-3 mb-3 bg-light p-2 rounded-3 border">
-          <div class="col-12 col-md-4">
-            <label class="form-label fw-bold fs-8 text-dark"><i class="bi bi-diagram-3-fill text-warning me-1"></i> 1. Risk Grubu</label>
-            <select name="new_questions[${qIndex}][risk_group_id]" class="form-select form-select-sm fw-bold">
-              ${riskGroupOptionsHtml}
-            </select>
-          </div>
-          <div class="col-12 col-md-4">
-            <label class="form-label fw-bold fs-8 text-dark">2. Tehlike Kaynağı (Kütüphaneden)</label>
-            <input type="text" name="new_questions[${qIndex}][hazard_source]" list="hazard_sources_list" class="form-control form-control-sm" value="${hazardSource}">
-          </div>
-          <div class="col-12 col-md-4">
-            <label class="form-label fw-bold fs-8 text-dark">3. Tehlike (Kütüphaneden)</label>
-            <input type="text" name="new_questions[${qIndex}][hazard_name]" list="hazards_list" class="form-control form-control-sm" value="${hazardName}">
-          </div>
-        </div>
-
-        <div class="row g-3 mb-3">
-          <div class="col-12 col-md-6">
-            <label class="form-label fw-bold fs-8 text-muted">4. Etkilenme (Yaşanabilecek Riskler)</label>
-            <input type="text" name="new_questions[${qIndex}][affected_risk]" class="form-control form-control-sm" value="${affectedRisk}">
-          </div>
-          <div class="col-12 col-md-6">
-            <label class="form-label fw-bold fs-8 text-muted">5. Etkilenenler (Kütüphaneden)</label>
-            <input type="text" name="new_questions[${qIndex}][affected_people]" list="affected_list" class="form-control form-control-sm" value="${affectedPeople}">
-          </div>
-        </div>
-
-        <div class="row g-3 mb-3">
-          <div class="col-12 col-md-6">
-            <label class="form-label fw-bold fs-8 text-muted">6. Mevcut Durum / Saha Tespiti</label>
-            <input type="text" name="new_questions[${qIndex}][current_status]" class="form-control form-control-sm" value="${currentStatus}">
-          </div>
-          <div class="col-12 col-md-6">
-            <label class="form-label fw-bold fs-8 text-muted">Saha Denetim Sorusu Metni</label>
-            <input type="text" name="new_questions[${qIndex}][question_text]" class="form-control form-control-sm" value="${questionText}">
-          </div>
-        </div>
-
-        <div class="row g-3 mb-3 p-2 rounded-3 bg-light border border-info">
-          <div class="col-12 col-md-4">
-            <label class="form-label fw-bold fs-8 text-dark">7. Olasılık ($O: 1-5$)</label>
-            <select name="new_questions[${qIndex}][default_probability]" class="form-select form-select-sm">
-              <option value="1" ${prob == 1 ? 'selected' : ''}>1 - Çok Küçük</option>
-              <option value="2" ${prob == 2 ? 'selected' : ''}>2 - Küçük</option>
-              <option value="3" ${prob == 3 ? 'selected' : ''}>3 - Orta</option>
-              <option value="4" ${prob == 4 ? 'selected' : ''}>4 - Yüksek</option>
-              <option value="5" ${prob == 5 ? 'selected' : ''}>5 - Çok Yüksek</option>
-            </select>
-          </div>
-
-          <div class="col-12 col-md-4">
-            <label class="form-label fw-bold fs-8 text-dark">8. Şiddet ($Ş: 1-5$)</label>
-            <select name="new_questions[${qIndex}][default_severity]" class="form-select form-select-sm">
-              <option value="1" ${sev == 1 ? 'selected' : ''}>1 - Çok Hafif</option>
-              <option value="2" ${sev == 2 ? 'selected' : ''}>2 - Hafif</option>
-              <option value="3" ${sev == 3 ? 'selected' : ''}>3 - Ciddi</option>
-              <option value="4" ${sev == 4 ? 'selected' : ''}>4 - Çok Ciddi</option>
-              <option value="5" ${sev == 5 ? 'selected' : ''}>5 - Felaket</option>
-            </select>
-          </div>
-
-          <div class="col-12 col-md-4 d-flex align-items-center">
-            <div class="w-100 text-center">
-              <div class="text-muted fs-8 fw-bold">9. Risk Derecesi ($R = O \\times Ş$)</div>
-              <div class="fs-5 fw-extrabold text-primary">${riskVal}</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="row g-3">
-          <div class="col-12 col-md-5">
-            <label class="form-label fw-bold fs-8 text-dark">10. Alınacak Önlemler / İyileştirmeler (Kütüphaneden)</label>
-            <input type="text" name="new_questions[${qIndex}][default_action_plan]" list="recommendations_list" class="form-control form-control-sm" value="${actionPlan}">
-          </div>
-
-          <div class="col-12 col-md-4">
-            <label class="form-label fw-bold fs-8 text-dark">11. Sorumlu Birim (Kütüphaneden)</label>
-            <input type="text" name="new_questions[${qIndex}][default_responsible]" list="responsibles_list" class="form-control form-control-sm" value="${responsible}">
-          </div>
-
-          <div class="col-12 col-md-3">
-            <label class="form-label fw-bold fs-8 text-dark">12. Başlama / Süre</label>
-            <input type="text" name="new_questions[${qIndex}][default_deadline]" class="form-control form-control-sm" value="${deadline}">
-          </div>
-        </div>
-
-      </div>
+    // Hidden Input'ları Forma Ekle ve Anında POST Et
+    const hiddenContainer = document.createElement('div');
+    hiddenContainer.innerHTML = `
+      <input type="hidden" name="new_questions[${qIndex}][risk_group_id]" value="${rgId}">
+      <input type="hidden" name="new_questions[${qIndex}][hazard_source]" value="${hazardSource}">
+      <input type="hidden" name="new_questions[${qIndex}][hazard_name]" value="${hazardName}">
+      <input type="hidden" name="new_questions[${qIndex}][affected_risk]" value="${affectedRisk}">
+      <input type="hidden" name="new_questions[${qIndex}][affected_people]" value="${affectedPeople}">
+      <input type="hidden" name="new_questions[${qIndex}][current_status]" value="${currentStatus}">
+      <input type="hidden" name="new_questions[${qIndex}][question_text]" value="${questionText}">
+      <input type="hidden" name="new_questions[${qIndex}][default_probability]" value="${prob}">
+      <input type="hidden" name="new_questions[${qIndex}][default_severity]" value="${sev}">
+      <input type="hidden" name="new_questions[${qIndex}][default_action_plan]" value="${actionPlan}">
+      <input type="hidden" name="new_questions[${qIndex}][default_responsible]" value="${responsible}">
+      <input type="hidden" name="new_questions[${qIndex}][default_deadline]" value="${deadline}">
     `;
 
-    container.appendChild(qCard);
-
-    const removeQBtn = qCard.querySelector('.remove-question-btn');
-    if (removeQBtn) {
-      removeQBtn.addEventListener('click', function () {
-        qCard.remove();
-      });
-    }
-
-    const bsModal = bootstrap.Modal.getInstance(wizardModalEl);
-    if (bsModal) bsModal.hide();
-
-    goToStep(1);
-
-    if (window.Swal) {
-      Swal.fire({
-        icon: 'success',
-        title: 'Risk Maddesi Eklendi',
-        text: 'Seçimleriniz 12 sütunlu risk matrisine başarıyla eklendi.',
-        timer: 2000,
-        showConfirmButton: false
-      });
-    }
+    mainForm.appendChild(hiddenContainer);
+    mainForm.submit();
   }
 }
 
@@ -511,7 +379,6 @@ function initAuditWizard() {
   let selectedTemplateName = '';
   let selectedUnitName = '';
 
-  // Event Delegation for Template Cards Click
   wizardForm.addEventListener('click', function(e) {
     const tCard = e.target.closest('.template-card');
     if (tCard) {
@@ -570,7 +437,6 @@ function initAuditWizard() {
     }
   }
 
-  // Pre-select if values exist in inputs
   if (selectedTemplateInput && selectedTemplateInput.value > 0) {
     const activeTCard = document.querySelector(`.template-card[data-id="${selectedTemplateInput.value}"]`);
     if (activeTCard) {

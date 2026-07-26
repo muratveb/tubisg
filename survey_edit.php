@@ -94,7 +94,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    // 3. 9 Adımlı Sihirbazdan Gelen Yeni Risk Satırları Ekleme
+    // 3. 9 Adımlı Sihirbazdan Gelen Yeni Risk Satırları Ekleme (Anında Veritabanına Kaydet)
     if (isset($_POST['new_questions']) && is_array($_POST['new_questions'])) {
         foreach ($_POST['new_questions'] as $newQ) {
             $riskGroupId = (int)($newQ['risk_group_id'] ?? 0);
@@ -113,7 +113,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $qText = !empty($hazardName) ? $hazardName : 'Saha Risk Denetim Maddesi';
             }
 
-            if (!empty($hazardSource) || !empty($hazardName) || !empty($qText)) {
+            if (!empty($hazardSource) || !empty($hazardName) || !empty($qText) || !empty($affectedRisk) || $riskGroupId > 0) {
                 $stmtQ = $db->prepare("
                     INSERT INTO survey_questions 
                     (template_id, risk_group_id, hazard_source, hazard_name, affected_risk, affected_people,
@@ -152,8 +152,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    log_action('Birim Bazlı Risk Formu Güncellendi', "Anket Profili: {$template['title']} (ID: #{$template_id}) güncellendi.");
-    set_flash('success', 'Birim bazlı İSG risk analiz form maddeleri başarıyla kaydedildi.');
+    log_action('Birim Bazlı Risk Formu Güncellendi', "Anket Profili: {$template['title']} (ID: #{$template_id}) kaydedildi.");
+    set_flash('success', 'Risk maddesi veritabanına başarıyla kaydedildi.');
     header("Location: survey_edit.php?id=" . $template_id);
     exit;
 }
@@ -220,7 +220,7 @@ window.libRecommendationsData = <?php echo json_encode($libRecommendations); ?>;
       <i class="bi bi-arrow-left"></i> Anket Profillerine Dön
     </a>
     <h3 class="fw-extrabold m-0"><?php echo htmlspecialchars($template['title']); ?></h3>
-    <p class="text-muted fs-7 m-0">Kağıt Belgenizdeki 12 Sütunlu İSG Birim Bazlı Risk Analiz Form Şablonu</p>
+    <p class="text-muted fs-7 m-0">Kağıt Belgenizdeki 12 Sütunlu İSG Birim Bazlı Risk Analiz Form Şablonu (Toplam <?php echo count($questions); ?> Maddeli)</p>
   </div>
   <div>
     <button type="button" class="btn btn-success font-weight-bold shadow-lg" data-bs-toggle="modal" data-bs-target="#wizardAddRiskItemModal">
