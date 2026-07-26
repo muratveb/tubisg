@@ -337,7 +337,7 @@ window.libRecommendationsData = <?php echo json_encode($libRecommendations); ?>;
 
               <div class="col-12 col-md-4 d-flex align-items-center">
                 <div class="w-100 text-center">
-                  <div class="text-muted fs-8 fw-bold">Risk Derecesi ($R = O \times Ş$)</div>
+                  <div class="text-muted fs-8 fw-bold">Risk Derecesi (Risk = Olasılık x Şiddet)</div>
                   <div class="fs-5 fw-extrabold text-primary" id="risk_val_<?php echo $q['id']; ?>"><?php echo $r; ?></div>
                 </div>
               </div>

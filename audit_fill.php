@@ -529,10 +529,10 @@ include __DIR__ . '/includes/header.php';
                   <input type="text" name="answers[<?php echo $q['id']; ?>][current_status]" class="form-control form-control-sm" placeholder="Örn: Lavabolar tavanda su akıntısı mevcut..." value="">
                 </div>
 
-                <!-- Olasılık ($O$) ve Şiddet ($Ş$) Seçimi -->
+                <!-- Olasılık (O) ve Şiddet (Ş) Seçimi -->
                 <div class="row g-3 mb-3">
                   <div class="col-12 col-md-6">
-                    <label class="form-label fw-bold fs-8 text-muted">Olasılık ($O$)</label>
+                    <label class="form-label fw-bold fs-8 text-muted">Olasılık (O)</label>
                     <select name="answers[<?php echo $q['id']; ?>][probability]" class="form-select form-select-sm risk-calc-select" data-qid="<?php echo $q['id']; ?>" id="prob_<?php echo $q['id']; ?>">
                       <option value="1" <?php echo $defP == 1 ? 'selected' : ''; ?>>1 - Çok Küçük (Çok nadir)</option>
                       <option value="2" <?php echo $defP == 2 ? 'selected' : ''; ?>>2 - Küçük (Nadir)</option>
@@ -542,7 +542,7 @@ include __DIR__ . '/includes/header.php';
                     </select>
                   </div>
                   <div class="col-12 col-md-6">
-                    <label class="form-label fw-bold fs-8 text-muted">Şiddet ($Ş$)</label>
+                    <label class="form-label fw-bold fs-8 text-muted">Şiddet (Ş)</label>
                     <select name="answers[<?php echo $q['id']; ?>][severity]" class="form-select form-select-sm risk-calc-select" data-qid="<?php echo $q['id']; ?>" id="sev_<?php echo $q['id']; ?>">
                       <option value="1" <?php echo $defS == 1 ? 'selected' : ''; ?>>1 - Çok Hafif (İlk yardım gerektirmez)</option>
                       <option value="2" <?php echo $defS == 2 ? 'selected' : ''; ?>>2 - Hafif (İlk yardım gerekir)</option>

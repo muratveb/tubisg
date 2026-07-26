@@ -17,7 +17,7 @@ $totalUnitsCount = $db->query("SELECT COUNT(*) FROM units")->fetchColumn();
 $totalInstitutionsCount = $db->query("SELECT COUNT(*) FROM institutions")->fetchColumn();
 $totalRiskItemsCount = $db->query("SELECT COUNT(*) FROM audit_answers WHERE risk_score >= 6")->fetchColumn();
 
-// 2. Canlı İSG Risk Seviyesi Dağılımı ($R = O \times Ş$)
+// 2. Canlı İSG Risk Seviyesi Dağılımı (Olasılık x Şiddet)
 $riskMatrixDistribution = $db->query("
     SELECT 
       SUM(CASE WHEN risk_score <= 5 THEN 1 ELSE 0 END) as low_risk_count,
@@ -63,7 +63,6 @@ include __DIR__ . '/includes/header.php';
 
 <style>
 .dash-stat-card {
-  background: #ffffff;
   border: 1px solid #e2e8f0;
   border-radius: 16px;
   padding: 20px;
@@ -76,14 +75,15 @@ include __DIR__ . '/includes/header.php';
   border-color: #cbd5e1;
 }
 .dash-icon-avatar {
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.4rem;
+  font-size: 1.5rem;
   flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
 }
 </style>
 
@@ -119,88 +119,88 @@ include __DIR__ . '/includes/header.php';
   </div>
 </div>
 
-<!-- 4 Metrik / Stat Kartları (Visual Grid) -->
+<!-- 4 Metrik / Stat Kartları (Visual Soft Gradient Cards) -->
 <div class="row g-3 mb-4">
   <div class="col-12 col-sm-6 col-xl-3">
-    <div class="dash-stat-card h-100 d-flex align-items-center justify-content-between gap-3">
+    <div class="dash-stat-card h-100 d-flex align-items-center justify-content-between gap-3" style="background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%);">
       <div>
         <span class="d-block text-uppercase text-muted font-weight-bold fs-8" style="letter-spacing: 0.5px;">TOPLAM DENETİM</span>
         <div class="fw-extrabold fs-2 text-dark my-0.5"><?php echo $totalAuditsCount; ?></div>
         <span class="text-success fs-8 font-weight-bold"><i class="bi bi-check-circle-fill me-1"></i> Tamamlanan Sahalar</span>
       </div>
-      <div class="dash-icon-avatar bg-success-subtle text-success">
+      <div class="dash-icon-avatar bg-success text-white">
         <i class="bi bi-clipboard2-check-fill"></i>
       </div>
     </div>
   </div>
 
   <div class="col-12 col-sm-6 col-xl-3">
-    <div class="dash-stat-card h-100 d-flex align-items-center justify-content-between gap-3">
+    <div class="dash-stat-card h-100 d-flex align-items-center justify-content-between gap-3" style="background: linear-gradient(135deg, #ffffff 0%, #fef2f2 100%);">
       <div>
         <span class="d-block text-uppercase text-muted font-weight-bold fs-8" style="letter-spacing: 0.5px;">TESPİT EDİLEN RİSKLER</span>
         <div class="fw-extrabold fs-2 text-danger my-0.5"><?php echo $totalRiskItemsCount; ?></div>
         <span class="text-danger fs-8 font-weight-bold"><i class="bi bi-exclamation-triangle-fill me-1"></i> Önlem Gerektiren</span>
       </div>
-      <div class="dash-icon-avatar bg-danger-subtle text-danger">
+      <div class="dash-icon-avatar bg-danger text-white">
         <i class="bi bi-shield-slash-fill"></i>
       </div>
     </div>
   </div>
 
   <div class="col-12 col-sm-6 col-xl-3">
-    <div class="dash-stat-card h-100 d-flex align-items-center justify-content-between gap-3">
+    <div class="dash-stat-card h-100 d-flex align-items-center justify-content-between gap-3" style="background: linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%);">
       <div>
         <span class="d-block text-uppercase text-muted font-weight-bold fs-8" style="letter-spacing: 0.5px;">AKTİF ANKETLER</span>
         <div class="fw-extrabold fs-2 text-primary my-0.5"><?php echo $activeSurveysCount; ?></div>
         <span class="text-primary fs-8 font-weight-bold"><i class="bi bi-journal-text me-1"></i> Şablon Portföyü</span>
       </div>
-      <div class="dash-icon-avatar bg-primary-subtle text-primary">
+      <div class="dash-icon-avatar bg-primary text-white">
         <i class="bi bi-journal-check"></i>
       </div>
     </div>
   </div>
 
   <div class="col-12 col-sm-6 col-xl-3">
-    <div class="dash-stat-card h-100 d-flex align-items-center justify-content-between gap-3">
+    <div class="dash-stat-card h-100 d-flex align-items-center justify-content-between gap-3" style="background: linear-gradient(135deg, #ffffff 0%, #fffbeb 100%);">
       <div>
         <span class="d-block text-uppercase text-muted font-weight-bold fs-8" style="letter-spacing: 0.5px;">KAYITLI BİRİMLER</span>
-        <div class="fw-extrabold fs-2 text-warning my-0.5"><?php echo $totalUnitsCount; ?></div>
+        <div class="fw-extrabold fs-2 text-warning-emphasis my-0.5"><?php echo $totalUnitsCount; ?></div>
         <span class="text-muted fs-8 font-weight-bold"><i class="bi bi-hospital me-1"></i> <?php echo $totalInstitutionsCount; ?> Kuruma Bağlı</span>
       </div>
-      <div class="dash-icon-avatar bg-warning-subtle text-warning-emphasis">
+      <div class="dash-icon-avatar bg-warning text-dark">
         <i class="bi bi-building"></i>
       </div>
     </div>
   </div>
 </div>
 
-<!-- CANLI İSG RİSK MATRİSİ DAĞILIMI ÖZETİ (Visual Matrix Metric Widget) -->
+<!-- CANLI İSG RİSK MATRİSİ DAĞILIMI ÖZETİ (Visual Matrix Metric Widget - Clean Turkish Labels) -->
 <?php if ($totalAnswersCount > 0): ?>
 <div class="custom-card p-3 mb-4 bg-white border-0 shadow-sm rounded-4">
   <div class="d-flex align-items-center justify-content-between mb-2">
     <h6 class="fw-extrabold text-dark m-0 fs-7">
-      <i class="bi bi-bar-chart-steps text-primary me-1"></i> Canlı İSG Risk Matrisi Genel Dağılımı ($5 \times 5$)
+      <i class="bi bi-bar-chart-steps text-primary me-1"></i> Saha İSG Risk Seviyesi Genel Dağılımı
     </h6>
     <span class="text-muted fs-8 font-weight-bold">Toplam <?php echo $totalAnswersCount; ?> Risk Değerlendirmesi</span>
   </div>
 
-  <div class="progress mb-2" style="height: 12px; border-radius: 8px; overflow: hidden; background: #e2e8f0;">
+  <div class="progress mb-3" style="height: 12px; border-radius: 8px; overflow: hidden; background: #e2e8f0;">
     <?php
     $pLow = round(($lowRisk / $totalAnswersCount) * 100, 1);
     $pMed = round(($medRisk / $totalAnswersCount) * 100, 1);
     $pHigh = round(($highRisk / $totalAnswersCount) * 100, 1);
     $pCrit = round(($critRisk / $totalAnswersCount) * 100, 1);
     ?>
-    <div class="progress-bar bg-success" style="width: <?php echo $pLow; ?>%" title="Kabul Edilebilir: <?php echo $lowRisk; ?>"></div>
+    <div class="progress-bar bg-success" style="width: <?php echo $pLow; ?>%" title="Kabul Edilebilir Risk: <?php echo $lowRisk; ?>"></div>
     <div class="progress-bar bg-info text-dark" style="width: <?php echo $pMed; ?>%" title="Önemli Risk: <?php echo $medRisk; ?>"></div>
-    <div class="progress-bar bg-warning text-dark" style="width: <?php echo $pHigh; ?>%" title="Dikkate Değer: <?php echo $highRisk; ?>"></div>
-    <div class="progress-bar bg-danger" style="width: <?php echo $pCrit; ?>%" title="Kabul Edilemez: <?php echo $critRisk; ?>"></div>
+    <div class="progress-bar bg-warning text-dark" style="width: <?php echo $pHigh; ?>%" title="Dikkate Değer Risk: <?php echo $highRisk; ?>"></div>
+    <div class="progress-bar bg-danger" style="width: <?php echo $pCrit; ?>%" title="Kabul Edilemez Risk: <?php echo $critRisk; ?>"></div>
   </div>
 
   <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 fs-8">
     <span class="text-success font-weight-bold"><i class="bi bi-circle-fill me-1"></i> Kabul Edilebilir Risk: <strong><?php echo $lowRisk; ?></strong> (%<?php echo $pLow; ?>)</span>
-    <span class="text-info font-weight-bold"><i class="bi bi-circle-fill me-1"></i> Önemli Risk: <strong><?php echo $medRisk; ?></strong> (%<?php echo $pMed; ?>)</span>
-    <span class="text-warning font-weight-bold"><i class="bi bi-circle-fill me-1"></i> Dikkate Değer Risk: <strong><?php echo $highRisk; ?></strong> (%<?php echo $pHigh; ?>)</span>
+    <span class="text-info-emphasis font-weight-bold"><i class="bi bi-circle-fill me-1 text-info"></i> Önemli Risk: <strong><?php echo $medRisk; ?></strong> (%<?php echo $pMed; ?>)</span>
+    <span class="text-warning-emphasis font-weight-bold"><i class="bi bi-circle-fill me-1 text-warning"></i> Dikkate Değer Risk: <strong><?php echo $highRisk; ?></strong> (%<?php echo $pHigh; ?>)</span>
     <span class="text-danger font-weight-bold"><i class="bi bi-circle-fill me-1"></i> Kabul Edilemez Risk: <strong><?php echo $critRisk; ?></strong> (%<?php echo $pCrit; ?>)</span>
   </div>
 </div>
@@ -231,10 +231,10 @@ include __DIR__ . '/includes/header.php';
             <thead class="table-dark">
               <tr>
                 <th class="ps-3">DENETLENEN KURUM & BİRİM</th>
-                <th>ANKET</th>
-                <th>TARİH</th>
+                <th>ANKET PROFİLİ</th>
+                <th>DENETİM TARİHİ</th>
                 <th class="text-center">İSG RİSK SEVİYESİ</th>
-                <th class="text-end pe-3">DETAY</th>
+                <th class="text-end pe-3">RAPOR</th>
               </tr>
             </thead>
             <tbody>
@@ -243,16 +243,16 @@ include __DIR__ . '/includes/header.php';
                 $mRisk = (int)($audit['max_audit_risk'] ?? $audit['total_score']);
                 if ($mRisk >= 16) {
                     $badgeClass = 'bg-danger text-white';
-                    $statusText = 'R: ' . $mRisk . ' - Kabul Edilemez';
+                    $statusText = 'Kabul Edilemez Risk';
                 } elseif ($mRisk >= 10) {
                     $badgeClass = 'bg-warning text-dark';
-                    $statusText = 'R: ' . $mRisk . ' - Dikkate Değer';
+                    $statusText = 'Dikkate Değer Risk';
                 } elseif ($mRisk >= 6) {
                     $badgeClass = 'bg-info text-dark';
-                    $statusText = 'R: ' . $mRisk . ' - Önemli Risk';
+                    $statusText = 'Önemli Risk';
                 } else {
                     $badgeClass = 'bg-success text-white';
-                    $statusText = 'R: ' . $mRisk . ' - Uygun / Düşük';
+                    $statusText = 'Kabul Edilebilir Risk';
                 }
                 ?>
                 <tr>
@@ -262,7 +262,7 @@ include __DIR__ . '/includes/header.php';
                         <i class="bi bi-hospital me-1"></i><?php echo htmlspecialchars($audit['institution_name']); ?>
                       </span><br>
                     <?php endif; ?>
-                    <span class="fw-bold text-dark fs-7"><i class="bi bi-building text-primary me-1"></i><?php echo htmlspecialchars($audit['unit_name']); ?></span>
+                    <span class="fw-extrabold text-dark fs-7"><i class="bi bi-building text-primary me-1"></i><?php echo htmlspecialchars($audit['unit_name']); ?></span>
                   </td>
                   <td>
                     <span class="badge bg-light text-dark border font-weight-bold fs-8"><?php echo htmlspecialchars($audit['survey_title']); ?></span>
@@ -276,7 +276,7 @@ include __DIR__ . '/includes/header.php';
                     </span>
                   </td>
                   <td class="text-end pe-3">
-                    <a href="audit_detail.php?id=<?php echo $audit['id']; ?>" class="btn btn-sm btn-outline-primary rounded-circle shadow-xs" title="Risk Karnesini Aç">
+                    <a href="audit_detail.php?id=<?php echo $audit['id']; ?>" class="btn btn-sm btn-outline-primary rounded-circle shadow-xs" title="Risk Karnesini İncele">
                       <i class="bi bi-chevron-right"></i>
                     </a>
                   </td>
