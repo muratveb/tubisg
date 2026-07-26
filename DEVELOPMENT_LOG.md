@@ -6,17 +6,17 @@ Tüm geliştirmeler, eklenen/güncellenen dosyalar mevcuttur.
 
 ## 📌 Mevcut Durum Özeti (Current Status)
 - **Tarih**: 26 Temmuz 2026
-- **Aşama**: Sabit/Asılı Kalan Footer Bar (`.global-footer-bar` position: fixed bottom) Düzenlemesi Tamamlandı.
-- **Aktif Sürüm**: v5.4.0
+- **Aşama**: Denetim Doldurma Ekranında (`audit_fill.php`) Tehlike, Etkilenme ve Risk Detaylarının Grid Kart Yapısı ve Modern Buton Tasarımı Tamamlandı.
+- **Aktif Sürüm**: v5.5.0
 
 ---
 
 ## 📅 Geliştirme Adımları
 
-### 🟢 Adım 1: Sabit Pinned Footer Bar Düzenlemesi ([assets/css/style.css](file:///Applications/MAMP/htdocs/tubisg/assets/css/style.css))
-- [x] Global footer bar tüm sayfalarda ekranın en altında sabit kalacak şekilde `position: fixed; bottom: 0; z-index: 1000;` olarak yapılandırıldı.
-- [x] Masaüstü ekranlarda sol menünün sağında (`left: var(--sidebar-width)`), mobilde ise alt gezinti barının üstünde sabit tutuldu.
-- [x] `.page-container` alt dolgusu `padding-bottom: 75px;` yapılarak hiçbir sayfa içeriğinin footer altında kalmaması garanti altına alındı.
+### 🟢 Adım 1: Modern Risk Bilgi Grid Paneli ([audit_fill.php](file:///Applications/MAMP/htdocs/tubisg/audit_fill.php))
+- [x] İçi içe ve karmaşık duran gri metin dizisi kaldırıldı.
+- [x] **Tehlike Kaynağı**, **Tehlike**, **Etkilenme (Yaşanabilecek Riskler)** ve **Etkilenen Gruplar** alanları için ayrı ikonlu ve geniş renkli mini kartlardan oluşan 2-sütunlu grid yapısı oluşturuldu (`.risk-meta-grid`).
+- [x] Cevap seçenek butonları yenilendi (`.answer-btn-card`) ve aktiflik durumlarında zengin soft pastel renk vurguları getirildi.
 
 ### 🟢 Adım 2: Loglama ve Otomatik Push
 - [x] `system_logs` kaydı ve git sync adımları tamamlandı.
