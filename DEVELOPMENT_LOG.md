@@ -6,19 +6,20 @@ Tüm geliştirmeler, eklenen/güncellenen dosyalar mevcuttur.
 
 ## 📌 Mevcut Durum Özeti (Current Status)
 - **Tarih**: 26 Temmuz 2026
-- **Aşama**: Kurum Kartlarından Doğrudan Filtreli Denetim Raporları Ekranına (`audits_list.php?institution_id=X`) Bağlantı Özelliği Tamamlandı.
-- **Aktif Sürüm**: v5.8.0
+- **Aşama**: Anket Profilleri (`survey_templates.php`) Sayfasının Üst Düzey Görsel SaaS Card Grid Dashboard Tasarımına Geçirilmesi Tamamlandı.
+- **Aktif Sürüm**: v5.9.0
 
 ---
 
 ## 📅 Geliştirme Adımları
 
-### 🟢 Adım 1: Kurum Bazlı Denetim Filtreleme ([audits_list.php](file:///Applications/MAMP/htdocs/tubisg/audits_list.php))
-- [x] `audits_list.php` sayfasına `institution_id` parametresi ile otomatik kurum filtreleme mantığı ve üst kısma bilgilendirici kırmızı **FİLTRELENEN KURUM** bildirim kartı eklendi.
-- [x] Filtreler arasına **Kurum Seçim Dropdown** menüsü entegre edildi.
+### 🟢 Adım 1: Anket Profilleri Görsel Tasarım Yenilemesi ([survey_templates.php](file:///Applications/MAMP/htdocs/tubisg/survey_templates.php))
+- [x] Basit ve sıradan duran kart yapısı kaldırıldı; yerine görsel yeşil gradient ikonlu avatar, canlı durum rozeti ve risk maddesi/denetim sayaçları içeren **Modern Anket Profili Kartları** (`.tpl-card`) entegre edildi.
+- [x] Üst kısma **Toplam Profil**, **Toplam Risk Maddesi** ve **Gerçekleştirilen Denetim** metriklerini gösteren prestijli Dark Glass Hero Banner yerleştirildi.
+- [x] Sayfa içine canlı arama kutusu (`#tplSearchInput`) ve profil adı/kategori düzenleme modalı (`#editTemplateModal`) eklendi.
 
-### 🟢 Adım 2: Kurum Kartı Tıklama Bağlantısı ([institutions.php](file:///Applications/MAMP/htdocs/tubisg/institutions.php))
-- [x] Kurum kartlarındaki **Denetim Sayısı Pili** (`[ 📋 X Denetim → ]`) ve **Kurum Başlığı/Avatarı** doğrudan ilgili kuruma ait denetim raporlarını açacak şekilde `audits_list.php?institution_id=X` bağlantısıyla ilişkilendirildi.
+### 🟢 Adım 2: Loglama ve Otomatik Push
+- [x] `system_logs` kaydı ve git sync adımları tamamlandı.
 
 ---
 
