@@ -60,6 +60,7 @@ if ($format === 'excel') {
       table { border-collapse: collapse; width: 100%; font-family: Arial, sans-serif; font-size: 11px; }
       th, td { border: 1px solid #94a3b8; padding: 6px; text-align: left; vertical-align: middle; }
       th { background-color: #0f172a; color: white; font-weight: bold; text-align: center; }
+      .vhead-th { writing-mode: vertical-rl; mso-direction-alt: bottom-to-top; white-space: nowrap; height: 90px; vertical-align: middle; text-align: center; font-size: 10px; }
       .header-title { background-color: #059669; color: white; font-size: 14px; font-weight: bold; text-align: center; }
       .risk-high { background-color: #fee2e2; color: #991b1b; font-weight: bold; text-align: center; }
       .risk-medium { background-color: #fef3c7; color: #92400e; font-weight: bold; text-align: center; }
@@ -93,9 +94,9 @@ if ($format === 'excel') {
           <th>ETKİLENME (YAŞANABİLECEK RİSKLER)</th>
           <th>ETKİLENENLER</th>
           <th>MEVCUT DURUM / CEVAP</th>
-          <th>OLASILIK (O)</th>
-          <th>ŞİDDET (Ş)</th>
-          <th>RİSK DERECESİ (R)</th>
+          <th class="vhead-th">OLASILIK (O)</th>
+          <th class="vhead-th">ŞİDDET (Ş)</th>
+          <th class="vhead-th">RİSK DERECESİ (R)</th>
           <th>ALINACAK ÖNLEMLER / İYİLEŞTİRMELER</th>
           <th>SORUMLU</th>
           <th>BAŞLAMA / SÜRE</th>
@@ -176,6 +177,7 @@ if ($format === 'word') {
         table.matrix-table { border-collapse: collapse; width: 100%; margin-top: 10px; }
         table.matrix-table th, table.matrix-table td { border: 1px solid #cbd5e1; padding: 6px; text-align: left; }
         table.matrix-table th { background: #0f172a; color: #fff; text-align: center; font-size: 10px; }
+        .vhead-th { writing-mode: vertical-rl; white-space: nowrap; height: 90px; vertical-align: middle; text-align: center; font-size: 10px; }
       </style>
     </head>
     <body>
@@ -199,9 +201,9 @@ if ($format === 'word') {
             <th>ETKİLENME (RİSKLER)</th>
             <th>ETKİLENENLER</th>
             <th>MEVCUT DURUM</th>
-            <th>O</th>
-            <th>Ş</th>
-            <th>R.D.</th>
+            <th class="vhead-th">OLASILIK (O)</th>
+            <th class="vhead-th">ŞİDDET (Ş)</th>
+            <th class="vhead-th">RİSK DERECESİ (R)</th>
             <th>ALINACAK ÖNLEMLER</th>
             <th>SORUMLU</th>
             <th>TERMİN</th>

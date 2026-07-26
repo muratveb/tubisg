@@ -64,6 +64,28 @@ $pageTitle = 'İSG Risk Analiz Karnesi #DEN-' . sprintf('%04d', $audit['id']);
 include __DIR__ . '/includes/header.php';
 ?>
 
+<style>
+.vhead-th {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  white-space: nowrap;
+  padding: 6px 2px !important;
+  font-size: 0.70rem;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  height: 95px;
+  vertical-align: middle !important;
+  text-align: center !important;
+}
+@media print {
+  .vhead-th {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    height: 90px;
+  }
+}
+</style>
+
 <!-- html2pdf.js CDN (Direkt PDF İndirme Motoru) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
@@ -133,7 +155,7 @@ include __DIR__ . '/includes/header.php';
       <div class="mb-1 text-muted">
         <strong>Ş (Şiddet):</strong> 1: Çok hafif, 2: Hafif, 3: Ciddi, 4: Çok Ciddi, 5: Felaket &nbsp;|&nbsp; 
         <strong>O (Olasılık):</strong> 1: Çok küçük, 2: Küçük, 3: Orta, 4: Yüksek, 5: Çok yüksek &nbsp;|&nbsp; 
-        <strong>R (Risk Derecesi):</strong> $Ş \times O$
+        <strong>R (Risk Derecesi):</strong> R = O × Ş
       </div>
       <div class="d-flex flex-wrap gap-2">
         <span class="badge bg-success">1 ≤ R ≤ 5: Kabul edilebilir Risk</span>
@@ -150,18 +172,18 @@ include __DIR__ . '/includes/header.php';
       <table class="table table-bordered table-striped align-middle m-0" style="font-size: 0.78rem;">
         <thead class="table-dark text-center align-middle" style="font-size: 0.72rem; letter-spacing: 0.3px;">
           <tr>
-            <th style="width: 90px;">RİSK GRUPLARI</th>
-            <th style="width: 100px;">TEHLİKE KAYNAĞI</th>
-            <th style="width: 100px;">TEHLİKE</th>
-            <th style="width: 110px;">ETKİLENME (YAŞANABİLECEK RİSKLER)</th>
-            <th style="width: 100px;">ETKİLENENLER</th>
+            <th style="width: 85px;">RİSK GRUPLARI</th>
+            <th style="width: 95px;">TEHLİKE KAYNAĞI</th>
+            <th style="width: 95px;">TEHLİKE</th>
+            <th style="width: 105px;">ETKİLENME (YAŞANABİLECEK RİSKLER)</th>
+            <th style="width: 95px;">ETKİLENENLER</th>
             <th style="width: 130px;">MEVCUT DURUM / CEVAP</th>
-            <th style="width: 35px;">O</th>
-            <th style="width: 35px;">Ş</th>
-            <th style="width: 45px;">R.D.</th>
-            <th style="width: 140px;">ALINACAK ÖNLEMLER / İYİLEŞTİRMELER</th>
-            <th style="width: 90px;">SORUMLU</th>
-            <th style="width: 75px;">SÜRE / TERMİN</th>
+            <th class="vhead-th" style="width: 32px;">OLASILIK (O)</th>
+            <th class="vhead-th" style="width: 32px;">ŞİDDET (Ş)</th>
+            <th class="vhead-th" style="width: 38px;">RİSK DERECESİ (R)</th>
+            <th style="width: 135px;">ALINACAK ÖNLEMLER / İYİLEŞTİRMELER</th>
+            <th style="width: 85px;">SORUMLU</th>
+            <th style="width: 70px;">SÜRE / TERMİN</th>
           </tr>
         </thead>
         <tbody>
@@ -251,26 +273,20 @@ function downloadAuditPDF(evt) {
     targetBtn.disabled = true;
   }
 
-  html2pdf().set(opt).from(element).save().then(function() {
+  html2pdf().set(opt).from(element).save().then(() => {
     if (targetBtn) {
       targetBtn.innerHTML = originalHTML;
       targetBtn.disabled = false;
     }
+  }).catch(err => {
+    console.error(err);
+    if (targetBtn) {
+      targetBtn.innerHTML = originalHTML;
+      targetBtn.disabled = false;
+    }
+    alert('PDF oluşturulurken hata oluştu. Lütfen "Yazdır" butonundan PDF olarak kaydetmeyi deneyin.');
   });
 }
-
-// Otomatik İndirme / Yazdırma Trigger'ları
-<?php if (isset($_GET['download_pdf']) && $_GET['download_pdf'] == 1): ?>
-document.addEventListener('DOMContentLoaded', function() {
-  setTimeout(function() { downloadAuditPDF(); }, 500);
-});
-<?php endif; ?>
-
-<?php if (isset($_GET['print']) && $_GET['print'] == 1): ?>
-document.addEventListener('DOMContentLoaded', function() {
-  setTimeout(function() { window.print(); }, 500);
-});
-<?php endif; ?>
 </script>
 
 <?php include __DIR__ . '/includes/footer.php'; ?>
