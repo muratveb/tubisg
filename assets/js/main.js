@@ -172,7 +172,6 @@ function initItemWizardModal() {
   const badge = document.getElementById('itemWizardStepBadge');
   const progressBar = document.getElementById('itemWizardProgressBar');
 
-  // Step 1: Event Delegation for Risk Group Card Clicks
   wizardModalEl.addEventListener('click', function(e) {
     const rgCard = e.target.closest('.wiz-rg-card');
     if (rgCard) {
@@ -186,7 +185,6 @@ function initItemWizardModal() {
     }
   });
 
-  // Risk Score Calc in Step 7
   document.querySelectorAll('.onchange-wiz-calc').forEach(sel => {
     sel.addEventListener('change', updateWizRiskCalc);
   });
@@ -209,7 +207,6 @@ function initItemWizardModal() {
     }
   }
 
-  // Next Button Click
   if (nextBtn) {
     nextBtn.addEventListener('click', function() {
       if (currentStep < totalSteps) {
@@ -220,7 +217,6 @@ function initItemWizardModal() {
     });
   }
 
-  // Prev Button Click
   if (prevBtn) {
     prevBtn.addEventListener('click', function() {
       if (currentStep > 1) {
@@ -501,59 +497,96 @@ function initQuickUnitCreator() {
 }
 
 /**
- * Interactive Visual Audit Wizard in audit_new.php
+ * Interactive Visual Audit Wizard in audit_new.php (Fixed Selection Handler)
  */
 function initAuditWizard() {
-  const templateCards = document.querySelectorAll('.template-card-choice');
-  const unitCards = document.querySelectorAll('.unit-card-choice');
+  const wizardForm = document.getElementById('startAuditWizardForm');
+  if (!wizardForm) return;
+
   const selectedTemplateInput = document.getElementById('selectedTemplateInput');
   const selectedUnitInput = document.getElementById('selectedUnitInput');
   const startBtn = document.getElementById('startAuditSubmitBtn');
-  const unitSearchInput = document.getElementById('unitSearchInput');
+  const summaryDiv = document.getElementById('wizardSelectionSummary');
 
-  templateCards.forEach(card => {
-    card.addEventListener('click', function () {
-      templateCards.forEach(c => c.classList.remove('selected', 'border-success', 'shadow-md'));
-      this.classList.add('selected', 'border-success', 'shadow-md');
-      
-      const tId = this.dataset.templateId;
+  let selectedTemplateName = '';
+  let selectedUnitName = '';
+
+  // Event Delegation for Template Cards Click
+  wizardForm.addEventListener('click', function(e) {
+    const tCard = e.target.closest('.template-card');
+    if (tCard) {
+      document.querySelectorAll('.template-card').forEach(c => c.classList.remove('selected'));
+      tCard.classList.add('selected');
+
+      const tId = tCard.dataset.id;
       selectedTemplateInput.value = tId;
-      checkWizardReady();
-    });
-  });
 
-  unitCards.forEach(card => {
-    card.addEventListener('click', function () {
-      unitCards.forEach(c => c.classList.remove('selected', 'border-success', 'shadow-md'));
-      this.classList.add('selected', 'border-success', 'shadow-md');
-      
-      const uId = this.dataset.unitId;
+      const titleEl = tCard.querySelector('.wizard-card-title');
+      selectedTemplateName = titleEl ? titleEl.textContent.trim() : 'Anket Profili';
+
+      checkWizardReady();
+    }
+
+    const uCard = e.target.closest('.unit-card');
+    if (uCard) {
+      document.querySelectorAll('.unit-card').forEach(c => c.classList.remove('selected'));
+      uCard.classList.add('selected');
+
+      const uId = uCard.dataset.id;
       selectedUnitInput.value = uId;
-      checkWizardReady();
-    });
-  });
 
-  if (unitSearchInput) {
-    unitSearchInput.addEventListener('input', function () {
-      const q = this.value.toLowerCase().trim();
-      unitCards.forEach(card => {
-        const name = card.dataset.unitName.toLowerCase();
-        if (name.includes(q)) {
-          card.style.display = 'block';
-        } else {
-          card.style.display = 'none';
-        }
-      });
-    });
-  }
+      const titleEl = uCard.querySelector('.wizard-card-title');
+      selectedUnitName = titleEl ? titleEl.textContent.trim() : 'Birim';
+
+      checkWizardReady();
+    }
+  });
 
   function checkWizardReady() {
-    if (selectedTemplateInput && selectedUnitInput && startBtn) {
-      if (selectedTemplateInput.value > 0 && selectedUnitInput.value > 0) {
-        startBtn.disabled = false;
-        startBtn.classList.remove('btn-secondary');
-        startBtn.classList.add('btn-success', 'shadow-lg');
+    const tVal = selectedTemplateInput ? selectedTemplateInput.value : '';
+    const uVal = selectedUnitInput ? selectedUnitInput.value : '';
+
+    if (tVal && uVal && parseInt(tVal) > 0 && parseInt(uVal) > 0) {
+      if (startBtn) {
+        startBtn.classList.remove('disabled');
+        startBtn.removeAttribute('disabled');
+      }
+      if (summaryDiv) {
+        summaryDiv.innerHTML = `<span class="text-primary fw-bold">${selectedTemplateName}</span> &rarr; <span class="text-success fw-bold">${selectedUnitName}</span>`;
+      }
+    } else {
+      if (startBtn) {
+        startBtn.classList.add('disabled');
+      }
+      if (summaryDiv) {
+        if (parseInt(tVal) > 0) {
+          summaryDiv.innerHTML = `<span class="text-primary fw-bold">${selectedTemplateName}</span> &rarr; <span class="text-muted">Birim seçiniz</span>`;
+        } else if (parseInt(uVal) > 0) {
+          summaryDiv.innerHTML = `<span class="text-muted">Anket seçiniz</span> &rarr; <span class="text-success fw-bold">${selectedUnitName}</span>`;
+        } else {
+          summaryDiv.textContent = 'Lütfen yukarıdan Anket Profili ve Birim seçin';
+        }
       }
     }
   }
+
+  // Pre-select if values exist in inputs
+  if (selectedTemplateInput && selectedTemplateInput.value > 0) {
+    const activeTCard = document.querySelector(`.template-card[data-id="${selectedTemplateInput.value}"]`);
+    if (activeTCard) {
+      activeTCard.classList.add('selected');
+      const titleEl = activeTCard.querySelector('.wizard-card-title');
+      selectedTemplateName = titleEl ? titleEl.textContent.trim() : 'Anket Profili';
+    }
+  }
+  if (selectedUnitInput && selectedUnitInput.value > 0) {
+    const activeUCard = document.querySelector(`.unit-card[data-id="${selectedUnitInput.value}"]`);
+    if (activeUCard) {
+      activeUCard.classList.add('selected');
+      const titleEl = activeUCard.querySelector('.wizard-card-title');
+      selectedUnitName = titleEl ? titleEl.textContent.trim() : 'Birim';
+    }
+  }
+
+  checkWizardReady();
 }
