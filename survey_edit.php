@@ -1,6 +1,6 @@
 <?php
 /**
- * Tubİsg - Anket Soruları, Kütüphane Seçimi & İSG Risk Matris Editörü (Puanlamasız)
+ * Tubİsg - Birebir Resmi "Birim Bazlı Risk Analiz Formu" 12 Sütunlu Matris Editörü
  */
 require_once __DIR__ . '/includes/auth.php';
 require_permission('surveys_manage');
@@ -32,6 +32,8 @@ $riskGroups = $db->query("SELECT * FROM risk_groups ORDER BY sort_order ASC, gro
 $libSources = $db->query("SELECT item_text FROM risk_libraries WHERE category = 'hazard_source' ORDER BY item_text ASC")->fetchAll(PDO::FETCH_COLUMN);
 $libHazards = $db->query("SELECT item_text FROM risk_libraries WHERE category = 'hazard_name' ORDER BY item_text ASC")->fetchAll(PDO::FETCH_COLUMN);
 $libAffected = $db->query("SELECT item_text FROM risk_libraries WHERE category = 'affected_people' ORDER BY item_text ASC")->fetchAll(PDO::FETCH_COLUMN);
+$libResponsibles = $db->query("SELECT item_text FROM risk_libraries WHERE category = 'responsible_person' ORDER BY item_text ASC")->fetchAll(PDO::FETCH_COLUMN);
+$libRecommendations = $db->query("SELECT item_text FROM risk_libraries WHERE category = 'action_recommendation' ORDER BY item_text ASC")->fetchAll(PDO::FETCH_COLUMN);
 
 // Form Post İşlemleri
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -49,143 +51,137 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    // 1. Soru Silme İşlemi
+    // 1. Soru / Risk Satırı Silme İşlemi
     if (isset($_POST['delete_question_id'])) {
         $qId = (int)$_POST['delete_question_id'];
         $db->prepare("DELETE FROM survey_questions WHERE id = ? AND template_id = ?")->execute([$qId, $template_id]);
-        log_action('Anket Sorusu Silindi', "Anket ID: #{$template_id}, Soru ID: #{$qId}");
-        set_flash('success', 'Soru silindi.');
+        log_action('Risk Satırı Silindi', "Anket ID: #{$template_id}, Satır ID: #{$qId}");
+        set_flash('success', 'Risk satırı silindi.');
         header("Location: survey_edit.php?id=" . $template_id);
         exit;
     }
 
-    // 2. Seçenek Silme İşlemi
-    if (isset($_POST['delete_option_id'])) {
-        $optId = (int)$_POST['delete_option_id'];
-        $db->prepare("DELETE FROM question_options WHERE id = ?")->execute([$optId]);
-        log_action('Soru Seçeneği Silindi', "Anket ID: #{$template_id}, Seçenek ID: #{$optId}");
-        set_flash('success', 'Seçenek silindi.');
-        header("Location: survey_edit.php?id=" . $template_id);
-        exit;
-    }
-
-    // 3. Mevcut Soruları Güncelleme
+    // 2. Mevcut Risk Satırlarını Güncelleme (12 Sütunlu Form Yapısı)
     if (isset($_POST['questions']) && is_array($_POST['questions'])) {
         foreach ($_POST['questions'] as $qId => $qData) {
-            $qText = trim($qData['text'] ?? '');
             $riskGroupId = (int)($qData['risk_group_id'] ?? 0);
             $hazardSource = trim($qData['hazard_source'] ?? '');
             $hazardName = trim($qData['hazard_name'] ?? '');
             $affectedRisk = trim($qData['affected_risk'] ?? '');
             $affectedPeople = trim($qData['affected_people'] ?? '');
-
-            if (!empty($qText)) {
-                $stmtUpd = $db->prepare("
-                    UPDATE survey_questions 
-                    SET question_text = ?, risk_group_id = ?, hazard_source = ?, hazard_name = ?, affected_risk = ?, affected_people = ?
-                    WHERE id = ? AND template_id = ?
-                ");
-                $stmtUpd->execute([
-                    $qText, 
-                    $riskGroupId > 0 ? $riskGroupId : null, 
-                    $hazardSource, 
-                    $hazardName, 
-                    $affectedRisk, 
-                    $affectedPeople, 
-                    $qId, 
-                    $template_id
-                ]);
-                
-                if (isset($qData['options']) && is_array($qData['options'])) {
-                    foreach ($qData['options'] as $optId => $optData) {
-                        $optText = trim($optData['text'] ?? '');
-                        $trigger = isset($optData['trigger_action']) && $optData['trigger_action'] == 1 ? 1 : 0;
-                        if (!empty($optText)) {
-                            $db->prepare("UPDATE question_options SET option_text = ?, points = 0, trigger_action = ? WHERE id = ? AND question_id = ?")->execute([$optText, $trigger, $optId, $qId]);
-                        }
-                    }
-                }
+            $currentStatus = trim($qData['current_status'] ?? '');
+            $prob = (int)($qData['default_probability'] ?? 2);
+            $sev = (int)($qData['default_severity'] ?? 3);
+            $actionPlan = trim($qData['default_action_plan'] ?? '');
+            $responsible = trim($qData['default_responsible'] ?? '');
+            $deadline = trim($qData['default_deadline'] ?? '');
+            $qText = trim($qData['question_text'] ?? '');
+            if (empty($qText)) {
+                $qText = !empty($hazardName) ? $hazardName : 'Saha Risk Denetim Maddesi';
             }
+
+            $stmtUpd = $db->prepare("
+                UPDATE survey_questions 
+                SET risk_group_id = ?, hazard_source = ?, hazard_name = ?, affected_risk = ?, affected_people = ?,
+                    current_status = ?, default_probability = ?, default_severity = ?, default_action_plan = ?,
+                    default_responsible = ?, default_deadline = ?, question_text = ?
+                WHERE id = ? AND template_id = ?
+            ");
+            $stmtUpd->execute([
+                $riskGroupId > 0 ? $riskGroupId : null,
+                $hazardSource,
+                $hazardName,
+                $affectedRisk,
+                $affectedPeople,
+                $currentStatus,
+                $prob,
+                $sev,
+                $actionPlan,
+                $responsible,
+                $deadline,
+                $qText,
+                $qId,
+                $template_id
+            ]);
         }
     }
 
-    // 4. Yeni Soru Ekleme
+    // 3. Yeni Risk Satırları Ekleme
     if (isset($_POST['new_questions']) && is_array($_POST['new_questions'])) {
         foreach ($_POST['new_questions'] as $newQ) {
-            $qText = trim($newQ['text'] ?? '');
             $riskGroupId = (int)($newQ['risk_group_id'] ?? 0);
             $hazardSource = trim($newQ['hazard_source'] ?? '');
             $hazardName = trim($newQ['hazard_name'] ?? '');
             $affectedRisk = trim($newQ['affected_risk'] ?? '');
             $affectedPeople = trim($newQ['affected_people'] ?? '');
+            $currentStatus = trim($newQ['current_status'] ?? '');
+            $prob = (int)($newQ['default_probability'] ?? 2);
+            $sev = (int)($newQ['default_severity'] ?? 3);
+            $actionPlan = trim($newQ['default_action_plan'] ?? '');
+            $responsible = trim($newQ['default_responsible'] ?? '');
+            $deadline = trim($newQ['default_deadline'] ?? '');
+            $qText = trim($newQ['question_text'] ?? '');
+            if (empty($qText)) {
+                $qText = !empty($hazardName) ? $hazardName : 'Saha Risk Denetim Maddesi';
+            }
 
-            if (!empty($qText)) {
+            if (!empty($hazardSource) || !empty($hazardName) || !empty($qText)) {
                 $stmtQ = $db->prepare("
-                    INSERT INTO survey_questions (template_id, risk_group_id, question_text, hazard_source, hazard_name, affected_risk, affected_people) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO survey_questions 
+                    (template_id, risk_group_id, hazard_source, hazard_name, affected_risk, affected_people,
+                     current_status, default_probability, default_severity, default_action_plan, default_responsible, default_deadline, question_text) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ");
                 $stmtQ->execute([
-                    $template_id, 
-                    $riskGroupId > 0 ? $riskGroupId : null, 
-                    $qText, 
-                    $hazardSource, 
-                    $hazardName, 
-                    $affectedRisk, 
-                    $affectedPeople
+                    $template_id,
+                    $riskGroupId > 0 ? $riskGroupId : null,
+                    $hazardSource,
+                    $hazardName,
+                    $affectedRisk,
+                    $affectedPeople,
+                    $currentStatus,
+                    $prob,
+                    $sev,
+                    $actionPlan,
+                    $responsible,
+                    $deadline,
+                    $qText
                 ]);
                 $qId = $db->lastInsertId();
 
-                if (isset($newQ['options']) && is_array($newQ['options'])) {
-                    $stmtOpt = $db->prepare("INSERT INTO question_options (question_id, option_text, points, trigger_action) VALUES (?, ?, 0, ?)");
-                    foreach ($newQ['options'] as $opt) {
-                        $optText = trim($opt['text'] ?? '');
-                        $trigger = isset($opt['trigger_action']) && $opt['trigger_action'] == 1 ? 1 : 0;
-                        if (!empty($optText)) {
-                            $stmtOpt->execute([$qId, $optText, $trigger]);
-                        }
-                    }
-                } else {
-                    // Varsayılan 4 Standart İSG Seçeneği Ekle (Evet, Hayır, Kısmen, Denetim Dışı)
-                    $defaultOptions = [
-                        ['text' => 'Evet (Uygun)', 'trigger' => 0],
-                        ['text' => 'Hayır (Uygun Değil)', 'trigger' => 1],
-                        ['text' => 'Kısmen (Kısmen Uygun)', 'trigger' => 1],
-                        ['text' => 'Denetim Dışı / Muaf', 'trigger' => 0]
-                    ];
-                    $stmtOpt = $db->prepare("INSERT INTO question_options (question_id, option_text, points, trigger_action) VALUES (?, ?, 0, ?)");
-                    foreach ($defaultOptions as $defOpt) {
-                        $stmtOpt->execute([$qId, $defOpt['text'], $defOpt['trigger']]);
-                    }
+                // Standart Cevap Şıklarını Ekle
+                $defaultOptions = [
+                    ['text' => 'Evet (Uygun)', 'trigger' => 0],
+                    ['text' => 'Hayır (Uygun Değil)', 'trigger' => 1],
+                    ['text' => 'Kısmen (Kısmen Uygun)', 'trigger' => 1],
+                    ['text' => 'Denetim Dışı / Muaf', 'trigger' => 0]
+                ];
+                $stmtOpt = $db->prepare("INSERT INTO question_options (question_id, option_text, points, trigger_action) VALUES (?, ?, 0, ?)");
+                foreach ($defaultOptions as $defOpt) {
+                    $stmtOpt->execute([$qId, $defOpt['text'], $defOpt['trigger']]);
                 }
             }
         }
     }
 
-    log_action('Anket Soruları Güncellendi', "Anket: {$template['title']} (ID: #{$template_id}) soruları ve kütüphane bağlantıları güncellendi.");
-    set_flash('success', 'Anket soruları ve İSG kütüphane bağlantıları başarıyla güncellendi.');
+    log_action('Birim Bazlı Risk Formu Güncellendi', "Anket Profili: {$template['title']} (ID: #{$template_id}) 12 sütunlu risk matrisi güncellendi.");
+    set_flash('success', 'Birim bazlı İSG risk analiz form matrisi başarıyla güncellendi.');
     header("Location: survey_edit.php?id=" . $template_id);
     exit;
 }
 
-// Soruları ve Seçenekleri Çek
+// Soruları / Risk Satırlarını Çek
 $questionsStmt = $db->prepare("
     SELECT sq.*, rg.group_name
     FROM survey_questions sq
     LEFT JOIN risk_groups rg ON sq.risk_group_id = rg.id
     WHERE sq.template_id = ? 
-    ORDER BY sq.sort_order ASC, sq.id ASC
+    ORDER BY COALESCE(rg.sort_order, 99) ASC, sq.sort_order ASC, sq.id ASC
 ");
 $questionsStmt->execute([$template_id]);
 $questions = $questionsStmt->fetchAll();
 
-foreach ($questions as &$q) {
-    $optStmt = $db->prepare("SELECT * FROM question_options WHERE question_id = ? ORDER BY sort_order ASC, id ASC");
-    $optStmt->execute([$q['id']]);
-    $q['options'] = $optStmt->fetchAll();
-}
-unset($q);
-
-$pageTitle = 'Anket & İSG Risk Editörü: ' . $template['title'];
+$pageTitle = 'İSG Risk Analiz Form Editörü: ' . $template['title'];
 include __DIR__ . '/includes/header.php';
 ?>
 
@@ -193,7 +189,7 @@ include __DIR__ . '/includes/header.php';
 window.riskGroupsData = <?php echo json_encode($riskGroups); ?>;
 </script>
 
-<!-- HTML5 Autocomplete Datalist Öğeleri -->
+<!-- Autocomplete Datalist Öğeleri -->
 <datalist id="hazard_sources_list">
   <?php foreach ($libSources as $src): ?>
     <option value="<?php echo htmlspecialchars($src); ?>"></option>
@@ -212,20 +208,36 @@ window.riskGroupsData = <?php echo json_encode($riskGroups); ?>;
   <?php endforeach; ?>
 </datalist>
 
+<datalist id="responsibles_list">
+  <?php foreach ($libResponsibles as $resp): ?>
+    <option value="<?php echo htmlspecialchars($resp); ?>"></option>
+  <?php endforeach; ?>
+</datalist>
+
+<datalist id="recommendations_list">
+  <?php foreach ($libRecommendations as $rec): ?>
+    <option value="<?php echo htmlspecialchars($rec); ?>"></option>
+  <?php endforeach; ?>
+</datalist>
+
+<!-- Sayfa Üst Başlık & Butonlar -->
 <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-4">
   <div>
     <a href="survey_templates.php" class="text-decoration-none text-muted fs-8 font-weight-bold d-block mb-1">
       <i class="bi bi-arrow-left"></i> Anket Profillerine Dön
     </a>
     <h3 class="fw-extrabold m-0"><?php echo htmlspecialchars($template['title']); ?></h3>
-    <p class="text-muted fs-7 m-0">Risk Grupları, Kütüphaneden Doğrudan Seçim ve Tetikleyicileri Yönetin</p>
+    <p class="text-muted fs-7 m-0">Resmi 12 Sütunlu İSG Birim Bazlı Risk Analiz Formu & Şablon Düzenleyici</p>
   </div>
-  <div class="d-flex gap-2">
-    <button type="button" class="btn btn-outline-primary font-weight-bold" data-bs-toggle="modal" data-bs-target="#quickAddLibModal">
-      <i class="bi bi-plus-circle-fill"></i> Kütüphaneye Yeni Öğe Ekle
+  <div class="d-flex flex-wrap gap-2">
+    <button type="button" class="btn btn-outline-warning text-dark font-weight-bold" data-bs-toggle="modal" data-bs-target="#selectRiskGroupModal">
+      <i class="bi bi-exclamation-triangle-fill me-1"></i> Pop-Up Risk Grubu Seç
     </button>
-    <button type="button" id="addQuestionBtn" class="btn btn-outline-success font-weight-bold">
-      <i class="bi bi-plus-circle-fill"></i> Yeni Risk Sorusu Ekle
+    <button type="button" class="btn btn-outline-primary font-weight-bold" data-bs-toggle="modal" data-bs-target="#quickAddLibModal">
+      <i class="bi bi-plus-circle-fill"></i> Kütüphaneye Öğe Ekle
+    </button>
+    <button type="button" id="addQuestionBtn" class="btn btn-success font-weight-bold shadow-sm">
+      <i class="bi bi-plus-lg"></i> Yeni Risk Satırı Ekle
     </button>
   </div>
 </div>
@@ -234,30 +246,48 @@ window.riskGroupsData = <?php echo json_encode($riskGroups); ?>;
 
   <div id="questionsContainer">
     <?php if (empty($questions)): ?>
-      <div class="alert alert-warning text-center py-4">
-        <i class="bi bi-exclamation-triangle-fill fs-3 d-block mb-2"></i>
-        Bu anket profilinde henüz hiç risk tanımı bulunmuyor. Yukarıdaki <strong>"Yeni Risk Sorusu Ekle"</strong> butonuna tıklayarak ekleyebilirsiniz.
+      <div class="alert alert-warning text-center py-5 shadow-sm">
+        <i class="bi bi-clipboard-x fs-1 d-block mb-2 text-warning"></i>
+        Bu anket profilinde henüz hiç risk satırı tanımlanmamış.<br>
+        Yukarıdaki <strong>"+ Yeni Risk Satırı Ekle"</strong> butonuna tıklayarak Kağıt Formdaki 12 sütunlu risk maddelerini tanımlayabilirsiniz.
       </div>
     <?php else: ?>
       <?php $qNum = 1; foreach ($questions as $q): ?>
-        <div class="custom-card question-builder-card mb-4" data-qindex="<?php echo $qNum; ?>">
-          <div class="custom-card-header bg-light p-3 rounded-top">
+        <?php
+        $p = (int)($q['default_probability'] ?? 2);
+        $s = (int)($q['default_severity'] ?? 3);
+        $r = $p * $s;
+
+        $badgeBg = 'bg-success';
+        $statusText = 'Kabul Edilebilir Risk';
+        if ($r >= 16) { $badgeBg = 'bg-danger'; $statusText = 'Kabul Edilemez Risk'; }
+        elseif ($r >= 10) { $badgeBg = 'bg-warning text-dark'; $statusText = 'Dikkate Değer Risk'; }
+        elseif ($r >= 6) { $badgeBg = 'bg-info text-dark'; $statusText = 'Önemli Risk'; }
+        ?>
+        <div class="custom-card question-builder-card mb-4 border-2" data-qindex="<?php echo $qNum; ?>">
+          
+          <!-- Kart Üst Barı -->
+          <div class="custom-card-header bg-dark text-white p-3 rounded-top d-flex align-items-center justify-content-between">
             <div class="d-flex align-items-center gap-2">
-              <span class="badge bg-primary rounded-circle" style="width:28px; height:28px; display:flex; align-items:center; justify-content:center;"><?php echo $qNum; ?></span>
-              <h6 class="m-0 font-weight-bold">Risk Sorusu #<?php echo $qNum; ?> <?php if ($q['group_name']): ?><span class="badge bg-warning text-dark ms-2"><?php echo htmlspecialchars($q['group_name']); ?></span><?php endif; ?></h6>
+              <span class="badge bg-warning text-dark rounded-circle" style="width:28px; height:28px; display:flex; align-items:center; justify-content:center;"><?php echo $qNum; ?></span>
+              <h6 class="m-0 font-weight-bold text-white">Risk Satırı #<?php echo $qNum; ?></h6>
+              <span class="badge bg-secondary ms-2" id="rg_badge_<?php echo $q['id']; ?>"><?php echo htmlspecialchars($q['group_name'] ?? 'Genel Riskler'); ?></span>
             </div>
-            <button type="submit" name="delete_question_id" value="<?php echo $q['id']; ?>" class="btn btn-sm btn-outline-danger" data-confirm-btn="true" data-confirm-title="Soruyu Sil" data-confirm-text="Bu soruyu ve bağlı tüm cevap seçeneklerini silmek istediğinize emin misiniz?">
-              <i class="bi bi-trash"></i> Soruyu Sil
-            </button>
+            <div class="d-flex align-items-center gap-2">
+              <span class="badge <?php echo $badgeBg; ?>" id="risk_calc_badge_<?php echo $q['id']; ?>">R = <?php echo $r; ?> (<?php echo $statusText; ?>)</span>
+              <button type="submit" name="delete_question_id" value="<?php echo $q['id']; ?>" class="btn btn-sm btn-outline-danger text-white" data-confirm-btn="true" data-confirm-title="Risk Satırını Sil" data-confirm-text="Bu risk analiz satırını silmek istediğinize emin misiniz?">
+                <i class="bi bi-trash"></i> Sil
+              </button>
+            </div>
           </div>
 
           <div class="p-3">
-            <!-- Risk Grubu ve Tehlike Kaynağı Row -->
-            <div class="row g-3 mb-3">
+            <!-- 1. SÜTUN: RİSK GRUBU SEÇİMİ -->
+            <div class="row g-3 mb-3 bg-light p-2 rounded-3 border">
               <div class="col-12 col-md-4">
-                <label class="form-label fw-bold fs-8 text-muted"><i class="bi bi-exclamation-triangle"></i> Risk Grubu</label>
-                <select name="questions[<?php echo $q['id']; ?>][risk_group_id]" class="form-select form-select-sm">
-                  <option value="0">-- Risk Grubu Seçin --</option>
+                <label class="form-label fw-bold fs-8 text-dark"><i class="bi bi-diagram-3-fill text-warning me-1"></i> 1. Risk Grubu</label>
+                <select name="questions[<?php echo $q['id']; ?>][risk_group_id]" class="form-select form-select-sm fw-bold">
+                  <option value="0">-- Pop-up veya Listeden Seçin --</option>
                   <?php foreach ($riskGroups as $rg): ?>
                     <option value="<?php echo $rg['id']; ?>" <?php echo $q['risk_group_id'] == $rg['id'] ? 'selected' : ''; ?>>
                       <?php echo htmlspecialchars($rg['group_name']); ?>
@@ -266,63 +296,94 @@ window.riskGroupsData = <?php echo json_encode($riskGroups); ?>;
                 </select>
               </div>
 
+              <!-- 2. SÜTUN: TEHLİKE KAYNAĞI -->
               <div class="col-12 col-md-4">
-                <label class="form-label fw-bold fs-8 text-muted">Tehlike Kaynağı (Kütüphaneden Seçilebilir)</label>
-                <input type="text" name="questions[<?php echo $q['id']; ?>][hazard_source]" list="hazard_sources_list" class="form-control form-control-sm" placeholder="Seçin veya yazın..." value="<?php echo htmlspecialchars($q['hazard_source'] ?? ''); ?>">
+                <label class="form-label fw-bold fs-8 text-dark">2. Tehlike Kaynağı (Kütüphaneden)</label>
+                <input type="text" name="questions[<?php echo $q['id']; ?>][hazard_source]" list="hazard_sources_list" class="form-control form-control-sm" placeholder="Örn: Lavabo, Wc tavanı" value="<?php echo htmlspecialchars($q['hazard_source'] ?? ''); ?>">
               </div>
 
+              <!-- 3. SÜTUN: TEHLİKE -->
               <div class="col-12 col-md-4">
-                <label class="form-label fw-bold fs-8 text-muted">Tehlike Metni (Kütüphaneden Seçilebilir)</label>
-                <input type="text" name="questions[<?php echo $q['id']; ?>][hazard_name]" list="hazards_list" class="form-control form-control-sm" placeholder="Seçin veya yazın..." value="<?php echo htmlspecialchars($q['hazard_name'] ?? ''); ?>">
+                <label class="form-label fw-bold fs-8 text-dark">3. Tehlike (Kütüphaneden)</label>
+                <input type="text" name="questions[<?php echo $q['id']; ?>][hazard_name]" list="hazards_list" class="form-control form-control-sm" placeholder="Örn: Enfeksiyon, Kaygan zemin" value="<?php echo htmlspecialchars($q['hazard_name'] ?? ''); ?>">
               </div>
             </div>
 
-            <!-- Etkilenme ve Etkilenenler Row -->
+            <!-- 4. ETKİLENME VE 5. ETKİLENENLER -->
             <div class="row g-3 mb-3">
               <div class="col-12 col-md-6">
-                <label class="form-label fw-bold fs-8 text-muted">Etkilenme (Yaşanabilecek Riskler)</label>
-                <input type="text" name="questions[<?php echo $q['id']; ?>][affected_risk]" class="form-control form-control-sm" placeholder="Örn: Pis su bulaşma, Kas-iskelet hast." value="<?php echo htmlspecialchars($q['affected_risk'] ?? ''); ?>">
+                <label class="form-label fw-bold fs-8 text-muted">4. Etkilenme (Yaşanabilecek Riskler)</label>
+                <input type="text" name="questions[<?php echo $q['id']; ?>][affected_risk]" class="form-control form-control-sm" placeholder="Örn: Pis su bulaşma, enfeksiyon maruziyeti" value="<?php echo htmlspecialchars($q['affected_risk'] ?? ''); ?>">
               </div>
 
               <div class="col-12 col-md-6">
-                <label class="form-label fw-bold fs-8 text-muted">Etkilenenler (Kütüphaneden Seçilebilir)</label>
-                <input type="text" name="questions[<?php echo $q['id']; ?>][affected_people]" list="affected_list" class="form-control form-control-sm" placeholder="Seçin veya yazın..." value="<?php echo htmlspecialchars($q['affected_people'] ?? ''); ?>">
+                <label class="form-label fw-bold fs-8 text-muted">5. Etkilenenler (Kütüphaneden)</label>
+                <input type="text" name="questions[<?php echo $q['id']; ?>][affected_people]" list="affected_list" class="form-control form-control-sm" placeholder="Örn: Çalışanlar(Doktor, Hemşire), Hasta ve yakını" value="<?php echo htmlspecialchars($q['affected_people'] ?? ''); ?>">
               </div>
             </div>
 
-            <!-- Soru Metni -->
-            <div class="mb-3">
-              <label class="form-label fw-bold">Kontrol / Denetim Sorusu Metni</label>
-              <input type="text" name="questions[<?php echo $q['id']; ?>][text]" class="form-control" value="<?php echo htmlspecialchars($q['question_text']); ?>" placeholder="Örn: Lavabo tavanlarında su sızıntısı veya yalıtım eksikliği var mı?" required>
+            <!-- 6. MEVCUT DURUM VE KONTROL SORUSU -->
+            <div class="row g-3 mb-3">
+              <div class="col-12 col-md-6">
+                <label class="form-label fw-bold fs-8 text-muted">6. Mevcut Durum / Saha Tespiti</label>
+                <input type="text" name="questions[<?php echo $q['id']; ?>][current_status]" class="form-control form-control-sm" placeholder="Örn: Lavabolar tavanda su akıntısı mevcut" value="<?php echo htmlspecialchars($q['current_status'] ?? ''); ?>">
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="form-label fw-bold fs-8 text-muted">Saha Denetim Sorusu Metni</label>
+                <input type="text" name="questions[<?php echo $q['id']; ?>][question_text]" class="form-control form-control-sm" placeholder="Örn: WC tavanında su sızıntısı var mı?" value="<?php echo htmlspecialchars($q['question_text'] ?? ''); ?>">
+              </div>
             </div>
 
-            <!-- Cevap Seçenekleri & Tetikleyici Şartları (Puanlama Kaldırıldı) -->
-            <div class="mb-2 d-flex align-items-center justify-content-between">
-              <label class="form-label fw-bold m-0 fs-8 text-muted"><i class="bi bi-list-check"></i> Cevap Seçenekleri & İSG Önlem Kartı Tetikleyicisi</label>
-            </div>
+            <!-- 7. OLASILIK, 8. ŞİDDET VE 9. RİSK DERECESİ -->
+            <div class="row g-3 mb-3 p-2 rounded-3 bg-light border border-info">
+              <div class="col-12 col-md-4">
+                <label class="form-label fw-bold fs-8 text-dark">7. Olasılık ($O: 1-5$)</label>
+                <select name="questions[<?php echo $q['id']; ?>][default_probability]" class="form-select form-select-sm risk-calc-edit" data-qid="<?php echo $q['id']; ?>" id="prob_edit_<?php echo $q['id']; ?>">
+                  <option value="1" <?php echo $p == 1 ? 'selected' : ''; ?>>1 - Çok Küçük</option>
+                  <option value="2" <?php echo $p == 2 ? 'selected' : ''; ?>>2 - Küçük</option>
+                  <option value="3" <?php echo $p == 3 ? 'selected' : ''; ?>>3 - Orta</option>
+                  <option value="4" <?php echo $p == 4 ? 'selected' : ''; ?>>4 - Yüksek</option>
+                  <option value="5" <?php echo $p == 5 ? 'selected' : ''; ?>>5 - Çok Yüksek</option>
+                </select>
+              </div>
 
-            <div class="options-list-container">
-              <?php foreach ($q['options'] as $opt): ?>
-                <div class="row g-2 mb-2 option-row align-items-center">
-                  <div class="col-7">
-                    <input type="text" name="questions[<?php echo $q['id']; ?>][options][<?php echo $opt['id']; ?>][text]" class="form-control form-control-sm" value="<?php echo htmlspecialchars($opt['option_text']); ?>" required>
-                  </div>
-                  <div class="col-4">
-                    <div class="form-check form-switch pt-1">
-                      <input class="form-check-input" type="checkbox" name="questions[<?php echo $q['id']; ?>][options][<?php echo $opt['id']; ?>][trigger_action]" value="1" id="trig_<?php echo $opt['id']; ?>" <?php echo $opt['trigger_action'] == 1 ? 'checked' : ''; ?>>
-                      <label class="form-check-label fs-8 fw-bold text-danger" for="trig_<?php echo $opt['id']; ?>">
-                        İSG Önlem & Risk Kartı Açsın
-                      </label>
-                    </div>
-                  </div>
-                  <div class="col-1 text-end">
-                    <button type="submit" name="delete_option_id" value="<?php echo $opt['id']; ?>" class="btn btn-sm btn-link text-danger p-0" data-confirm-btn="true" data-confirm-title="Seçeneği Sil" data-confirm-text="Bu cevap seçeneğini silmek istediğinize emin misiniz?">
-                      <i class="bi bi-x-circle-fill fs-5"></i>
-                    </button>
-                  </div>
+              <div class="col-12 col-md-4">
+                <label class="form-label fw-bold fs-8 text-dark">8. Şiddet ($Ş: 1-5$)</label>
+                <select name="questions[<?php echo $q['id']; ?>][default_severity]" class="form-select form-select-sm risk-calc-edit" data-qid="<?php echo $q['id']; ?>" id="sev_edit_<?php echo $q['id']; ?>">
+                  <option value="1" <?php echo $s == 1 ? 'selected' : ''; ?>>1 - Çok Hafif</option>
+                  <option value="2" <?php echo $s == 2 ? 'selected' : ''; ?>>2 - Hafif</option>
+                  <option value="3" <?php echo $s == 3 ? 'selected' : ''; ?>>3 - Ciddi</option>
+                  <option value="4" <?php echo $s == 4 ? 'selected' : ''; ?>>4 - Çok Ciddi</option>
+                  <option value="5" <?php echo $s == 5 ? 'selected' : ''; ?>>5 - Felaket</option>
+                </select>
+              </div>
+
+              <div class="col-12 col-md-4 d-flex align-items-center">
+                <div class="w-100 text-center">
+                  <div class="text-muted fs-8 fw-bold">9. Risk Derecesi ($R = O \times Ş$)</div>
+                  <div class="fs-5 fw-extrabold text-primary" id="risk_val_<?php echo $q['id']; ?>"><?php echo $r; ?></div>
                 </div>
-              <?php endforeach; ?>
+              </div>
             </div>
+
+            <!-- 10. ALINACAK ÖNLEMLER, 11. SORUMLU VE 12. SÜRE -->
+            <div class="row g-3">
+              <div class="col-12 col-md-5">
+                <label class="form-label fw-bold fs-8 text-dark">10. Alınacak Önlemler / İyileştirmeler (Kütüphaneden)</label>
+                <input type="text" name="questions[<?php echo $q['id']; ?>][default_action_plan]" list="recommendations_list" class="form-control form-control-sm" placeholder="Örn: Lavabo (WC) tavanlarında gerekli yalıtımın sağlanması" value="<?php echo htmlspecialchars($q['default_action_plan'] ?? ''); ?>">
+              </div>
+
+              <div class="col-12 col-md-4">
+                <label class="form-label fw-bold fs-8 text-dark">11. Sorumlu Birim (Kütüphaneden)</label>
+                <input type="text" name="questions[<?php echo $q['id']; ?>][default_responsible]" list="responsibles_list" class="form-control form-control-sm" placeholder="Örn: Tekn. Hiz. Yön." value="<?php echo htmlspecialchars($q['default_responsible'] ?? ''); ?>">
+              </div>
+
+              <div class="col-12 col-md-3">
+                <label class="form-label fw-bold fs-8 text-dark">12. Başlama / Süre</label>
+                <input type="text" name="questions[<?php echo $q['id']; ?>][default_deadline]" class="form-control form-control-sm" placeholder="Örn: 6 Ay, Sürekli" value="<?php echo htmlspecialchars($q['default_deadline'] ?? ''); ?>">
+              </div>
+            </div>
+
           </div>
         </div>
       <?php $qNum++; endforeach; ?>
@@ -331,13 +392,44 @@ window.riskGroupsData = <?php echo json_encode($riskGroups); ?>;
 
   <!-- Kaydet Butonu Barı -->
   <div class="custom-card p-3 d-flex align-items-center justify-content-between sticky-bottom bg-white shadow-lg border-top border-2 border-primary mb-5" style="z-index:90;">
-    <span class="text-muted fs-8"><i class="bi bi-info-circle me-1"></i> Yapılan tüm soru, risk ve tetikleyici değişikliklerini kaydetmek için tıklayın.</span>
-    <button type="submit" class="btn btn-primary-custom px-4 py-2 font-weight-bold">
-      <i class="bi bi-check-circle-fill"></i> Tüm Değişiklikleri Kaydet
+    <span class="text-muted fs-8"><i class="bi bi-info-circle me-1"></i> Yapılan tüm 12 sütunlu risk analizi değişikliklerini kaydetmek için tıklayın.</span>
+    <button type="submit" class="btn btn-primary-custom px-4 py-2 font-weight-bold shadow">
+      <i class="bi bi-check-circle-fill"></i> Tüm Risk Matrisini Kaydet
     </button>
   </div>
 
 </form>
+
+<!-- POP-UP MODAL: Pop-Up Pencereden Risk Grubu Seçme -->
+<div class="modal fade" id="selectRiskGroupModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-dark text-white">
+        <h5 class="modal-title fw-bold text-white"><i class="bi bi-exclamation-triangle-fill text-warning me-2"></i> Pop-Up Risk Grubu Seçin</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        <p class="text-muted fs-7 mb-3">Aşağıdaki tanımlı İSG Risk Gruplarından birine tıklayarak yeni ekleyeceğiniz soru ve risk satırının grubunu hızlıca belirleyebilirsiniz:</p>
+        
+        <div class="row g-3">
+          <?php foreach ($riskGroups as $rg): ?>
+            <div class="col-12 col-md-6">
+              <div class="card h-100 p-3 border hover-shadow border-warning cursor-pointer select-rg-modal-card" data-rgid="<?php echo $rg['id']; ?>" data-rgname="<?php echo htmlspecialchars($rg['group_name']); ?>">
+                <div class="d-flex align-items-center justify-content-between">
+                  <h6 class="fw-bold text-dark m-0"><i class="bi bi-shield-exclamation text-warning me-1"></i> <?php echo htmlspecialchars($rg['group_name']); ?></h6>
+                  <span class="badge bg-warning text-dark">Seç</span>
+                </div>
+                <?php if ($rg['description']): ?>
+                  <p class="text-muted fs-8 m-0 mt-1"><?php echo htmlspecialchars($rg['description']); ?></p>
+                <?php endif; ?>
+              </div>
+            </div>
+          <?php endforeach; ?>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- Kütüphaneye Hızlı Öğe Ekleme Modal -->
 <div class="modal fade" id="quickAddLibModal" tabindex="-1" aria-hidden="true">
@@ -373,5 +465,64 @@ window.riskGroupsData = <?php echo json_encode($riskGroups); ?>;
     </div>
   </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  
+  // Risk Matris Editöründe Canlı $O \times Ş$ Hesaplama
+  document.querySelectorAll('.risk-calc-edit').forEach(select => {
+    select.addEventListener('change', function() {
+      const qId = this.dataset.qid;
+      const probSelect = document.getElementById('prob_edit_' + qId);
+      const sevSelect = document.getElementById('sev_edit_' + qId);
+      const valDiv = document.getElementById('risk_val_' + qId);
+      const badgeSpan = document.getElementById('risk_calc_badge_' + qId);
+
+      if (probSelect && sevSelect && valDiv && badgeSpan) {
+        const p = parseInt(probSelect.value) || 1;
+        const s = parseInt(sevSelect.value) || 1;
+        const r = p * s;
+
+        valDiv.textContent = r;
+
+        let category = 'Kabul Edilebilir Risk';
+        let badgeBg = 'bg-success';
+        if (r >= 16) { category = 'Kabul Edilemez Risk'; badgeBg = 'bg-danger'; }
+        else if (r >= 10) { category = 'Dikkate Değer Risk'; badgeBg = 'bg-warning text-dark'; }
+        else if (r >= 6) { category = 'Önemli Risk'; badgeBg = 'bg-info text-dark'; }
+
+        badgeSpan.className = 'badge ' + badgeBg;
+        badgeSpan.textContent = `R = ${r} (${category})`;
+      }
+    });
+  });
+
+  // Pop-Up Modal Risk Grubu Seçimi
+  window.selectedModalRiskGroupId = 0;
+  window.selectedModalRiskGroupName = '';
+
+  document.querySelectorAll('.select-rg-modal-card').forEach(card => {
+    card.addEventListener('click', function() {
+      window.selectedModalRiskGroupId = this.dataset.rgid;
+      window.selectedModalRiskGroupName = this.dataset.rgname;
+
+      const modalEl = document.getElementById('selectRiskGroupModal');
+      const bsModal = bootstrap.Modal.getInstance(modalEl);
+      if (bsModal) bsModal.hide();
+
+      if (window.Swal) {
+        Swal.fire({
+          icon: 'success',
+          title: 'Risk Grubu Seçildi',
+          text: `"${window.selectedModalRiskGroupName}" grubu seçildi. Yeni ekleyeceğiniz sorular bu gruba atanacaktır.`,
+          timer: 2000,
+          showConfirmButton: false
+        });
+      }
+    });
+  });
+
+});
+</script>
 
 <?php include __DIR__ . '/includes/footer.php'; ?>

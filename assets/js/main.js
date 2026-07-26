@@ -149,7 +149,7 @@ function initModernConfirmHandler() {
 }
 
 /**
- * Dynamic İSG Risk Question & Option Builder for survey_edit.php
+ * Dynamic 12-Column İSG Risk Matrix Builder for survey_edit.php
  */
 function initQuestionBuilder() {
   const container = document.getElementById('questionsContainer');
@@ -157,148 +157,141 @@ function initQuestionBuilder() {
   let qIndex = document.querySelectorAll('.question-builder-card').length;
 
   const riskGroups = window.riskGroupsData || [];
-  let riskGroupOptionsHtml = '<option value="0">-- Risk Grubu Seçin --</option>';
-  riskGroups.forEach(function(rg) {
-    riskGroupOptionsHtml += `<option value="${rg.id}">${rg.group_name}</option>`;
-  });
 
   addQuestionBtn.addEventListener('click', function () {
     qIndex++;
     
-    // Eğer uyarı mesajı varsa kaldır
     const warningAlert = container.querySelector('.alert-warning');
     if (warningAlert) {
       warningAlert.remove();
     }
 
+    const preSelectedRgId = window.selectedModalRiskGroupId || 0;
+    const preSelectedRgName = window.selectedModalRiskGroupName || 'Genel Riskler';
+
+    let riskGroupOptionsHtml = '<option value="0">-- Pop-up veya Listeden Seçin --</option>';
+    riskGroups.forEach(function(rg) {
+      const isSel = (rg.id == preSelectedRgId) ? 'selected' : '';
+      riskGroupOptionsHtml += `<option value="${rg.id}" ${isSel}>${rg.group_name}</option>`;
+    });
+
     const qCard = document.createElement('div');
-    qCard.className = 'custom-card question-builder-card mb-4';
+    qCard.className = 'custom-card question-builder-card mb-4 border-2';
     qCard.setAttribute('data-qindex', qIndex);
 
     qCard.innerHTML = `
-      <div class="custom-card-header bg-light p-3 rounded-top">
+      <div class="custom-card-header bg-dark text-white p-3 rounded-top d-flex align-items-center justify-content-between">
         <div class="d-flex align-items-center gap-2">
-          <span class="badge bg-primary rounded-circle" style="width:28px; height:28px; display:flex; align-items:center; justify-content:center;">${qIndex}</span>
-          <h6 class="m-0 font-weight-bold">Yeni Risk Sorusu #${qIndex}</h6>
+          <span class="badge bg-warning text-dark rounded-circle" style="width:28px; height:28px; display:flex; align-items:center; justify-content:center;">${qIndex}</span>
+          <h6 class="m-0 font-weight-bold text-white">Yeni Risk Satırı #${qIndex}</h6>
+          <span class="badge bg-secondary ms-2">${preSelectedRgName}</span>
         </div>
-        <button type="button" class="btn btn-sm btn-outline-danger remove-question-btn">
-          <i class="bi bi-trash"></i> Soruyu Sil
-        </button>
+        <div class="d-flex align-items-center gap-2">
+          <span class="badge bg-info text-dark" id="new_calc_badge_${qIndex}">R = 6 (Önemli Risk)</span>
+          <button type="button" class="btn btn-sm btn-outline-danger text-white remove-question-btn">
+            <i class="bi bi-trash"></i> Sil
+          </button>
+        </div>
       </div>
 
       <div class="p-3">
-        <!-- Risk Grubu, Tehlike Kaynağı ve Tehlike Row -->
-        <div class="row g-3 mb-3">
+        <!-- 1. SÜTUN: RİSK GRUBU SEÇİMİ -->
+        <div class="row g-3 mb-3 bg-light p-2 rounded-3 border">
           <div class="col-12 col-md-4">
-            <label class="form-label fw-bold fs-8 text-muted"><i class="bi bi-exclamation-triangle"></i> Risk Grubu</label>
-            <select name="new_questions[${qIndex}][risk_group_id]" class="form-select form-select-sm">
+            <label class="form-label fw-bold fs-8 text-dark"><i class="bi bi-diagram-3-fill text-warning me-1"></i> 1. Risk Grubu</label>
+            <select name="new_questions[${qIndex}][risk_group_id]" class="form-select form-select-sm fw-bold">
               ${riskGroupOptionsHtml}
             </select>
           </div>
 
+          <!-- 2. SÜTUN: TEHLİKE KAYNAĞI -->
           <div class="col-12 col-md-4">
-            <label class="form-label fw-bold fs-8 text-muted">Tehlike Kaynağı (Kütüphaneden Seçilebilir)</label>
-            <input type="text" name="new_questions[${qIndex}][hazard_source]" list="hazard_sources_list" class="form-control form-control-sm" placeholder="Seçin veya yazın...">
+            <label class="form-label fw-bold fs-8 text-dark">2. Tehlike Kaynağı (Kütüphaneden)</label>
+            <input type="text" name="new_questions[${qIndex}][hazard_source]" list="hazard_sources_list" class="form-control form-control-sm" placeholder="Örn: Lavabo, Wc tavanı">
           </div>
 
+          <!-- 3. SÜTUN: TEHLİKE -->
           <div class="col-12 col-md-4">
-            <label class="form-label fw-bold fs-8 text-muted">Tehlike Metni (Kütüphaneden Seçilebilir)</label>
-            <input type="text" name="new_questions[${qIndex}][hazard_name]" list="hazards_list" class="form-control form-control-sm" placeholder="Seçin veya yazın...">
+            <label class="form-label fw-bold fs-8 text-dark">3. Tehlike (Kütüphaneden)</label>
+            <input type="text" name="new_questions[${qIndex}][hazard_name]" list="hazards_list" class="form-control form-control-sm" placeholder="Örn: Enfeksiyon, Kaygan zemin">
           </div>
         </div>
 
-        <!-- Etkilenme ve Etkilenenler Row -->
+        <!-- 4. ETKİLENME VE 5. ETKİLENENLER -->
         <div class="row g-3 mb-3">
           <div class="col-12 col-md-6">
-            <label class="form-label fw-bold fs-8 text-muted">Etkilenme (Yaşanabilecek Riskler)</label>
-            <input type="text" name="new_questions[${qIndex}][affected_risk]" class="form-control form-control-sm" placeholder="Örn: Pis su bulaşma, Kas-iskelet hast.">
+            <label class="form-label fw-bold fs-8 text-muted">4. Etkilenme (Yaşanabilecek Riskler)</label>
+            <input type="text" name="new_questions[${qIndex}][affected_risk]" class="form-control form-control-sm" placeholder="Örn: Pis su bulaşma, enfeksiyon maruziyeti">
           </div>
 
           <div class="col-12 col-md-6">
-            <label class="form-label fw-bold fs-8 text-muted">Etkilenenler (Kütüphaneden Seçilebilir)</label>
-            <input type="text" name="new_questions[${qIndex}][affected_people]" list="affected_list" class="form-control form-control-sm" placeholder="Seçin veya yazın...">
+            <label class="form-label fw-bold fs-8 text-muted">5. Etkilenenler (Kütüphaneden)</label>
+            <input type="text" name="new_questions[${qIndex}][affected_people]" list="affected_list" class="form-control form-control-sm" placeholder="Örn: Çalışanlar(Doktor, Hemşire), Hasta ve yakını">
           </div>
         </div>
 
-        <!-- Soru Metni -->
-        <div class="mb-3">
-          <label class="form-label fw-bold">Kontrol / Denetim Sorusu Metni</label>
-          <input type="text" name="new_questions[${qIndex}][text]" class="form-control" placeholder="Örn: Sahada kişisel koruyucu donanım (baret, eldiven) kullanılıyor mu?" required>
+        <!-- 6. MEVCUT DURUM VE KONTROL SORUSU -->
+        <div class="row g-3 mb-3">
+          <div class="col-12 col-md-6">
+            <label class="form-label fw-bold fs-8 text-muted">6. Mevcut Durum / Saha Tespiti</label>
+            <input type="text" name="new_questions[${qIndex}][current_status]" class="form-control form-control-sm" placeholder="Örn: Lavabolar tavanda su akıntısı mevcut">
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label fw-bold fs-8 text-muted">Saha Denetim Sorusu Metni</label>
+            <input type="text" name="new_questions[${qIndex}][question_text]" class="form-control form-control-sm" placeholder="Örn: WC tavanında su sızıntısı var mı?">
+          </div>
         </div>
 
-        <!-- Cevap Seçenekleri Header -->
-        <div class="mb-2 d-flex align-items-center justify-content-between">
-          <label class="form-label fw-bold m-0 fs-8 text-muted"><i class="bi bi-list-check"></i> Cevap Seçenekleri & Tetikleyiciler</label>
-          <button type="button" class="btn btn-sm btn-outline-success add-option-btn">
-            <i class="bi bi-plus-lg"></i> Seçenek Ekle
-          </button>
-        </div>
-
-        <div class="options-list-container">
-          <!-- Varsayılan Şık 1 -->
-          <div class="row g-2 mb-2 option-row align-items-center">
-            <div class="col-7">
-              <input type="text" name="new_questions[${qIndex}][options][0][text]" class="form-control form-control-sm" value="Evet (Uygun)" required>
-            </div>
-            <div class="col-4">
-              <div class="form-check form-switch pt-1">
-                <input class="form-check-input" type="checkbox" name="new_questions[${qIndex}][options][0][trigger_action]" value="1">
-                <label class="form-check-label fs-8 fw-bold text-danger">İSG Önlem Kartı Açsın</label>
-              </div>
-            </div>
-            <div class="col-1 text-end">
-              <button type="button" class="btn btn-sm btn-link text-danger remove-option-btn p-0"><i class="bi bi-x-circle-fill fs-5"></i></button>
-            </div>
+        <!-- 7. OLASILIK, 8. ŞİDDET VE 9. RİSK DERECESİ -->
+        <div class="row g-3 mb-3 p-2 rounded-3 bg-light border border-info">
+          <div class="col-12 col-md-4">
+            <label class="form-label fw-bold fs-8 text-dark">7. Olasılık ($O: 1-5$)</label>
+            <select name="new_questions[${qIndex}][default_probability]" class="form-select form-select-sm new-risk-calc" id="new_prob_${qIndex}" data-newqindex="${qIndex}">
+              <option value="1">1 - Çok Küçük</option>
+              <option value="2" selected>2 - Küçük</option>
+              <option value="3">3 - Orta</option>
+              <option value="4">4 - Yüksek</option>
+              <option value="5">5 - Çok Yüksek</option>
+            </select>
           </div>
 
-          <!-- Varsayılan Şık 2 -->
-          <div class="row g-2 mb-2 option-row align-items-center">
-            <div class="col-7">
-              <input type="text" name="new_questions[${qIndex}][options][1][text]" class="form-control form-control-sm" value="Hayır (Uygun Değil)" required>
-            </div>
-            <div class="col-4">
-              <div class="form-check form-switch pt-1">
-                <input class="form-check-input" type="checkbox" name="new_questions[${qIndex}][options][1][trigger_action]" value="1" checked>
-                <label class="form-check-label fs-8 fw-bold text-danger">İSG Önlem Kartı Açsın</label>
-              </div>
-            </div>
-            <div class="col-1 text-end">
-              <button type="button" class="btn btn-sm btn-link text-danger remove-option-btn p-0"><i class="bi bi-x-circle-fill fs-5"></i></button>
-            </div>
+          <div class="col-12 col-md-4">
+            <label class="form-label fw-bold fs-8 text-dark">8. Şiddet ($Ş: 1-5$)</label>
+            <select name="new_questions[${qIndex}][default_severity]" class="form-select form-select-sm new-risk-calc" id="new_sev_${qIndex}" data-newqindex="${qIndex}">
+              <option value="1">1 - Çok Hafif</option>
+              <option value="2">2 - Hafif</option>
+              <option value="3" selected>3 - Ciddi</option>
+              <option value="4">4 - Çok Ciddi</option>
+              <option value="5">5 - Felaket</option>
+            </select>
           </div>
 
-          <!-- Varsayılan Şık 3 -->
-          <div class="row g-2 mb-2 option-row align-items-center">
-            <div class="col-7">
-              <input type="text" name="new_questions[${qIndex}][options][2][text]" class="form-control form-control-sm" value="Kısmen (Kısmen Uygun)" required>
-            </div>
-            <div class="col-4">
-              <div class="form-check form-switch pt-1">
-                <input class="form-check-input" type="checkbox" name="new_questions[${qIndex}][options][2][trigger_action]" value="1" checked>
-                <label class="form-check-label fs-8 fw-bold text-danger">İSG Önlem Kartı Açsın</label>
-              </div>
-            </div>
-            <div class="col-1 text-end">
-              <button type="button" class="btn btn-sm btn-link text-danger remove-option-btn p-0"><i class="bi bi-x-circle-fill fs-5"></i></button>
-            </div>
-          </div>
-
-          <!-- Varsayılan Şık 4 -->
-          <div class="row g-2 mb-2 option-row align-items-center">
-            <div class="col-7">
-              <input type="text" name="new_questions[${qIndex}][options][3][text]" class="form-control form-control-sm" value="Denetim Dışı / Muaf" required>
-            </div>
-            <div class="col-4">
-              <div class="form-check form-switch pt-1">
-                <input class="form-check-input" type="checkbox" name="new_questions[${qIndex}][options][3][trigger_action]" value="1">
-                <label class="form-check-label fs-8 fw-bold text-danger">İSG Önlem Kartı Açsın</label>
-              </div>
-            </div>
-            <div class="col-1 text-end">
-              <button type="button" class="btn btn-sm btn-link text-danger remove-option-btn p-0"><i class="bi bi-x-circle-fill fs-5"></i></button>
+          <div class="col-12 col-md-4 d-flex align-items-center">
+            <div class="w-100 text-center">
+              <div class="text-muted fs-8 fw-bold">9. Risk Derecesi ($R = O \\times Ş$)</div>
+              <div class="fs-5 fw-extrabold text-primary" id="new_risk_val_${qIndex}">6</div>
             </div>
           </div>
         </div>
+
+        <!-- 10. ALINACAK ÖNLEMLER, 11. SORUMLU VE 12. SÜRE -->
+        <div class="row g-3">
+          <div class="col-12 col-md-5">
+            <label class="form-label fw-bold fs-8 text-dark">10. Alınacak Önlemler / İyileştirmeler (Kütüphaneden)</label>
+            <input type="text" name="new_questions[${qIndex}][default_action_plan]" list="recommendations_list" class="form-control form-control-sm" placeholder="Örn: Lavabo (WC) tavanlarında gerekli yalıtımın sağlanması">
+          </div>
+
+          <div class="col-12 col-md-4">
+            <label class="form-label fw-bold fs-8 text-dark">11. Sorumlu Birim (Kütüphaneden)</label>
+            <input type="text" name="new_questions[${qIndex}][default_responsible]" list="responsibles_list" class="form-control form-control-sm" placeholder="Örn: Tekn. Hiz. Yön.">
+          </div>
+
+          <div class="col-12 col-md-3">
+            <label class="form-label fw-bold fs-8 text-dark">12. Başlama / Süre</label>
+            <input type="text" name="new_questions[${qIndex}][default_deadline]" class="form-control form-control-sm" placeholder="Örn: 6 Ay, Sürekli">
+          </div>
+        </div>
+
       </div>
     `;
 
@@ -312,75 +305,36 @@ function initQuestionBuilder() {
     const removeQBtn = qCard.querySelector('.remove-question-btn');
     if (removeQBtn) {
       removeQBtn.addEventListener('click', function () {
-        if (window.Swal) {
-          Swal.fire({
-            title: 'Soruyu Sil',
-            text: 'Bu soruyu ve seçeneklerini kaldırmak istediğinize emin misiniz?',
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#ef4444',
-            cancelButtonColor: '#64748b',
-            confirmButtonText: 'Evet, Sil!',
-            cancelButtonText: 'Vazgeç',
-            reverseButtons: true,
-            customClass: {
-              popup: 'swal2-custom-popup',
-              confirmButton: 'btn btn-danger font-weight-bold px-4 py-2 me-2',
-              cancelButton: 'btn btn-secondary font-weight-bold px-4 py-2'
-            },
-            buttonsStyling: false
-          }).then((res) => {
-            if (res.isConfirmed) {
-              qCard.remove();
-            }
-          });
-        } else {
-          if (confirm('Bu soruyu silmek istediğinize emin misiniz?')) {
-            qCard.remove();
-          }
+        qCard.remove();
+      });
+    }
+
+    qCard.querySelectorAll('.new-risk-calc').forEach(select => {
+      select.addEventListener('change', function() {
+        const idx = this.dataset.newqindex;
+        const probSelect = document.getElementById('new_prob_' + idx);
+        const sevSelect = document.getElementById('new_sev_' + idx);
+        const valDiv = document.getElementById('new_risk_val_' + idx);
+        const badgeSpan = document.getElementById('new_calc_badge_' + idx);
+
+        if (probSelect && sevSelect && valDiv && badgeSpan) {
+          const p = parseInt(probSelect.value) || 1;
+          const s = parseInt(sevSelect.value) || 1;
+          const r = p * s;
+
+          valDiv.textContent = r;
+
+          let category = 'Kabul Edilebilir Risk';
+          let badgeBg = 'bg-success';
+          if (r >= 16) { category = 'Kabul Edilemez Risk'; badgeBg = 'bg-danger'; }
+          else if (r >= 10) { category = 'Dikkate Değer Risk'; badgeBg = 'bg-warning text-dark'; }
+          else if (r >= 6) { category = 'Önemli Risk'; badgeBg = 'bg-info text-dark'; }
+
+          badgeSpan.className = 'badge ' + badgeBg;
+          badgeSpan.textContent = `R = ${r} (${category})`;
         }
       });
-    }
-
-    const addOptBtn = qCard.querySelector('.add-option-btn');
-    if (addOptBtn) {
-      addOptBtn.addEventListener('click', function () {
-        const optionsContainer = qCard.querySelector('.options-list-container');
-        const currentQIndex = qCard.getAttribute('data-qindex');
-        const optCount = optionsContainer.querySelectorAll('.option-row').length;
-
-        const optRow = document.createElement('div');
-        optRow.className = 'row g-2 mb-2 option-row align-items-center';
-        optRow.innerHTML = `
-          <div class="col-7">
-            <input type="text" name="new_questions[${currentQIndex}][options][${optCount}][text]" class="form-control form-control-sm" placeholder="Seçenek metni" required>
-          </div>
-          <div class="col-4">
-            <div class="form-check form-switch pt-1">
-              <input class="form-check-input" type="checkbox" name="new_questions[${currentQIndex}][options][${optCount}][trigger_action]" value="1" checked>
-              <label class="form-check-label fs-8 fw-bold text-danger">İSG Önlem Kartı Açsın</label>
-            </div>
-          </div>
-          <div class="col-1 text-end">
-            <button type="button" class="btn btn-sm btn-link text-danger remove-option-btn p-0"><i class="bi bi-x-circle-fill fs-5"></i></button>
-          </div>
-        `;
-
-        optionsContainer.appendChild(optRow);
-        bindOptionRemove(optRow);
-      });
-    }
-
-    qCard.querySelectorAll('.option-row').forEach(bindOptionRemove);
-  }
-
-  function bindOptionRemove(optRow) {
-    const removeOptBtn = optRow.querySelector('.remove-option-btn');
-    if (removeOptBtn) {
-      removeOptBtn.addEventListener('click', function () {
-        optRow.remove();
-      });
-    }
+    });
   }
 }
 
@@ -450,7 +404,6 @@ function initAuditWizard() {
   const startBtn = document.getElementById('startAuditSubmitBtn');
   const unitSearchInput = document.getElementById('unitSearchInput');
 
-  // 1. Template Card Select
   templateCards.forEach(card => {
     card.addEventListener('click', function () {
       templateCards.forEach(c => c.classList.remove('selected', 'border-success', 'shadow-md'));
@@ -462,7 +415,6 @@ function initAuditWizard() {
     });
   });
 
-  // 2. Unit Card Select
   unitCards.forEach(card => {
     card.addEventListener('click', function () {
       unitCards.forEach(c => c.classList.remove('selected', 'border-success', 'shadow-md'));
@@ -474,7 +426,6 @@ function initAuditWizard() {
     });
   });
 
-  // 3. Live Unit Search
   if (unitSearchInput) {
     unitSearchInput.addEventListener('input', function () {
       const q = this.value.toLowerCase().trim();

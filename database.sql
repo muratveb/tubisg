@@ -43,7 +43,7 @@ CREATE TABLE IF NOT EXISTS `risk_groups` (
   `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 5. Genel Cevap Seçenekleri Tablosu (Evet, Hayır, Kısmen, Denetim Dışı vb.)
+-- 5. Genel Cevap Seçenekleri Tablosu
 CREATE TABLE IF NOT EXISTS `global_options` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `option_text` VARCHAR(255) NOT NULL,
@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS `global_options` (
   `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 6. İSG Tanımlama Kütüphaneleri Tablosu (Tehlike Kaynakları, Tehlikeler, Etkilenenler, Sorumlular, Önlem Bankası)
+-- 6. İSG Tanımlama Kütüphaneleri Tablosu
 CREATE TABLE IF NOT EXISTS `risk_libraries` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `category` ENUM('hazard_source', 'hazard_name', 'affected_people', 'responsible_person', 'action_recommendation') NOT NULL,
@@ -61,7 +61,7 @@ CREATE TABLE IF NOT EXISTS `risk_libraries` (
   `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 7. Anket Profilleri / Şablonları (Hastane İSG, Fabrika İSG vb.)
+-- 7. Anket Profilleri / Şablonları (Hastane İSG, Nükleer Tıp İSG vb.)
 CREATE TABLE IF NOT EXISTS `survey_templates` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `title` VARCHAR(150) NOT NULL,
@@ -72,22 +72,28 @@ CREATE TABLE IF NOT EXISTS `survey_templates` (
   `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 8. Anket Soruları Tablosu (Tehlike Kaynağı, Tehlike, Risk ve Etkilenenler Alanları ile)
+-- 8. Anket Soruları / Resmi İSG Risk Matrisi Satırları (12 Sütunlu Form Yapısı)
 CREATE TABLE IF NOT EXISTS `survey_questions` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `template_id` INT NOT NULL,
   `risk_group_id` INT NULL,
-  `question_text` TEXT NOT NULL,
+  `question_text` TEXT NULL,
   `hazard_source` VARCHAR(255) NULL,
   `hazard_name` VARCHAR(255) NULL,
   `affected_risk` TEXT NULL,
   `affected_people` VARCHAR(255) NULL,
+  `current_status` TEXT NULL,
+  `default_probability` INT DEFAULT 2,
+  `default_severity` INT DEFAULT 3,
+  `default_action_plan` TEXT NULL,
+  `default_responsible` VARCHAR(255) NULL,
+  `default_deadline` VARCHAR(100) NULL,
   `sort_order` INT DEFAULT 0,
   FOREIGN KEY (`template_id`) REFERENCES `survey_templates`(`id`) ON DELETE CASCADE,
   FOREIGN KEY (`risk_group_id`) REFERENCES `risk_groups`(`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 9. Soru Seçenekleri ve Puan Tablosu (Açıklama / Önlem Tetikleyici İle)
+-- 9. Soru Seçenekleri ve Puan Tablosu
 CREATE TABLE IF NOT EXISTS `question_options` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `question_id` INT NOT NULL,

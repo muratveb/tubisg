@@ -1,6 +1,6 @@
 <?php
 /**
- * Tubİsg - Saha Risk Denetimi & Adım Adım Matris Doldurma Ekranı (Step-by-Step Wizard & Global Seçenekli)
+ * Tubİsg - Saha Risk Denetimi & Adım Adım Matris Doldurma Ekranı (Step-by-Step Wizard & 12 Sütunlu Matris Entegreli)
  */
 require_once __DIR__ . '/includes/auth.php';
 require_permission('audit_conduct');
@@ -35,7 +35,7 @@ if (!$template || !$unit) {
 // Genel Tanımlı Cevap Seçeneklerini Çek
 $globalOptions = $db->query("SELECT * FROM global_options WHERE is_active = 1 ORDER BY sort_order ASC, id ASC")->fetchAll();
 
-// Soruları ve Risk Gruplarını Çek
+// Soruları ve Risk Gruplarını Çek (12 Sütunlu Mimaride)
 $questionsStmt = $db->prepare("
     SELECT sq.*, rg.group_name 
     FROM survey_questions sq 
@@ -51,7 +51,6 @@ foreach ($questions as &$q) {
     $optStmt->execute([$q['id']]);
     $qOptions = $optStmt->fetchAll();
     
-    // Eğer soruya özel seçenek tanımlanmamışsa genel seçenekleri atayalım
     if (!empty($qOptions)) {
         $q['options'] = $qOptions;
     } else {
@@ -105,11 +104,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $selectedOptId = (int)($qInput['option_id'] ?? 0);
         
         $currentStatus = trim($qInput['current_status'] ?? '');
-        $probability = (int)($qInput['probability'] ?? 1);
+        if (empty($currentStatus) && !empty($q['current_status'])) {
+            $currentStatus = $q['current_status'];
+        }
+
+        $probability = (int)($qInput['probability'] ?? ($q['default_probability'] ?? 1));
         if ($probability < 1) $probability = 1;
         if ($probability > 5) $probability = 5;
 
-        $severity = (int)($qInput['severity'] ?? 1);
+        $severity = (int)($qInput['severity'] ?? ($q['default_severity'] ?? 1));
         if ($severity < 1) $severity = 1;
         if ($severity > 5) $severity = 5;
 
@@ -119,8 +122,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         $actionPlan = trim($qInput['action_plan'] ?? '');
+        if (empty($actionPlan) && !empty($q['default_action_plan'])) {
+            $actionPlan = $q['default_action_plan'];
+        }
+
         $responsible = trim($qInput['responsible_person'] ?? '');
+        if (empty($responsible) && !empty($q['default_responsible'])) {
+            $responsible = $q['default_responsible'];
+        }
+
         $deadline = trim($qInput['deadline'] ?? '');
+        if (empty($deadline) && !empty($q['default_deadline'])) {
+            $deadline = $q['default_deadline'];
+        }
 
         if (!empty($selectedOptText)) {
             $answeredCount++;
@@ -265,6 +279,10 @@ include __DIR__ . '/includes/header.php';
           </div>
 
           <?php foreach ($gQuestions as $q): ?>
+            <?php
+            $defP = (int)($q['default_probability'] ?? 2);
+            $defS = (int)($q['default_severity'] ?? 3);
+            ?>
             <div class="custom-card question-card mb-4 border-2" id="q_card_<?php echo $q['id']; ?>">
               
               <!-- Soru / Tehlike Header -->
@@ -273,12 +291,11 @@ include __DIR__ . '/includes/header.php';
                   <span class="question-number"><?php echo $qGlobalIndex; ?></span>
                   <div>
                     <h6 class="fw-bold text-dark m-0 fs-6"><?php echo htmlspecialchars($q['question_text']); ?></h6>
-                    <?php if ($q['hazard_source'] || $q['hazard_name']): ?>
-                      <div class="text-muted fs-8 mt-1">
-                        <?php if ($q['hazard_source']): ?><strong>Tehlike Kaynağı:</strong> <?php echo htmlspecialchars($q['hazard_source']); ?> &nbsp;|&nbsp; <?php endif; ?>
-                        <?php if ($q['hazard_name']): ?><strong>Tehlike:</strong> <?php echo htmlspecialchars($q['hazard_name']); ?><?php endif; ?>
-                      </div>
-                    <?php endif; ?>
+                    <div class="text-muted fs-8 mt-1">
+                      <?php if ($q['hazard_source']): ?><strong>Tehlike Kaynağı:</strong> <?php echo htmlspecialchars($q['hazard_source']); ?> &nbsp;|&nbsp; <?php endif; ?>
+                      <?php if ($q['hazard_name']): ?><strong>Tehlike:</strong> <?php echo htmlspecialchars($q['hazard_name']); ?><?php endif; ?>
+                      <?php if ($q['affected_risk']): ?> &nbsp;|&nbsp; <strong>Etkilenme:</strong> <?php echo htmlspecialchars($q['affected_risk']); ?><?php endif; ?>
+                    </div>
                   </div>
                 </div>
                 <?php if ($q['affected_people']): ?>
@@ -286,7 +303,7 @@ include __DIR__ . '/includes/header.php';
                 <?php endif; ?>
               </div>
 
-              <!-- Cevap Seçenek Butonları (Genel Tanımlı Şıklardan Dinamik) -->
+              <!-- Cevap Seçenek Butonları -->
               <div class="row g-2 mb-3">
                 <?php foreach ($q['options'] as $opt): ?>
                   <?php
@@ -312,13 +329,13 @@ include __DIR__ . '/includes/header.php';
                   <h6 class="fw-bold text-danger m-0 fs-7">
                     <i class="bi bi-clipboard2-pulse-fill"></i> İSG Uzmanı Risk Değerlendirme & Önlem Kartı
                   </h6>
-                  <span class="badge bg-danger" id="risk_badge_<?php echo $q['id']; ?>">RİSK SKORU: 1 (Kabul Edilebilir)</span>
+                  <span class="badge bg-danger" id="risk_badge_<?php echo $q['id']; ?>">RİSK SKORU: <?php echo $defP * $defS; ?></span>
                 </div>
 
                 <!-- Mevcut Durum Açıklaması -->
                 <div class="mb-3">
                   <label class="form-label fw-bold fs-8 text-dark">Mevcut Durum / Tespit Edilen Eksiklik</label>
-                  <input type="text" name="answers[<?php echo $q['id']; ?>][current_status]" list="statuses_list" class="form-control form-control-sm" placeholder="Örn: Lavabolar tavanda su akıntısı mevcut...">
+                  <input type="text" name="answers[<?php echo $q['id']; ?>][current_status]" list="statuses_list" class="form-control form-control-sm" placeholder="Örn: Lavabolar tavanda su akıntısı mevcut..." value="<?php echo htmlspecialchars($q['current_status'] ?? ''); ?>">
                 </div>
 
                 <!-- Olasılık ($O$) ve Şiddet ($Ş$) Seçimi -->
@@ -326,22 +343,22 @@ include __DIR__ . '/includes/header.php';
                   <div class="col-12 col-md-6">
                     <label class="form-label fw-bold fs-8 text-muted">Olasılık ($O$)</label>
                     <select name="answers[<?php echo $q['id']; ?>][probability]" class="form-select form-select-sm risk-calc-select" data-qid="<?php echo $q['id']; ?>" id="prob_<?php echo $q['id']; ?>">
-                      <option value="1">1 - Çok Küçük (Çok nadir)</option>
-                      <option value="2" selected>2 - Küçük (Nadir)</option>
-                      <option value="3">3 - Orta (Olabilir)</option>
-                      <option value="4">4 - Yüksek (Sık sık)</option>
-                      <option value="5">5 - Çok Yüksek (Her an)</option>
+                      <option value="1" <?php echo $defP == 1 ? 'selected' : ''; ?>>1 - Çok Küçük (Çok nadir)</option>
+                      <option value="2" <?php echo $defP == 2 ? 'selected' : ''; ?>>2 - Küçük (Nadir)</option>
+                      <option value="3" <?php echo $defP == 3 ? 'selected' : ''; ?>>3 - Orta (Olabilir)</option>
+                      <option value="4" <?php echo $defP == 4 ? 'selected' : ''; ?>>4 - Yüksek (Sık sık)</option>
+                      <option value="5" <?php echo $defP == 5 ? 'selected' : ''; ?>>5 - Çok Yüksek (Her an)</option>
                     </select>
                   </div>
 
                   <div class="col-12 col-md-6">
                     <label class="form-label fw-bold fs-8 text-muted">Şiddet ($Ş$)</label>
                     <select name="answers[<?php echo $q['id']; ?>][severity]" class="form-select form-select-sm risk-calc-select" data-qid="<?php echo $q['id']; ?>" id="sev_<?php echo $q['id']; ?>">
-                      <option value="1">1 - Çok Hafif (İlk yardım gerektirmez)</option>
-                      <option value="2">2 - Hafif (İlk yardım gerekir)</option>
-                      <option value="3" selected>3 - Ciddi (Hastane tedavisi gerekir)</option>
-                      <option value="4">4 - Çok Ciddi (Ağır yaralanma / kalıcı hasar)</option>
-                      <option value="5">5 - Felaket (Ölümcül / Çoklu kayıp)</option>
+                      <option value="1" <?php echo $defS == 1 ? 'selected' : ''; ?>>1 - Çok Hafif (İlk yardım gerektirmez)</option>
+                      <option value="2" <?php echo $defS == 2 ? 'selected' : ''; ?>>2 - Hafif (İlk yardım gerekir)</option>
+                      <option value="3" <?php echo $defS == 3 ? 'selected' : ''; ?>>3 - Ciddi (Hastane tedavisi gerekir)</option>
+                      <option value="4" <?php echo $defS == 4 ? 'selected' : ''; ?>>4 - Çok Ciddi (Ağır yaralanma / kalıcı hasar)</option>
+                      <option value="5" <?php echo $defS == 5 ? 'selected' : ''; ?>>5 - Felaket (Ölümcül / Çoklu kayıp)</option>
                     </select>
                   </div>
                 </div>
@@ -349,17 +366,17 @@ include __DIR__ . '/includes/header.php';
                 <!-- Alınacak Önlemler -->
                 <div class="mb-3">
                   <label class="form-label fw-bold fs-8 text-dark"><i class="bi bi-lightbulb-fill text-warning"></i> Alınacak Önlemler / İyileştirmeler</label>
-                  <input type="text" name="answers[<?php echo $q['id']; ?>][action_plan]" list="recommendations_list" class="form-control form-control-sm" placeholder="Örn: Lavabo (WC) tavanlarında gerekli yalıtımın sağlanması...">
+                  <input type="text" name="answers[<?php echo $q['id']; ?>][action_plan]" list="recommendations_list" class="form-control form-control-sm" placeholder="Örn: Lavabo (WC) tavanlarında gerekli yalıtımın sağlanması..." value="<?php echo htmlspecialchars($q['default_action_plan'] ?? ''); ?>">
                 </div>
 
                 <div class="row g-2">
                   <div class="col-12 col-md-6">
                     <label class="form-label fw-bold fs-8 text-muted">Sorumlu Birim / Kişi</label>
-                    <input type="text" name="answers[<?php echo $q['id']; ?>][responsible_person]" list="responsibles_list" class="form-control form-control-sm" placeholder="Örn: Tekn. Hiz. Yön.">
+                    <input type="text" name="answers[<?php echo $q['id']; ?>][responsible_person]" list="responsibles_list" class="form-control form-control-sm" placeholder="Örn: Tekn. Hiz. Yön." value="<?php echo htmlspecialchars($q['default_responsible'] ?? ''); ?>">
                   </div>
                   <div class="col-12 col-md-6">
                     <label class="form-label fw-bold fs-8 text-muted">Termin / Süre</label>
-                    <input type="text" name="answers[<?php echo $q['id']; ?>][deadline]" class="form-control form-control-sm" placeholder="Örn: 6 Ay, Sürekli">
+                    <input type="text" name="answers[<?php echo $q['id']; ?>][deadline]" class="form-control form-control-sm" placeholder="Örn: 6 Ay, Sürekli" value="<?php echo htmlspecialchars($q['default_deadline'] ?? ''); ?>">
                   </div>
                 </div>
               </div>
@@ -394,7 +411,7 @@ include __DIR__ . '/includes/header.php';
     <?php endif; ?>
   </div>
 
-  <!-- Saha Notları (Son Adımda Veya Sabit) -->
+  <!-- Saha Notları -->
   <div class="custom-card my-4">
     <div class="custom-card-header">
       <h6 class="custom-card-title m-0">
@@ -417,7 +434,6 @@ include __DIR__ . '/includes/header.php';
 <script>
 document.addEventListener('DOMContentLoaded', function() {
   
-  // 1. Adım İlerleme (Step Wizard Navigation) Mantığı
   const totalSteps = <?php echo count($groupedQuestions); ?>;
 
   document.querySelectorAll('.next-step-btn').forEach(btn => {
@@ -455,7 +471,6 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('stepCounterBadge').textContent = `Adım ${step} / ${totalSteps}`;
   }
 
-  // 2. Cevap Butonlarına Tıklama ve Tetikleyici Mantığı
   document.querySelectorAll('.answer-radio').forEach(radio => {
     radio.addEventListener('change', function() {
       const qId = this.dataset.qid;
@@ -481,7 +496,6 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   });
 
-  // 3. Risk Skoru Hesaplama ($O \times Ş$)
   document.querySelectorAll('.risk-calc-select').forEach(select => {
     select.addEventListener('change', function() {
       const qId = this.dataset.qid;
