@@ -5,17 +5,20 @@
 ---
 
 ## 1. Proje Amacı ve Genel Özet
-**Tubİsg**, İş Sağlığı ve Güvenliği (İSG) saha denetçilerinin mobil cihaz veya tablet üzerinden sahadaki birimlerde (örn. Faturalama Birimi, Depo, Ameliyathane vb.) İSG denetimlerini online yapabilmesini sağlayan dinamik bir PHP + MySQL web uygulamasıdır.
+**Tubİsg**, İş Sağlığı ve Güvenliği (İSG) saha denetçilerinin mobil cihaz veya tablet üzerinden sahadaki birimlerde (örn. Faturalama Birimi, Depo, Ameliyathane vb.) resmi **"Birim Bazlı Risk Analiz Formu" (5x5 L-Tipi Risk Değerlendirme Matrisi)** standartlarında saha denetimlerini gerçekleştirmesini sağlayan dinamik bir PHP + MySQL web uygulamasıdır.
 
 ### Temel Yetenekler:
-1. **Dinamik Anket & Profil Tanımlama**: Yönetici farklı ortamlar için (örn. "Hastane İSG", "Fabrika Saha İSG") sınırsız anket profili tanımlayabilir.
-2. **Çoklu Seçenek ve Esnek Puanlama**: Sorular altında seçilebilecek seçenekler tanımlanır. Her seçeneğin pozitif (`+5`, `+10`) veya negatif (`-5`, `-10`) bir puanı olabilir. Kullanıcı bir soruda birden fazla seçenek işaretleyebilir.
-3. **Görsel Denetim Sihirbazı & Birim Yönetimi**: Denetim başlatılırken anket profilleri ve birimler etkileşimli görsel kartlarla seçilir. Yetki dahilinde anında yeni birim tanımlanabilir.
-4. **Denetim Silme Yetki Kurgusu (`audit_delete`)**: Yönetici paneli üzerinden istenilen rollere denetim raporu silme yetkisi (açık/kapalı) tanımlanabilir. Yetkisi olan kullanıcılar denetimleri silebilir.
-5. **Detaylı Sistem Logları (`logs.php`)**: Kullanıcıların giriş/çıkış, denetim tamamlama, denetim silme, rol güncelleme vb. tüm eylemleri IP ve zaman damgasıyla kaydolur. Süper Yöneticiler bu logları kullanıcı ve tarih bazlı filtreleyebilir.
+1. **İSG Risk Grupları Yönetimi (`risk_groups.php`)**: Ergonomik, Biyolojik, Fiziksel, Kimyasal, Psikososyal vb. risk grupları tanımlanabilir ve sorular bu gruplar altında organize edilir.
+2. **Tehlike ve Risk Bankası Editörü (`survey_edit.php`)**: Her bir soru için *Tehlike Kaynağı*, *Tehlike*, *Etkilenme (Yaşanabilecek Riskler)* ve *Etkilenenler* tanımlanabilir.
+3. **Cevap Seçenekleri & Otomatik Risk Matrisi ($R = O \times Ş$)**:
+   - Denetçi sahada *Evet*, *Hayır*, *Kısmen*, *Muaf* butonları ile hızlı cevap verir.
+   - "Hayır" veya "Kısmen" (olumsuz/riskli durum) seçildiğinde açılan kart ile:
+     - **Mevcut Durum Açıklaması**
+     - **Olasılık ($O: 1-5$)** ve **Şiddet ($Ş: 1-5$)** seçimi ile anlık **Risk Skoru ($R = O \times Ş$)** ve renkli risk düzeyi rozeti (*Kabul edilebilir*, *Önemli*, *Dikkate Değer*, *Kabul Edilemez*) hesaplanır.
+     - **Alınacak Önlemler / İyileştirmeler**, **Sorumlu Birim** ve **Termin / Süre** kaydedilir.
+4. **Resmi İSG Risk Analiz Formu Raporlama**: Yapılan denetimlerin detayı ve PDF / Excel / Word çıktıları resmi üniversite ve hastane İSG Birimi formatında 12 sütunlu tam matris olarak üretilir.
+5. **Görsel Denetim Sihirbazı & Birim Yönetimi**: Denetim başlatılırken anket profilleri ve birimler etkileşimli görsel kartlarla seçilir.
 6. **Dokunulmaz Master Admin Koruması**: `admin` (ID: 1) hesabı hiçbir yetkili tarafından silinemez, pasife alınamaz veya rolü değiştirilemez.
-7. **Mobil / Tablet Öncelikli UX**: Dokunmatik ekranlar için özel tasarlanmış, büyük temas alanlı, canlı skor rozetli modern Glassmorphic arayüz.
-8. **Raporlama ve Export**: Yapılan denetimlerin karnesi, genel puan ortalaması, PDF, Excel (.xls), Word (.doc) ve Yazdırılabilir çıktı alma desteği.
 
 ---
 
@@ -52,7 +55,16 @@ CREATE TABLE IF NOT EXISTS `units` (
   `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 4. Anket Profilleri / Şablonları (Hastane İSG, Fabrika İSG vb.)
+-- 4. Risk Grupları Tablosu (Ergonomik, Biyolojik, Fiziksel vb.)
+CREATE TABLE IF NOT EXISTS `risk_groups` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `group_name` VARCHAR(100) NOT NULL,
+  `description` VARCHAR(255) NULL,
+  `sort_order` INT DEFAULT 0,
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 5. Anket Profilleri / Şablonları (Hastane İSG, Fabrika İSG vb.)
 CREATE TABLE IF NOT EXISTS `survey_templates` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `title` VARCHAR(150) NOT NULL,
@@ -63,16 +75,22 @@ CREATE TABLE IF NOT EXISTS `survey_templates` (
   `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 5. Anket Soruları Tablosu
+-- 6. Anket Soruları Tablosu (Tehlike Kaynağı, Tehlike, Risk ve Etkilenenler Alanları ile)
 CREATE TABLE IF NOT EXISTS `survey_questions` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `template_id` INT NOT NULL,
+  `risk_group_id` INT NULL,
   `question_text` TEXT NOT NULL,
+  `hazard_source` VARCHAR(255) NULL,
+  `hazard_name` VARCHAR(255) NULL,
+  `affected_risk` TEXT NULL,
+  `affected_people` VARCHAR(255) NULL,
   `sort_order` INT DEFAULT 0,
-  FOREIGN KEY (`template_id`) REFERENCES `survey_templates`(`id`) ON DELETE CASCADE
+  FOREIGN KEY (`template_id`) REFERENCES `survey_templates`(`id`) ON DELETE CASCADE,
+  FOREIGN KEY (`risk_group_id`) REFERENCES `risk_groups`(`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 6. Soru Seçenekleri ve Puan Tablosu
+-- 7. Soru Seçenekleri ve Puan Tablosu
 CREATE TABLE IF NOT EXISTS `question_options` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `question_id` INT NOT NULL,
@@ -82,7 +100,7 @@ CREATE TABLE IF NOT EXISTS `question_options` (
   FOREIGN KEY (`question_id`) REFERENCES `survey_questions`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 7. Sahada Yapılan Denetimler Tablosu
+-- 8. Sahada Yapılan Denetimler Tablosu
 CREATE TABLE IF NOT EXISTS `audits` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `template_id` INT NOT NULL,
@@ -99,19 +117,26 @@ CREATE TABLE IF NOT EXISTS `audits` (
   FOREIGN KEY (`auditor_id`) REFERENCES `users`(`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 8. Denetimde Seçilen Cevaplar Tablosu
+-- 9. Denetimde Seçilen Cevaplar & Risk Analiz Detayları Tablosu
 CREATE TABLE IF NOT EXISTS `audit_answers` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `audit_id` INT NOT NULL,
   `question_id` INT NOT NULL,
-  `option_id` INT NOT NULL,
-  `points_awarded` INT NOT NULL,
+  `option_id` INT NULL,
+  `answer_option` VARCHAR(50) NULL,
+  `points_awarded` INT NOT NULL DEFAULT 0,
+  `current_status` TEXT NULL,
+  `probability` INT DEFAULT 1,
+  `severity` INT DEFAULT 1,
+  `risk_score` INT DEFAULT 1,
+  `action_plan` TEXT NULL,
+  `responsible_person` VARCHAR(255) NULL,
+  `deadline` VARCHAR(100) NULL,
   FOREIGN KEY (`audit_id`) REFERENCES `audits`(`id`) ON DELETE CASCADE,
-  FOREIGN KEY (`question_id`) REFERENCES `survey_questions`(`id`),
-  FOREIGN KEY (`option_id`) REFERENCES `question_options`(`id`)
+  FOREIGN KEY (`question_id`) REFERENCES `survey_questions`(`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 9. Sistem İşlem Logları Tablosu
+-- 10. Sistem İşlem Logları Tablosu
 CREATE TABLE IF NOT EXISTS `system_logs` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `user_id` INT NULL,
@@ -134,7 +159,7 @@ tubisg/
 ├── DEVELOPMENT_LOG.md      # Yapılan tüm güncellemeler ve durum takibi
 ├── database.sql            # Veritabanı tablo ve örnek veri kurulum dosyası
 ├── config/
-│   └── db.php              # PDO Veritabanı bağlantısı ve auto-table init
+│   └── db.php              # PDO Veritabanı bağlantısı ve auto-table init / migration
 ├── includes/
 │   ├── auth.php            # Oturum, yetki ve log_action helper'ları
 │   ├── header.php          # Üst menü, profil bağlantısı & sol navigasyon
@@ -143,21 +168,22 @@ tubisg/
 │   ├── css/
 │   │   └── style.css       # Mobil öncelikli modern Glassmorphic CSS
 │   └── js/
-│       └── main.js         # Canlı hesaplayıcı, Otomatik Alert Kapatma & Görsel Sihirbaz
+│       └── main.js         # Canlı hesaplayıcı, Otomatik Alert Kapatma & SweetAlert2 Modalları
 ├── index.php               # Tanıtıcı Ana Sayfa (Public Landing Page)
 ├── dashboard.php           # Giriş Yapmış Kullanıcı Kontrol Paneli
 ├── login.php               # Kullanıcı Girişi
 ├── logout.php              # Oturumu Kapat
 ├── profile.php             # Kullanıcı Profil & Şifre Güncelleme Ekranı
-├── logs.php                # Sistem İşlem Logları Ekranı (Filtreli)
+├── logs.php                # Sistem İşlem Logları Ekranı (Filtreli & Sayfalamalı)
+├── risk_groups.php         # İSG Risk Grupları Tanımlama Paneli
 ├── survey_templates.php    # Anket Profilleri Listesi
-├── survey_edit.php         # Anket Soruları & Seçenek Puan Editörü
+├── survey_edit.php         # Anket Soruları, Tehlike & Risk Haritası Editörü
 ├── units.php               # Birim Yönetimi
 ├── audit_new.php           # Saha Denetim Görsel Sihirbazı
-├── audit_fill.php          # Saha Denetim Doldurma Ekranı
-├── audits_list.php         # Tamamlanan Denetimler Listesi (Silme Yetkili)
-├── audit_detail.php        # Denetim Detayı & Karnesi (Silme Yetkili)
-├── export.php              # PDF / Excel / Word İhracat İşleyicisi
+├── audit_fill.php          # Saha Denetim & 5x5 Risk Matrisi Doldurma Ekranı
+├── audits_list.php         # Tamamlanan Denetimler Listesi (Sayfalamalı)
+├── audit_detail.php        # Resmi İSG Birim Bazlı Risk Analiz Formu ve Karnesi
+├── export.php              # Resmi Form Formatında PDF / Excel / Word İhracat Motoru
 ├── roles.php               # Rol & Yetki Tanımlama Paneli (RBAC + audit_delete & logs_view)
 └── users.php               # Kullanıcı Hesapları Paneli (Master Admin Korumalı)
 ```

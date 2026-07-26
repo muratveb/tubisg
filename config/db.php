@@ -1,6 +1,6 @@
 <?php
 /**
- * Tubİsg - Veritabanı Bağlantısı (MAMP / Standart MySQL Otomatik Port ve Socket Algılayıcı)
+ * Tubİsg - Veritabanı Bağlantısı ve Otomatik Migration (MAMP / MySQL)
  */
 
 define('DB_NAME', 'tubisg_db');
@@ -89,7 +89,7 @@ try {
         }
     }
 
-    // 4. system_logs Tablosunun Varlığını Kontrol Et / Otomatik Oluştur
+    // 4. system_logs Tablosu
     $pdo->exec("
         CREATE TABLE IF NOT EXISTS `system_logs` (
           `id` INT AUTO_INCREMENT PRIMARY KEY,
@@ -102,6 +102,76 @@ try {
           FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE SET NULL
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     ");
+
+    // 5. risk_groups Tablosu
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS `risk_groups` (
+          `id` INT AUTO_INCREMENT PRIMARY KEY,
+          `group_name` VARCHAR(100) NOT NULL,
+          `description` VARCHAR(255) NULL,
+          `sort_order` INT DEFAULT 0,
+          `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    ");
+
+    // Risk Grupları Boşsa Varsayılan Verileri Ekle
+    $countGroups = $pdo->query("SELECT COUNT(*) FROM `risk_groups`")->fetchColumn();
+    if ((int)$countGroups === 0) {
+        $pdo->exec("
+            INSERT INTO `risk_groups` (`id`, `group_name`, `description`, `sort_order`) VALUES
+            (1, 'Biyolojik Riskler', 'Enfeksiyon, pis su bulaşması, bulaşıcı biyolojik etkenler', 1),
+            (2, 'Ergonomik Riskler', 'Ekranlı araçlar, ayakta kalma, ağır kaldırma, kas-iskelet yükü', 2),
+            (3, 'Fiziksel Riskler', 'Gürültü, aydınlatma, havalandırma, kaygan zemin, yüksekten düşme', 3),
+            (4, 'Kimyasal Riskler', 'Tıbbi atıklar, dezenfektanlar, tehlikeli kimyasal maruziyeti', 4),
+            (5, 'Psikososyal Riskler', 'Vardiyalı çalışma, iş stresi, aşırı iş yükü', 5),
+            (6, 'Genel Saha & Hijyen Riskleri', 'Yangın tesisatı, acil çıkışlar, ilk yardım ve genel temizlik', 6);
+        ");
+    }
+
+    // 6. survey_questions Tablosuna Eksik Sütunları Ekle (Migration)
+    $qCols = $pdo->query("SHOW COLUMNS FROM `survey_questions`")->fetchAll(PDO::FETCH_COLUMN);
+    if (!in_array('risk_group_id', $qCols)) {
+        $pdo->exec("ALTER TABLE `survey_questions` ADD COLUMN `risk_group_id` INT NULL AFTER `template_id`");
+    }
+    if (!in_array('hazard_source', $qCols)) {
+        $pdo->exec("ALTER TABLE `survey_questions` ADD COLUMN `hazard_source` VARCHAR(255) NULL AFTER `question_text`");
+    }
+    if (!in_array('hazard_name', $qCols)) {
+        $pdo->exec("ALTER TABLE `survey_questions` ADD COLUMN `hazard_name` VARCHAR(255) NULL AFTER `hazard_source`");
+    }
+    if (!in_array('affected_risk', $qCols)) {
+        $pdo->exec("ALTER TABLE `survey_questions` ADD COLUMN `affected_risk` TEXT NULL AFTER `hazard_name`");
+    }
+    if (!in_array('affected_people', $qCols)) {
+        $pdo->exec("ALTER TABLE `survey_questions` ADD COLUMN `affected_people` VARCHAR(255) NULL AFTER `affected_risk`");
+    }
+
+    // 7. audit_answers Tablosuna Risk Analiz Sütunlarını Ekle (Migration)
+    $aCols = $pdo->query("SHOW COLUMNS FROM `audit_answers`")->fetchAll(PDO::FETCH_COLUMN);
+    if (!in_array('answer_option', $aCols)) {
+        $pdo->exec("ALTER TABLE `audit_answers` ADD COLUMN `answer_option` VARCHAR(50) NULL AFTER `option_id`");
+    }
+    if (!in_array('current_status', $aCols)) {
+        $pdo->exec("ALTER TABLE `audit_answers` ADD COLUMN `current_status` TEXT NULL AFTER `points_awarded`");
+    }
+    if (!in_array('probability', $aCols)) {
+        $pdo->exec("ALTER TABLE `audit_answers` ADD COLUMN `probability` INT DEFAULT 1 AFTER `current_status`");
+    }
+    if (!in_array('severity', $aCols)) {
+        $pdo->exec("ALTER TABLE `audit_answers` ADD COLUMN `severity` INT DEFAULT 1 AFTER `probability`");
+    }
+    if (!in_array('risk_score', $aCols)) {
+        $pdo->exec("ALTER TABLE `audit_answers` ADD COLUMN `risk_score` INT DEFAULT 1 AFTER `severity`");
+    }
+    if (!in_array('action_plan', $aCols)) {
+        $pdo->exec("ALTER TABLE `audit_answers` ADD COLUMN `action_plan` TEXT NULL AFTER `risk_score`");
+    }
+    if (!in_array('responsible_person', $aCols)) {
+        $pdo->exec("ALTER TABLE `audit_answers` ADD COLUMN `responsible_person` VARCHAR(255) NULL AFTER `action_plan`");
+    }
+    if (!in_array('deadline', $aCols)) {
+        $pdo->exec("ALTER TABLE `audit_answers` ADD COLUMN `deadline` VARCHAR(100) NULL AFTER `responsible_person`");
+    }
 
 } catch (PDOException $e) {
     die('<div style="font-family:sans-serif; padding:40px; text-align:center; background:#fff0f0; border-radius:12px; margin:50px auto; max-width:600px; color:#c53030;">'

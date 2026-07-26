@@ -1,6 +1,6 @@
 <?php
 /**
- * Tubİsg - Rapor Dışa Aktarma Motoru (PDF, Excel, Word Export Engine)
+ * Tubİsg - Rapor Dışa Aktarma Motoru (Birim Bazlı Risk Analiz Formu Excel, Word & PDF Export Engine)
  */
 require_once __DIR__ . '/includes/auth.php';
 require_permission('reports_export');
@@ -29,22 +29,24 @@ if (!$audit) {
     die("Denetim kaydı bulunamadı.");
 }
 
-// Cevapları Çek
+// Cevapları ve Risk Matrisi Bilgilerini Çek
 $answersStmt = $db->prepare("
-    SELECT ans.*, sq.question_text, qo.option_text, qo.points
+    SELECT ans.*, sq.question_text, sq.hazard_source, sq.hazard_name, sq.affected_risk, sq.affected_people, 
+           rg.group_name, qo.option_text
     FROM audit_answers ans
     JOIN survey_questions sq ON ans.question_id = sq.id
-    JOIN question_options qo ON ans.option_id = qo.id
+    LEFT JOIN risk_groups rg ON sq.risk_group_id = rg.id
+    LEFT JOIN question_options qo ON ans.option_id = qo.id
     WHERE ans.audit_id = ?
-    ORDER BY sq.sort_order ASC, sq.id ASC
+    ORDER BY COALESCE(rg.sort_order, 99) ASC, sq.sort_order ASC, sq.id ASC
 ");
 $answersStmt->execute([$audit_id]);
 $answers = $answersStmt->fetchAll();
 
-$fileName = 'TubISG_Denetim_' . sprintf('%04d', $audit['id']) . '_' . date('Ymd');
+$fileName = 'TubISG_Birim_Risk_Analizi_#DEN-' . sprintf('%04d', $audit['id']) . '_' . date('Ymd');
 
 // ==========================================
-// 1. EXCEL EXPORT (.xls / UTF-8 CSV)
+// 1. EXCEL EXPORT (.xls / UTF-8 HTML Table)
 // ==========================================
 if ($format === 'excel') {
     header('Content-Type: application/vnd.ms-excel; charset=utf-8');
@@ -55,33 +57,28 @@ if ($format === 'excel') {
     ?>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     <style>
-      table { border-collapse: collapse; width: 100%; font-family: sans-serif; }
-      th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-      th { background-color: #059669; color: white; }
-      .header-bg { background-color: #0f172a; color: white; font-weight: bold; }
+      table { border-collapse: collapse; width: 100%; font-family: Arial, sans-serif; font-size: 11px; }
+      th, td { border: 1px solid #94a3b8; padding: 6px; text-align: left; vertical-align: middle; }
+      th { background-color: #0f172a; color: white; font-weight: bold; text-align: center; }
+      .header-title { background-color: #059669; color: white; font-size: 14px; font-weight: bold; text-align: center; }
+      .risk-high { background-color: #fee2e2; color: #991b1b; font-weight: bold; text-align: center; }
+      .risk-medium { background-color: #fef3c7; color: #92400e; font-weight: bold; text-align: center; }
+      .risk-low { background-color: #dcfce7; color: #166534; font-weight: bold; text-align: center; }
     </style>
 
     <table>
-      <tr class="header-bg">
-        <td colspan="4">Tubİsg - Saha İş Sağlığı ve Güvenliği Denetim Raporu</td>
+      <tr class="header-title">
+        <td colspan="12">İŞ YERİ SAĞLIK VE GÜVENLİK BİRİMİ - BİRİM BAZLI RİSK ANALİZ VE DENETİM FORMU</td>
       </tr>
       <tr>
-        <td><strong>Denetim No:</strong></td>
-        <td>#DEN-<?php echo sprintf('%04d', $audit['id']); ?></td>
-        <td><strong>Tarih:</strong></td>
-        <td><?php echo date('d.m.Y H:i', strtotime($audit['audit_date'])); ?></td>
+        <td colspan="4"><strong>RİSK ANALİZİ YAPILAN YER:</strong> <?php echo htmlspecialchars($audit['unit_name']); ?></td>
+        <td colspan="4"><strong>TARİH:</strong> <?php echo date('d.m.Y H:i', strtotime($audit['audit_date'])); ?></td>
+        <td colspan="4"><strong>DENETÇİ:</strong> <?php echo htmlspecialchars($audit['auditor_name']); ?></td>
       </tr>
       <tr>
-        <td><strong>Birim / Saha:</strong></td>
-        <td><?php echo htmlspecialchars($audit['unit_name']); ?></td>
-        <td><strong>Denetçi:</strong></td>
-        <td><?php echo htmlspecialchars($audit['auditor_name']); ?></td>
-      </tr>
-      <tr>
-        <td><strong>Anket Profili:</strong></td>
-        <td><?php echo htmlspecialchars($audit['survey_title']); ?></td>
-        <td><strong>Genel Skor:</strong></td>
-        <td>%<?php echo number_format($audit['percentage_score'], 1); ?> (<?php echo $audit['total_score']; ?> / <?php echo $audit['max_possible_score']; ?> Puan)</td>
+        <td colspan="12" style="background-color: #f8fafc; font-size: 10px;">
+          Şiddet (Ş): 1 (Çok hafif), 2 (Hafif), 3 (Ciddi), 4 (Çok Ciddi), 5 (Felaket) | Olasılık (O): 1 (Çok küçük), 2 (Küçük), 3 (Orta), 4 (Yüksek), 5 (Çok yüksek) | Risk Skoru (R = O x Ş)
+        </td>
       </tr>
     </table>
 
@@ -90,17 +87,53 @@ if ($format === 'excel') {
     <table>
       <thead>
         <tr>
-          <th>Soru</th>
-          <th>Seçilen Cevap / Şık</th>
-          <th>Kazanılan Puan</th>
+          <th>RİSK GRUPLARI</th>
+          <th>TEHLİKE KAYNAĞI</th>
+          <th>TEHLİKE</th>
+          <th>ETKİLENME (YAŞANABİLECEK RİSKLER)</th>
+          <th>ETKİLENENLER</th>
+          <th>MEVCUT DURUM / CEVAP</th>
+          <th>OLASILIK (O)</th>
+          <th>ŞİDDET (Ş)</th>
+          <th>RİSK DERECESİ (R)</th>
+          <th>ALINACAK ÖNLEMLER / İYİLEŞTİRMELER</th>
+          <th>SORUMLU</th>
+          <th>BAŞLAMA / SÜRE</th>
         </tr>
       </thead>
       <tbody>
         <?php foreach ($answers as $ans): ?>
+          <?php
+          $rScore = (int)$ans['risk_score'];
+          $prob = (int)$ans['probability'];
+          $sev = (int)$ans['severity'];
+          if ($rScore == 0 && $prob > 0 && $sev > 0) $rScore = $prob * $sev;
+
+          $rClass = 'risk-low';
+          if ($rScore >= 16) $rClass = 'risk-high';
+          elseif ($rScore >= 6) $rClass = 'risk-medium';
+
+          $ansOption = !empty($ans['answer_option']) ? $ans['answer_option'] : ($ans['option_text'] ?? '-');
+          ?>
           <tr>
-            <td><?php echo htmlspecialchars($ans['question_text']); ?></td>
-            <td><?php echo htmlspecialchars($ans['option_text']); ?></td>
-            <td><?php echo (int)$ans['points_awarded']; ?></td>
+            <td><strong><?php echo htmlspecialchars($ans['group_name'] ?? 'Genel'); ?></strong></td>
+            <td><?php echo htmlspecialchars($ans['hazard_source'] ?? '-'); ?></td>
+            <td><?php echo htmlspecialchars($ans['hazard_name'] ?? '-'); ?></td>
+            <td><?php echo htmlspecialchars($ans['affected_risk'] ?? '-'); ?></td>
+            <td><?php echo htmlspecialchars($ans['affected_people'] ?? '-'); ?></td>
+            <td>
+              <strong><?php echo htmlspecialchars($ans['question_text']); ?></strong><br>
+              Cevap: <?php echo htmlspecialchars($ansOption); ?>
+              <?php if (!empty($ans['current_status'])): ?>
+                <br><em><?php echo htmlspecialchars($ans['current_status']); ?></em>
+              <?php endif; ?>
+            </td>
+            <td style="text-align:center;"><?php echo $prob > 0 ? $prob : '-'; ?></td>
+            <td style="text-align:center;"><?php echo $sev > 0 ? $sev : '-'; ?></td>
+            <td class="<?php echo $rClass; ?>"><?php echo $rScore > 0 ? $rScore : '-'; ?></td>
+            <td><?php echo !empty($ans['action_plan']) ? htmlspecialchars($ans['action_plan']) : '-'; ?></td>
+            <td><?php echo htmlspecialchars($ans['responsible_person'] ?? '-'); ?></td>
+            <td><?php echo htmlspecialchars($ans['deadline'] ?? '-'); ?></td>
           </tr>
         <?php endforeach; ?>
       </tbody>
@@ -110,10 +143,10 @@ if ($format === 'excel') {
       <br/>
       <table>
         <tr>
-          <th colspan="2">Saha Notları</th>
+          <th colspan="12">Saha Notları ve Gözlemler</th>
         </tr>
         <tr>
-          <td colspan="2"><?php echo htmlspecialchars($audit['notes']); ?></td>
+          <td colspan="12"><?php echo htmlspecialchars($audit['notes']); ?></td>
         </tr>
       </table>
     <?php endif; ?>
@@ -134,43 +167,71 @@ if ($format === 'word') {
     <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
     <head>
       <meta charset='utf-8'>
-      <title>Denetim Raporu</title>
+      <title>Birim Bazlı Risk Analiz Formu</title>
       <style>
-        body { font-family: Arial, sans-serif; line-height: 1.5; color: #333; }
-        h2 { color: #059669; }
-        .score-box { background: #f8fafc; border: 2px solid #059669; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
-        table { border-collapse: collapse; width: 100%; margin-top: 15px; }
-        th, td { border: 1px solid #cbd5e1; padding: 10px; text-align: left; }
-        th { background: #0f172a; color: #fff; }
+        body { font-family: Arial, sans-serif; line-height: 1.4; color: #333; font-size: 11px; }
+        h2 { color: #059669; text-align: center; }
+        .info-table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
+        .info-table td { border: 1px solid #0f172a; padding: 6px; }
+        table.matrix-table { border-collapse: collapse; width: 100%; margin-top: 10px; }
+        table.matrix-table th, table.matrix-table td { border: 1px solid #cbd5e1; padding: 6px; text-align: left; }
+        table.matrix-table th { background: #0f172a; color: #fff; text-align: center; font-size: 10px; }
       </style>
     </head>
     <body>
-      <h2>🛡️ Tubİsg Saha İSG Denetim Karnesi</h2>
+      <h2>🛡️ İŞ YERİ SAĞLIK VE GÜVENLİK BİRİMİ - BİRİM BAZLI RİSK ANALİZ FORMU</h2>
       
-      <div class="score-box">
-        <p><strong>Rapor No:</strong> #DEN-<?php echo sprintf('%04d', $audit['id']); ?></p>
-        <p><strong>Birim / Departman:</strong> <?php echo htmlspecialchars($audit['unit_name']); ?></p>
-        <p><strong>Anket Profili:</strong> <?php echo htmlspecialchars($audit['survey_title']); ?></p>
-        <p><strong>Denetimi Yapan:</strong> <?php echo htmlspecialchars($audit['auditor_name']); ?></p>
-        <p><strong>Tarih:</strong> <?php echo date('d.m.Y H:i', strtotime($audit['audit_date'])); ?></p>
-        <p><strong>İSG Uygunluk Skoru:</strong> %<?php echo number_format($audit['percentage_score'], 1); ?> (Toplanan Puan: <?php echo $audit['total_score']; ?> / <?php echo $audit['max_possible_score']; ?>)</p>
-      </div>
+      <table class="info-table">
+        <tr>
+          <td><strong>Form No:</strong> #DEN-<?php echo sprintf('%04d', $audit['id']); ?></td>
+          <td><strong>Birim / Saha:</strong> <?php echo htmlspecialchars($audit['unit_name']); ?></td>
+          <td><strong>Tarih:</strong> <?php echo date('d.m.Y H:i', strtotime($audit['audit_date'])); ?></td>
+          <td><strong>Denetçi:</strong> <?php echo htmlspecialchars($audit['auditor_name']); ?></td>
+        </tr>
+      </table>
 
-      <h3>Denetim Cevapları ve Puanlandırma</h3>
-      <table>
+      <table class="matrix-table">
         <thead>
           <tr>
-            <th>Denetim Sorusu</th>
-            <th>Tespit Edilen / Seçilen Şık</th>
-            <th>Puan</th>
+            <th>RİSK GRUP</th>
+            <th>TEHLİKE KAYNAĞI</th>
+            <th>TEHLİKE</th>
+            <th>ETKİLENME (RİSKLER)</th>
+            <th>ETKİLENENLER</th>
+            <th>MEVCUT DURUM</th>
+            <th>O</th>
+            <th>Ş</th>
+            <th>R.D.</th>
+            <th>ALINACAK ÖNLEMLER</th>
+            <th>SORUMLU</th>
+            <th>TERMİN</th>
           </tr>
         </thead>
         <tbody>
           <?php foreach ($answers as $ans): ?>
+            <?php
+            $rScore = (int)$ans['risk_score'];
+            $prob = (int)$ans['probability'];
+            $sev = (int)$ans['severity'];
+            if ($rScore == 0 && $prob > 0 && $sev > 0) $rScore = $prob * $sev;
+            $ansOption = !empty($ans['answer_option']) ? $ans['answer_option'] : ($ans['option_text'] ?? '-');
+            ?>
             <tr>
-              <td><?php echo htmlspecialchars($ans['question_text']); ?></td>
-              <td><?php echo htmlspecialchars($ans['option_text']); ?></td>
-              <td><?php echo (int)$ans['points_awarded']; ?></td>
+              <td><?php echo htmlspecialchars($ans['group_name'] ?? 'Genel'); ?></td>
+              <td><?php echo htmlspecialchars($ans['hazard_source'] ?? '-'); ?></td>
+              <td><?php echo htmlspecialchars($ans['hazard_name'] ?? '-'); ?></td>
+              <td><?php echo htmlspecialchars($ans['affected_risk'] ?? '-'); ?></td>
+              <td><?php echo htmlspecialchars($ans['affected_people'] ?? '-'); ?></td>
+              <td>
+                <?php echo htmlspecialchars($ans['question_text']); ?><br>
+                <em>Cevap: <?php echo htmlspecialchars($ansOption); ?></em>
+              </td>
+              <td style="text-align:center;"><?php echo $prob > 0 ? $prob : '-'; ?></td>
+              <td style="text-align:center;"><?php echo $sev > 0 ? $sev : '-'; ?></td>
+              <td style="text-align:center; font-weight:bold;"><?php echo $rScore > 0 ? $rScore : '-'; ?></td>
+              <td><?php echo !empty($ans['action_plan']) ? htmlspecialchars($ans['action_plan']) : '-'; ?></td>
+              <td><?php echo htmlspecialchars($ans['responsible_person'] ?? '-'); ?></td>
+              <td><?php echo htmlspecialchars($ans['deadline'] ?? '-'); ?></td>
             </tr>
           <?php endforeach; ?>
         </tbody>

@@ -1,6 +1,6 @@
 <?php
 /**
- * Tubİsg - Saha Denetim Detayı & Karnesi
+ * Tubİsg - Saha Denetim Detayı & Risk Analizi Karnesi
  */
 require_once __DIR__ . '/includes/auth.php';
 require_permission('audit_view');
@@ -42,33 +42,25 @@ if (!$audit) {
     exit;
 }
 
-// Seçilen Cevapları ve Soruları Çek
+// Seçilen Cevapları ve Risk Matrisi Detaylarını Çek
 $answersStmt = $db->prepare("
-    SELECT ans.*, sq.question_text, qo.option_text, qo.points
+    SELECT ans.*, sq.question_text, sq.hazard_source, sq.hazard_name, sq.affected_risk, sq.affected_people, 
+           rg.group_name, qo.option_text
     FROM audit_answers ans
     JOIN survey_questions sq ON ans.question_id = sq.id
-    JOIN question_options qo ON ans.option_id = qo.id
+    LEFT JOIN risk_groups rg ON sq.risk_group_id = rg.id
+    LEFT JOIN question_options qo ON ans.option_id = qo.id
     WHERE ans.audit_id = ?
-    ORDER BY sq.sort_order ASC, sq.id ASC
+    ORDER BY COALESCE(rg.sort_order, 99) ASC, sq.sort_order ASC, sq.id ASC
 ");
 $answersStmt->execute([$audit_id]);
 $answers = $answersStmt->fetchAll();
-
-// Sorulara Göre Grupla
-$groupedAnswers = [];
-foreach ($answers as $ans) {
-    $qText = $ans['question_text'];
-    if (!isset($groupedAnswers[$qText])) {
-        $groupedAnswers[$qText] = [];
-    }
-    $groupedAnswers[$qText][] = $ans;
-}
 
 $pct = (float)$audit['percentage_score'];
 $badgeClass = $pct >= 80 ? 'bg-success text-white' : ($pct >= 50 ? 'bg-warning text-dark' : 'bg-danger text-white');
 $riskLevel = $pct >= 80 ? 'DÜŞÜK RİSK / UYGUN' : ($pct >= 50 ? 'ORTA RİSK / DİKKAT' : 'YÜKSEK RİSK / TEHLİKE');
 
-$pageTitle = 'Denetim Karnesi #DEN-' . sprintf('%04d', $audit['id']);
+$pageTitle = 'İSG Risk Analiz Karnesi #DEN-' . sprintf('%04d', $audit['id']);
 include __DIR__ . '/includes/header.php';
 ?>
 
@@ -81,7 +73,7 @@ include __DIR__ . '/includes/header.php';
     <a href="audits_list.php" class="btn btn-sm btn-outline-secondary mb-1">
       <i class="bi bi-arrow-left"></i> Raporlar Listesine Dön
     </a>
-    <h3 class="fw-extrabold m-0">Saha Denetim Karnesi #DEN-<?php echo sprintf('%04d', $audit['id']); ?></h3>
+    <h3 class="fw-extrabold m-0">Saha İSG Risk Analiz Formu #DEN-<?php echo sprintf('%04d', $audit['id']); ?></h3>
   </div>
 
   <div class="d-flex flex-wrap gap-2">
@@ -111,105 +103,130 @@ include __DIR__ . '/includes/header.php';
   </div>
 </div>
 
-<!-- PDF İÇİN YAZDIRILABİLİR KARNE ALANI (PİKSEL MÜKEMMEL PDF HİZALAMA) -->
-<div id="auditScorecardPrintArea" style="background: #ffffff; padding: 10px; border-radius: 12px;">
+<!-- RESMİ İSG FORMATINDA YAZDIRILABİLİR BİRİM BAZLI RİSK ANALİZ ALANI -->
+<div id="auditScorecardPrintArea" style="background: #ffffff; padding: 15px; border-radius: 12px;">
 
-  <!-- Denetim Karne Başlığı Kartı -->
-  <div class="custom-card mb-4" style="border-top: 6px solid <?php echo $pct >= 80 ? '#10b981' : ($pct >= 50 ? '#f59e0b' : '#ef4444'); ?>; padding: 20px;">
-    <div class="row align-items-center g-3">
-      
-      <!-- Sol Bilgi Alanı -->
-      <div class="col-12 col-md-7">
-        <span class="badge bg-primary-light text-primary font-weight-bold mb-2">
-          <i class="bi bi-building"></i> BİRİM: <?php echo htmlspecialchars($audit['unit_name']); ?>
-        </span>
-        <h3 class="fw-extrabold text-dark mb-3" style="font-size: 1.4rem; line-height: 1.3;"><?php echo htmlspecialchars($audit['survey_title']); ?></h3>
-        
-        <div class="row text-muted fs-7 g-2">
-          <div class="col-4">
-            <div style="font-size: 0.75rem; color: #64748b;">Denetçi</div>
-            <div style="color: #0f172a; font-weight: 700; font-size: 0.85rem;"><?php echo htmlspecialchars($audit['auditor_name']); ?></div>
-          </div>
-          <div class="col-4">
-            <div style="font-size: 0.75rem; color: #64748b;">Tarih & Saat</div>
-            <div style="color: #0f172a; font-weight: 700; font-size: 0.85rem;"><?php echo date('d.m.Y - H:i', strtotime($audit['audit_date'])); ?></div>
-          </div>
-          <div class="col-4">
-            <div style="font-size: 0.75rem; color: #64748b;">Kategori</div>
-            <div style="color: #0f172a; font-weight: 700; font-size: 0.85rem;"><?php echo htmlspecialchars($audit['survey_cat']); ?></div>
-          </div>
-        </div>
+  <!-- Başlık & Kurumsal Form Header -->
+  <div class="custom-card mb-4 p-3 border-2 border-primary" style="background: #f8fafc;">
+    <div class="text-center border-bottom pb-3 mb-3">
+      <h4 class="fw-extrabold text-dark m-0 fs-5" style="letter-spacing: -0.3px;">
+        İŞ YERİ SAĞLIK VE GÜVENLİK BİRİMİ<br>
+        <span class="text-primary text-uppercase">BİRİM BAZLI RİSK ANALİZ VE DENETİM FORMU</span>
+      </h4>
+    </div>
+
+    <!-- Form Üst Metrik ve Açıklama Çizelgesi -->
+    <div class="row g-2 text-dark fs-8 font-weight-bold mb-3 border-bottom pb-2">
+      <div class="col-12 col-md-6">
+        <strong>RİSK ANALİZİ YAPILAN YER:</strong> <span class="text-primary fs-7"><?php echo htmlspecialchars($audit['unit_name']); ?></span>
       </div>
-
-      <!-- Sağ Skor Kutusu (PDF Çıktısında Hizalama Kaymasını Önleyen Sabit Kutu) -->
-      <div class="col-12 col-md-5">
-        <div style="background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 16px; text-align: center; box-shadow: 0 2px 6px rgba(0,0,0,0.02);">
-          <div style="font-size: 0.7rem; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 4px; letter-spacing: 0.5px;">GENEL İSG UYGUNLUK KARNESİ</div>
-          <div style="font-size: 2.2rem; font-weight: 800; color: #0f172a; line-height: 1.1; margin-bottom: 6px;">%<?php echo number_format($pct, 1); ?></div>
-          <div style="margin-bottom: 8px;">
-            <span class="badge <?php echo $badgeClass; ?>" style="font-size: 0.75rem; font-weight: 800; padding: 6px 12px; border-radius: 20px; display: inline-block;">
-              <?php echo $riskLevel; ?>
-            </span>
-          </div>
-          <div style="font-size: 0.75rem; color: #64748b;">
-            Kazanılan Puan: <strong style="color: #059669; font-weight: 800;"><?php echo $audit['total_score']; ?></strong> / Maks: <strong style="color: #0f172a; font-weight: 800;"><?php echo $audit['max_possible_score']; ?></strong>
-          </div>
-        </div>
+      <div class="col-12 col-md-3">
+        <strong>TARİH:</strong> <span><?php echo date('d.m.Y - H:i', strtotime($audit['audit_date'])); ?></span>
       </div>
+      <div class="col-12 col-md-3 text-md-end">
+        <strong>DENETÇİ:</strong> <span><?php echo htmlspecialchars($audit['auditor_name']); ?></span>
+      </div>
+    </div>
 
+    <!-- Olasılık & Şiddet Risk Derecesi Tanımlama Skalası (Resmi İSG Lejantı) -->
+    <div class="p-2 rounded bg-white border fs-8">
+      <div class="mb-1 text-muted">
+        <strong>Ş (Şiddet):</strong> 1: Çok hafif, 2: Hafif, 3: Ciddi, 4: Çok Ciddi, 5: Felaket &nbsp;|&nbsp; 
+        <strong>O (Olasılık):</strong> 1: Çok küçük, 2: Küçük, 3: Orta, 4: Yüksek, 5: Çok yüksek &nbsp;|&nbsp; 
+        <strong>R (Risk Derecesi):</strong> $Ş \times O$
+      </div>
+      <div class="d-flex flex-wrap gap-2">
+        <span class="badge bg-success">1 ≤ R ≤ 5: Kabul edilebilir Risk</span>
+        <span class="badge bg-info text-dark">6 ≤ R ≤ 9: Önemli Risk</span>
+        <span class="badge bg-warning text-dark">10 ≤ R ≤ 15: Dikkate Değer Risk</span>
+        <span class="badge bg-danger">16 ≤ R ≤ 25: Kabul Edilemez Risk</span>
+      </div>
     </div>
   </div>
 
-  <!-- Soru ve Seçilen Cevaplar Karnesi -->
-  <div class="custom-card mb-4" style="padding: 20px;">
-    <div class="custom-card-header mb-3 pb-2 border-bottom">
-      <h5 class="custom-card-title m-0" style="font-size: 1.1rem;">
-        <i class="bi bi-list-check text-success"></i> Denetim Detayı ve Verilen Cevaplar
-      </h5>
-    </div>
-
-    <?php if (empty($groupedAnswers)): ?>
-      <div class="text-muted text-center py-4">Bu denetimde kaydedilmiş bir cevap seçeneği bulunmuyor.</div>
-    <?php else: ?>
-      <?php $qCount = 1; foreach ($groupedAnswers as $qText => $optList): ?>
-        <div class="mb-4 pb-3 border-bottom last-border-0">
-          <h6 class="fw-bold text-dark mb-3" style="font-size: 0.95rem;">
-            <span class="badge bg-secondary rounded-circle me-2"><?php echo $qCount; ?></span>
-            <?php echo htmlspecialchars($qText); ?>
-          </h6>
-
-          <div class="ps-2 ps-md-3">
-            <?php foreach ($optList as $ans): ?>
+  <!-- BİRİM BAZLI RİSK ANALİZİ RESMİ MATRİS TABLOSU -->
+  <div class="custom-card mb-4 p-0 overflow-hidden border">
+    <div class="table-responsive">
+      <table class="table table-bordered table-striped align-middle m-0" style="font-size: 0.78rem;">
+        <thead class="table-dark text-center align-middle" style="font-size: 0.72rem; letter-spacing: 0.3px;">
+          <tr>
+            <th style="width: 90px;">RİSK GRUPLARI</th>
+            <th style="width: 100px;">TEHLİKE KAYNAĞI</th>
+            <th style="width: 100px;">TEHLİKE</th>
+            <th style="width: 110px;">ETKİLENME (YAŞANABİLECEK RİSKLER)</th>
+            <th style="width: 100px;">ETKİLENENLER</th>
+            <th style="width: 130px;">MEVCUT DURUM / CEVAP</th>
+            <th style="width: 35px;">O</th>
+            <th style="width: 35px;">Ş</th>
+            <th style="width: 45px;">R.D.</th>
+            <th style="width: 140px;">ALINACAK ÖNLEMLER / İYİLEŞTİRMELER</th>
+            <th style="width: 90px;">SORUMLU</th>
+            <th style="width: 75px;">SÜRE / TERMİN</th>
+          </tr>
+        </thead>
+        <tbody>
+          <?php if (empty($answers)): ?>
+            <tr>
+              <td colspan="12" class="text-center py-4 text-muted">Bu denetimde henüz risk analizi kaydı bulunmuyor.</td>
+            </tr>
+          <?php else: ?>
+            <?php foreach ($answers as $ans): ?>
               <?php
-              $p = (int)$ans['points_awarded'];
-              $pClass = $p > 0 ? 'bg-success-light text-success' : ($p < 0 ? 'bg-danger-light text-danger' : 'bg-light text-muted');
-              $pSign = $p > 0 ? '+' : '';
+              $rScore = (int)$ans['risk_score'];
+              $prob = (int)$ans['probability'];
+              $sev = (int)$ans['severity'];
+
+              if ($rScore == 0 && $prob > 0 && $sev > 0) {
+                  $rScore = $prob * $sev;
+              }
+
+              $rClass = 'bg-success text-white';
+              if ($rScore >= 16) $rClass = 'bg-danger text-white fw-bold';
+              elseif ($rScore >= 10) $rClass = 'bg-warning text-dark fw-bold';
+              elseif ($rScore >= 6) $rClass = 'bg-info text-dark fw-bold';
+
+              $ansOption = !empty($ans['answer_option']) ? $ans['answer_option'] : ($ans['option_text'] ?? '-');
               ?>
-              <div class="d-flex align-items-center justify-content-between p-2 px-3 mb-2 rounded bg-light border-start border-3 border-primary">
-                <div class="d-flex align-items-center gap-2">
-                  <i class="bi bi-check-square-fill text-success fs-6"></i>
-                  <span class="fw-bold text-dark fs-7"><?php echo htmlspecialchars($ans['option_text']); ?></span>
-                </div>
-                <span class="badge <?php echo $pClass; ?> p-2 font-weight-bold" style="font-size: 0.75rem;">
-                  <?php echo $pSign . $p; ?> Puan
-                </span>
-              </div>
+              <tr>
+                <td class="fw-bold text-primary"><?php echo htmlspecialchars($ans['group_name'] ?? 'Genel'); ?></td>
+                <td><?php echo htmlspecialchars($ans['hazard_source'] ?? '-'); ?></td>
+                <td><?php echo htmlspecialchars($ans['hazard_name'] ?? '-'); ?></td>
+                <td><?php echo htmlspecialchars($ans['affected_risk'] ?? '-'); ?></td>
+                <td class="text-muted"><?php echo htmlspecialchars($ans['affected_people'] ?? '-'); ?></td>
+                <td>
+                  <div class="fw-bold text-dark"><?php echo htmlspecialchars($ans['question_text']); ?></div>
+                  <div class="mt-1">
+                    <span class="badge bg-light text-dark border"><?php echo htmlspecialchars($ansOption); ?></span>
+                  </div>
+                  <?php if (!empty($ans['current_status'])): ?>
+                    <div class="text-muted fs-8 mt-1"><em><?php echo htmlspecialchars($ans['current_status']); ?></em></div>
+                  <?php endif; ?>
+                </td>
+                <td class="text-center fw-bold"><?php echo $prob > 0 ? $prob : '-'; ?></td>
+                <td class="text-center fw-bold"><?php echo $sev > 0 ? $sev : '-'; ?></td>
+                <td class="text-center">
+                  <span class="badge <?php echo $rClass; ?> px-2 py-1 fs-8">
+                    <?php echo $rScore > 0 ? $rScore : '-'; ?>
+                  </span>
+                </td>
+                <td>
+                  <?php echo !empty($ans['action_plan']) ? htmlspecialchars($ans['action_plan']) : '<span class="text-muted">-</span>'; ?>
+                </td>
+                <td class="fw-bold text-secondary"><?php echo htmlspecialchars($ans['responsible_person'] ?? '-'); ?></td>
+                <td class="text-muted"><?php echo htmlspecialchars($ans['deadline'] ?? '-'); ?></td>
+              </tr>
             <?php endforeach; ?>
-          </div>
-        </div>
-      <?php $qCount++; endforeach; ?>
-    <?php endif; ?>
+          <?php endif; ?>
+        </tbody>
+      </table>
+    </div>
   </div>
 
-  <!-- Saha Notları ve Gözlemler -->
+  <!-- Saha Notları -->
   <?php if (!empty($audit['notes'])): ?>
-  <div class="custom-card mb-4" style="padding: 20px;">
-    <div class="custom-card-header mb-2 pb-2 border-bottom">
-      <h5 class="custom-card-title m-0" style="font-size: 1.1rem;">
-        <i class="bi bi-card-text text-warning"></i> Denetçi Saha Notları & Gözlemler
-      </h5>
-    </div>
-    <p class="m-0 text-dark fs-7" style="white-space: pre-line; line-height: 1.6;"><?php echo htmlspecialchars($audit['notes']); ?></p>
+  <div class="custom-card mb-4 p-3 border">
+    <h6 class="fw-bold text-dark mb-2"><i class="bi bi-card-text text-warning"></i> Denetçi Saha Notları & Gözlemler</h5>
+    <p class="m-0 text-dark fs-7" style="white-space: pre-line; line-height: 1.5;"><?php echo htmlspecialchars($audit['notes']); ?></p>
   </div>
   <?php endif; ?>
 
@@ -219,11 +236,11 @@ include __DIR__ . '/includes/header.php';
 function downloadAuditPDF(evt) {
   const element = document.getElementById('auditScorecardPrintArea');
   const opt = {
-    margin:       [8, 8, 8, 8],
-    filename:     'TubISG_Denetim_Karnesi_#DEN-<?php echo sprintf('%04d', $audit['id']); ?>.pdf',
+    margin:       [6, 6, 6, 6],
+    filename:     'TubISG_Birim_Risk_Analiz_Formu_#DEN-<?php echo sprintf('%04d', $audit['id']); ?>.pdf',
     image:        { type: 'jpeg', quality: 0.98 },
     html2canvas:  { scale: 2, useCORS: true, logging: false, scrollY: 0 },
-    jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    jsPDF:        { unit: 'mm', format: 'a4', orientation: 'landscape' }
   };
   
   let targetBtn = evt ? (evt.target.tagName === 'BUTTON' ? evt.target : evt.target.closest('button')) : null;
@@ -242,14 +259,13 @@ function downloadAuditPDF(evt) {
   });
 }
 
-// Eğer URL'de download_pdf=1 geldiyse otomatik indir
+// Otomatik İndirme / Yazdırma Trigger'ları
 <?php if (isset($_GET['download_pdf']) && $_GET['download_pdf'] == 1): ?>
 document.addEventListener('DOMContentLoaded', function() {
   setTimeout(function() { downloadAuditPDF(); }, 500);
 });
 <?php endif; ?>
 
-// Eğer URL'de print=1 geldiyse otomatik yazdır penceresi aç
 <?php if (isset($_GET['print']) && $_GET['print'] == 1): ?>
 document.addEventListener('DOMContentLoaded', function() {
   setTimeout(function() { window.print(); }, 500);

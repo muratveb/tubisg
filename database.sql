@@ -14,14 +14,6 @@ CREATE TABLE IF NOT EXISTS `roles` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 2. Kullanıcılar Tablosu
-CREATE TABLE IF NOT EXISTS `roles` (
-  `id` INT AUTO_INCREMENT PRIMARY KEY,
-  `role_name` VARCHAR(50) NOT NULL,
-  `description` VARCHAR(255) NULL,
-  `permissions` TEXT NOT NULL,
-  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
 CREATE TABLE IF NOT EXISTS `users` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `username` VARCHAR(50) NOT NULL UNIQUE,
@@ -42,7 +34,16 @@ CREATE TABLE IF NOT EXISTS `units` (
   `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 4. Anket Profilleri / Şablonları (Hastane İSG, Fabrika İSG vb.)
+-- 4. Risk Grupları Tablosu (Ergonomik, Biyolojik, Fiziksel vb.)
+CREATE TABLE IF NOT EXISTS `risk_groups` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `group_name` VARCHAR(100) NOT NULL,
+  `description` VARCHAR(255) NULL,
+  `sort_order` INT DEFAULT 0,
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 5. Anket Profilleri / Şablonları (Hastane İSG, Fabrika İSG vb.)
 CREATE TABLE IF NOT EXISTS `survey_templates` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `title` VARCHAR(150) NOT NULL,
@@ -53,16 +54,22 @@ CREATE TABLE IF NOT EXISTS `survey_templates` (
   `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 5. Anket Soruları Tablosu
+-- 6. Anket Soruları Tablosu (Tehlike Kaynağı, Tehlike, Risk ve Etkilenenler Alanları ile)
 CREATE TABLE IF NOT EXISTS `survey_questions` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `template_id` INT NOT NULL,
+  `risk_group_id` INT NULL,
   `question_text` TEXT NOT NULL,
+  `hazard_source` VARCHAR(255) NULL,
+  `hazard_name` VARCHAR(255) NULL,
+  `affected_risk` TEXT NULL,
+  `affected_people` VARCHAR(255) NULL,
   `sort_order` INT DEFAULT 0,
-  FOREIGN KEY (`template_id`) REFERENCES `survey_templates`(`id`) ON DELETE CASCADE
+  FOREIGN KEY (`template_id`) REFERENCES `survey_templates`(`id`) ON DELETE CASCADE,
+  FOREIGN KEY (`risk_group_id`) REFERENCES `risk_groups`(`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 6. Soru Seçenekleri ve Puan Tablosu
+-- 7. Soru Seçenekleri ve Puan Tablosu
 CREATE TABLE IF NOT EXISTS `question_options` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `question_id` INT NOT NULL,
@@ -72,7 +79,7 @@ CREATE TABLE IF NOT EXISTS `question_options` (
   FOREIGN KEY (`question_id`) REFERENCES `survey_questions`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 7. Sahada Yapılan Denetimler Tablosu
+-- 8. Sahada Yapılan Denetimler Tablosu
 CREATE TABLE IF NOT EXISTS `audits` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `template_id` INT NOT NULL,
@@ -89,19 +96,26 @@ CREATE TABLE IF NOT EXISTS `audits` (
   FOREIGN KEY (`auditor_id`) REFERENCES `users`(`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 8. Denetimde Seçilen Cevaplar Tablosu
+-- 9. Denetimde Seçilen Cevaplar & Risk Analiz Detayları Tablosu
 CREATE TABLE IF NOT EXISTS `audit_answers` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `audit_id` INT NOT NULL,
   `question_id` INT NOT NULL,
-  `option_id` INT NOT NULL,
-  `points_awarded` INT NOT NULL,
+  `option_id` INT NULL,
+  `answer_option` VARCHAR(50) NULL,
+  `points_awarded` INT NOT NULL DEFAULT 0,
+  `current_status` TEXT NULL,
+  `probability` INT DEFAULT 1,
+  `severity` INT DEFAULT 1,
+  `risk_score` INT DEFAULT 1,
+  `action_plan` TEXT NULL,
+  `responsible_person` VARCHAR(255) NULL,
+  `deadline` VARCHAR(100) NULL,
   FOREIGN KEY (`audit_id`) REFERENCES `audits`(`id`) ON DELETE CASCADE,
-  FOREIGN KEY (`question_id`) REFERENCES `survey_questions`(`id`),
-  FOREIGN KEY (`option_id`) REFERENCES `question_options`(`id`)
+  FOREIGN KEY (`question_id`) REFERENCES `survey_questions`(`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 9. Sistem İşlem Logları Tablosu
+-- 10. Sistem İşlem Logları Tablosu
 CREATE TABLE IF NOT EXISTS `system_logs` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `user_id` INT NULL,
@@ -113,7 +127,7 @@ CREATE TABLE IF NOT EXISTS `system_logs` (
   FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Varsayılan Verilerin Eklenmesi
+-- Varsayılan Veriler
 
 -- 1. Varsayılan Roller
 INSERT INTO `roles` (`id`, `role_name`, `description`, `permissions`) VALUES
@@ -127,3 +141,13 @@ INSERT INTO `users` (`id`, `username`, `password`, `name_surname`, `email`, `rol
 (1, 'admin', '$2y$10$Xh9faN5jPdk/rVrPF4WrcOZ7/0RyQBiwc.5qL7Cw5uGLTNbk0W18u', 'Tuba BAL', 'admin@tubisg.com', 1, 1),
 (2, 'denetci', '$2y$10$Xh9faN5jPdk/rVrPF4WrcOZ7/0RyQBiwc.5qL7Cw5uGLTNbk0W18u', 'Saha Denetçisi Ahmet', 'ahmet@tubisg.com', 2, 1)
 ON DUPLICATE KEY UPDATE `id` = `id`;
+
+-- 3. Varsayılan İSG Risk Grupları
+INSERT INTO `risk_groups` (`id`, `group_name`, `description`, `sort_order`) VALUES
+(1, 'Biyolojik Riskler', 'Enfeksiyon, pis su bulaşması, bulaşıcı biyolojik etkenler', 1),
+(2, 'Ergonomik Riskler', 'Ekranlı araçlar, ayakta kalma, ağır kaldırma, kas-iskelet yükü', 2),
+(3, 'Fiziksel Riskler', 'Gürültü, aydınlatma, havalandırma, kaygan zemin, yüksekten düşme', 3),
+(4, 'Kimyasal Riskler', 'Tıbbi atıklar, dezenfektanlar, tehlikeli kimyasal maruziyeti', 4),
+(5, 'Psikososyal Riskler', 'Vardiyalı çalışma, iş stresi, aşırı iş yükü', 5),
+(6, 'Genel Saha & Hijyen Riskleri', 'Yangın tesisatı, acil çıkışlar, ilk yardım ve genel temizlik', 6)
+ON DUPLICATE KEY UPDATE `group_name` = VALUES(`group_name`);
