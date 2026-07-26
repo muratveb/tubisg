@@ -65,149 +65,148 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $institutions = $db->query("SELECT i.*, (SELECT COUNT(*) FROM audits a WHERE a.institution_id = i.id) as audit_count FROM institutions i ORDER BY i.institution_name ASC")->fetchAll();
 
 $totalCount = count($institutions);
+$activeCount = count(array_filter($institutions, fn($i) => $i['is_active'] == 1));
 $totalAudits = array_sum(array_column($institutions, 'audit_count'));
 
 $pageTitle = 'Kurum Tanımları';
 include __DIR__ . '/includes/header.php';
 ?>
 
-<style>
-.inst-card-icon {
-  width: 42px;
-  height: 42px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(220, 38, 38, 0.1);
-  color: #dc2626;
-  font-size: 1.25rem;
-}
-.btn-action-edit {
-  background-color: #e0f2fe;
-  color: #0369a1;
-  border: none;
-  transition: all 0.2s ease;
-}
-.btn-action-edit:hover {
-  background-color: #0284c7;
-  color: #ffffff;
-  transform: translateY(-1px);
-}
-.btn-action-delete {
-  background-color: #fee2e2;
-  color: #b91c1c;
-  border: none;
-  transition: all 0.2s ease;
-}
-.btn-action-delete:hover {
-  background-color: #dc2626;
-  color: #ffffff;
-  transform: translateY(-1px);
-}
-</style>
+<!-- Üst Başlık & Ekleme Butonu -->
+<div class="d-flex flex-column flex-sm-row align-items-sm-center justify-content-between gap-3 mb-4">
+  <div>
+    <h3 class="fw-extrabold m-0 text-dark d-flex align-items-center gap-2">
+      <i class="bi bi-hospital-fill text-danger"></i> Kurum Tanımları
+    </h3>
+    <p class="text-muted fs-7 m-0 mt-1">Saha risk denetimi yürütülen resmi kurumları (Örn: Dicle Üniversitesi Hastaneleri) yönetin.</p>
+  </div>
+  <div>
+    <button type="button" class="btn btn-danger font-weight-bold px-4 py-2.5 shadow-sm rounded-3 text-nowrap" data-bs-toggle="modal" data-bs-target="#addInstitutionModal">
+      <i class="bi bi-plus-circle-fill me-1.5"></i> + Yeni Kurum Ekle
+    </button>
+  </div>
+</div>
 
-<!-- Üst Başlık Banner & İstatistik Kartları -->
-<div class="custom-card p-4 mb-4 border-0 shadow-sm rounded-4 text-white" style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);">
-  <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
-    <div class="d-flex align-items-center gap-3">
-      <div class="p-3 bg-danger bg-opacity-25 rounded-3 text-white border border-danger border-opacity-25 fs-3">
+<!-- 3 İstatistik Özeti Kartları -->
+<div class="row g-3 mb-4">
+  <div class="col-12 col-md-4">
+    <div class="custom-card p-3 mb-0 border-0 shadow-sm rounded-4 bg-white d-flex align-items-center gap-3">
+      <div class="p-3 bg-danger bg-opacity-10 text-danger rounded-3 fs-4">
         <i class="bi bi-hospital"></i>
       </div>
       <div>
-        <h3 class="fw-extrabold m-0 text-white">Kurum Tanımları</h3>
-        <p class="text-white-50 fs-7 m-0">Saha İSG denetimi yürütülen resmi kurumlar ve yerleşkeler listesi.</p>
+        <span class="d-block text-uppercase text-muted font-weight-bold fs-8" style="letter-spacing: 0.5px;">TOPLAM KURUM</span>
+        <span class="fw-extrabold fs-4 text-dark"><?php echo $totalCount; ?></span>
       </div>
     </div>
+  </div>
 
-    <div class="d-flex flex-wrap align-items-center gap-3">
-      <div class="bg-white bg-opacity-10 px-3 py-2 rounded-3 text-center">
-        <span class="d-block fs-8 text-white-50 font-weight-bold">TOPLAM KURUM</span>
-        <span class="fw-extrabold fs-6 text-white"><?php echo $totalCount; ?></span>
+  <div class="col-12 col-md-4">
+    <div class="custom-card p-3 mb-0 border-0 shadow-sm rounded-4 bg-white d-flex align-items-center gap-3">
+      <div class="p-3 bg-success bg-opacity-10 text-success rounded-3 fs-4">
+        <i class="bi bi-check-circle-fill"></i>
       </div>
-      <div class="bg-white bg-opacity-10 px-3 py-2 rounded-3 text-center">
-        <span class="d-block fs-8 text-white-50 font-weight-bold">GERÇEKLEŞEN DENETİM</span>
-        <span class="fw-extrabold fs-6 text-warning"><?php echo $totalAudits; ?></span>
+      <div>
+        <span class="d-block text-uppercase text-muted font-weight-bold fs-8" style="letter-spacing: 0.5px;">AKTİF KURUMLAR</span>
+        <span class="fw-extrabold fs-4 text-success"><?php echo $activeCount; ?></span>
       </div>
-      <button type="button" class="btn btn-danger font-weight-bold px-4 py-2 shadow-sm rounded-3 text-nowrap" data-bs-toggle="modal" data-bs-target="#addInstitutionModal">
-        <i class="bi bi-plus-circle-fill me-1"></i> Yeni Kurum Ekle
-      </button>
+    </div>
+  </div>
+
+  <div class="col-12 col-md-4">
+    <div class="custom-card p-3 mb-0 border-0 shadow-sm rounded-4 bg-white d-flex align-items-center gap-3">
+      <div class="p-3 bg-warning bg-opacity-10 text-warning-emphasis rounded-3 fs-4">
+        <i class="bi bi-clipboard2-check-fill text-warning"></i>
+      </div>
+      <div>
+        <span class="d-block text-uppercase text-muted font-weight-bold fs-8" style="letter-spacing: 0.5px;">GERÇEKLEŞEN DENETİM</span>
+        <span class="fw-extrabold fs-4 text-dark"><?php echo $totalAudits; ?></span>
+      </div>
     </div>
   </div>
 </div>
 
-<!-- Modern Kurumlar Tablosu -->
+<!-- Arama Barı ve Kurum Tablosu Kartı -->
 <div class="custom-card p-0 overflow-hidden border-0 shadow-sm rounded-4 mb-4">
+  <!-- Canlı Filtre Arama Kutusu -->
+  <div class="p-3 bg-light border-bottom d-flex align-items-center justify-content-between gap-3">
+    <div class="input-group input-group-sm style-search" style="max-width: 320px;">
+      <span class="input-group-text bg-white border-end-0 text-muted"><i class="bi bi-search"></i></span>
+      <input type="text" id="instSearchInput" class="form-control border-start-0 ps-0" placeholder="Kurum adı veya kod ara...">
+    </div>
+    <span class="text-muted fs-8 font-weight-bold">Toplam <?php echo $totalCount; ?> kayıt gösteriliyor</span>
+  </div>
+
   <div class="table-responsive">
     <table class="table table-hover align-middle m-0" style="font-size: 0.85rem;">
-      <thead class="bg-light text-secondary text-uppercase fs-8" style="letter-spacing: 0.5px;">
+      <thead class="table-dark">
         <tr>
-          <th style="width: 60px;" class="ps-4">ID</th>
+          <th style="width: 60px;" class="ps-3 text-center">ID</th>
           <th>KURUM DETAYLARI</th>
-          <th style="width: 140px;">KOD</th>
-          <th style="width: 160px;">DENETİM SAYISI</th>
-          <th style="width: 120px;">DURUM</th>
-          <th style="width: 180px;" class="text-end pe-4">İŞLEMLER</th>
+          <th style="width: 130px;">KOD / KISALTMA</th>
+          <th style="width: 150px;" class="text-center">DENETİM SAYISI</th>
+          <th style="width: 110px;" class="text-center">DURUM</th>
+          <th style="width: 170px;" class="text-end pe-3">İŞLEMLER</th>
         </tr>
       </thead>
-      <tbody class="divide-y divide-gray-100">
+      <tbody>
         <?php if (empty($institutions)): ?>
           <tr>
             <td colspan="6" class="text-center py-5 text-muted">
               <i class="bi bi-hospital fs-1 d-block mb-2 text-secondary opacity-50"></i>
-              Henüz tanımlı bir kurum bulunmuyor. Yukarıdaki <strong>Yeni Kurum Ekle</strong> butonundan ekleyebilirsiniz.
+              Henüz tanımlı bir kurum bulunmuyor. Sağ üstteki <strong>+ Yeni Kurum Ekle</strong> butonundan ekleyebilirsiniz.
             </td>
           </tr>
         <?php else: ?>
           <?php foreach ($institutions as $inst): ?>
-            <tr>
-              <td class="ps-4 fw-bold text-muted">#<?php echo $inst['id']; ?></td>
+            <tr class="inst-row" data-name="<?php echo mb_strtolower($inst['institution_name'] . ' ' . $inst['code'], 'UTF-8'); ?>">
+              <td class="ps-3 text-center fw-bold text-muted">#<?php echo $inst['id']; ?></td>
               <td>
                 <div class="d-flex align-items-center gap-3">
-                  <div class="inst-card-icon">
+                  <div class="p-2.5 bg-danger bg-opacity-10 text-danger rounded-3 fs-5 flex-shrink-0">
                     <i class="bi bi-building"></i>
                   </div>
                   <div>
                     <div class="fw-extrabold text-dark fs-7"><?php echo htmlspecialchars($inst['institution_name']); ?></div>
-                    <div class="text-muted fs-8 mt-1">
-                      <?php echo htmlspecialchars($inst['description'] ?? 'Açıklama belirtilmemiş'); ?>
+                    <div class="text-muted fs-8 mt-0.5">
+                      <?php echo htmlspecialchars($inst['description'] ?? 'Açıklama girilmemiş'); ?>
                     </div>
                   </div>
                 </div>
               </td>
               <td>
-                <span class="badge bg-secondary-subtle text-dark border font-weight-bold px-2 py-1 fs-8">
+                <span class="badge bg-light text-dark border font-weight-bold px-2.5 py-1.5 fs-8">
                   <?php echo htmlspecialchars($inst['code'] ?? 'KODSUZ'); ?>
                 </span>
               </td>
-              <td>
-                <span class="badge bg-info-subtle text-info font-weight-bold px-3 py-2 rounded-pill fs-8">
+              <td class="text-center">
+                <span class="badge bg-info-subtle text-info-emphasis font-weight-bold px-3 py-1.5 rounded-pill fs-8">
                   <i class="bi bi-clipboard-data-fill me-1"></i> <?php echo $inst['audit_count']; ?> Denetim
                 </span>
               </td>
-              <td>
+              <td class="text-center">
                 <?php if ($inst['is_active']): ?>
-                  <span class="badge bg-success-subtle text-success font-weight-bold px-3 py-1 rounded-pill fs-8">
+                  <span class="badge bg-success-subtle text-success font-weight-bold px-2.5 py-1.5 rounded-pill fs-8">
                     <i class="bi bi-check-circle-fill me-1"></i> Aktif
                   </span>
                 <?php else: ?>
-                  <span class="badge bg-secondary-subtle text-secondary font-weight-bold px-3 py-1 rounded-pill fs-8">
+                  <span class="badge bg-secondary-subtle text-secondary font-weight-bold px-2.5 py-1.5 rounded-pill fs-8">
                     Pasif
                   </span>
                 <?php endif; ?>
               </td>
-              <td class="text-end pe-4">
-                <div class="d-inline-flex align-items-center gap-2">
-                  <button type="button" class="btn btn-sm btn-action-edit font-weight-bold px-3 py-1 rounded-3" 
+              <td class="text-end pe-3">
+                <div class="d-inline-flex align-items-center gap-1">
+                  <button type="button" class="btn btn-sm btn-outline-primary font-weight-bold px-2.5 py-1 rounded-2" 
                           onclick="editInstitution(<?php echo htmlspecialchars(json_encode($inst)); ?>)"
-                          title="Kurum Bilgilerini Düzenle">
+                          title="Düzenle">
                     <i class="bi bi-pencil-square me-1"></i> Düzenle
                   </button>
                   <form method="POST" action="institutions.php" class="d-inline confirm-delete-form" data-confirm-title="Kurum Sil" data-confirm-text="Bu kurumu silmek istediğinize emin misiniz?">
                     <input type="hidden" name="action" value="delete_institution">
                     <input type="hidden" name="institution_id" value="<?php echo $inst['id']; ?>">
-                    <button type="submit" class="btn btn-sm btn-action-delete font-weight-bold px-2 py-1 rounded-3" title="Kurumu Sil">
-                      <i class="bi bi-trash3-fill"></i> Sil
+                    <button type="submit" class="btn btn-sm btn-outline-danger font-weight-bold px-2.5 py-1 rounded-2" title="Sil">
+                      <i class="bi bi-trash-fill"></i> Sil
                     </button>
                   </form>
                 </div>
@@ -220,13 +219,13 @@ include __DIR__ . '/includes/header.php';
   </div>
 </div>
 
-<!-- YENİ KURUM EKLE MODAL (Modernized UI) -->
+<!-- YENİ KURUM EKLE MODAL -->
 <div class="modal fade" id="addInstitutionModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
       <form method="POST" action="institutions.php">
         <input type="hidden" name="action" value="add_institution">
-        <div class="modal-header bg-gradient bg-dark text-white p-3 px-4">
+        <div class="modal-header bg-dark text-white p-3 px-4">
           <h5 class="modal-title fw-extrabold text-white fs-6"><i class="bi bi-hospital me-2 text-danger"></i> Yeni Kurum Tanımla</h5>
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
         </div>
@@ -253,14 +252,14 @@ include __DIR__ . '/includes/header.php';
   </div>
 </div>
 
-<!-- KURUM DÜZENLE MODAL (Modernized UI) -->
+<!-- KURUM DÜZENLE MODAL -->
 <div class="modal fade" id="editInstitutionModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
       <form method="POST" action="institutions.php">
         <input type="hidden" name="action" value="edit_institution">
         <input type="hidden" name="institution_id" id="edit_inst_id">
-        <div class="modal-header bg-gradient bg-dark text-white p-3 px-4">
+        <div class="modal-header bg-dark text-white p-3 px-4">
           <h5 class="modal-title fw-extrabold text-white fs-6"><i class="bi bi-pencil-square me-2 text-primary"></i> Kurum Bilgilerini Düzenle</h5>
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
         </div>
@@ -297,6 +296,25 @@ function editInstitution(inst) {
   const modal = new bootstrap.Modal(document.getElementById('editInstitutionModal'));
   modal.show();
 }
+
+// Canlı Arama Filtrelemesi
+document.addEventListener('DOMContentLoaded', function() {
+  const searchInput = document.getElementById('instSearchInput');
+  if (searchInput) {
+    searchInput.addEventListener('input', function() {
+      const q = this.value.toLowerCase().trim();
+      const rows = document.querySelectorAll('.inst-row');
+      rows.forEach(row => {
+        const name = row.dataset.name || '';
+        if (name.includes(q)) {
+          row.style.display = '';
+        } else {
+          row.style.display = 'none';
+        }
+      });
+    });
+  }
+});
 </script>
 
 <?php include __DIR__ . '/includes/footer.php'; ?>
