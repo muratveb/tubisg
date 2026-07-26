@@ -114,7 +114,31 @@ try {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     ");
 
-    // 6. risk_libraries Tablosu
+    // 6. global_options Tablosu (Genel Cevap Seçenekleri)
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS `global_options` (
+          `id` INT AUTO_INCREMENT PRIMARY KEY,
+          `option_text` VARCHAR(255) NOT NULL,
+          `trigger_action` TINYINT(1) DEFAULT 0,
+          `sort_order` INT DEFAULT 0,
+          `is_active` TINYINT(1) DEFAULT 1,
+          `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    ");
+
+    // Varsayılan Genel Şıklar Boşsa Ekle
+    $countGlobal = $pdo->query("SELECT COUNT(*) FROM `global_options`")->fetchColumn();
+    if ((int)$countGlobal === 0) {
+        $pdo->exec("
+            INSERT INTO `global_options` (`id`, `option_text`, `trigger_action`, `sort_order`, `is_active`) VALUES
+            (1, 'Evet (Uygun)', 0, 1, 1),
+            (2, 'Hayır (Uygun Değil)', 1, 2, 1),
+            (3, 'Kısmen (Kısmen Uygun)', 1, 3, 1),
+            (4, 'Denetim Dışı / Muaf', 0, 4, 1);
+        ");
+    }
+
+    // 7. risk_libraries Tablosu
     $pdo->exec("
         CREATE TABLE IF NOT EXISTS `risk_libraries` (
           `id` INT AUTO_INCREMENT PRIMARY KEY,
@@ -124,39 +148,9 @@ try {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     ");
 
-    // Kütüphaneler Boşsa Varsayılan Verileri Ekle
-    $countLib = $pdo->query("SELECT COUNT(*) FROM `risk_libraries`")->fetchColumn();
-    if ((int)$countLib === 0) {
-        $pdo->exec("
-            INSERT INTO `risk_libraries` (`category`, `item_text`) VALUES
-            ('hazard_source', 'Lavabo, Wc tavanı'),
-            ('hazard_source', 'Ekranlı Araçlar (Bilgisayar vb.)'),
-            ('hazard_source', 'Çalışma alanı'),
-            ('hazard_source', 'Tıbbi atık alanı ve jeneratör dairesi'),
-            ('hazard_name', 'Enfeksiyon'),
-            ('hazard_name', 'Uzun süre sabit oturma'),
-            ('hazard_name', 'Ayakta kalma'),
-            ('hazard_name', 'Kaygan zemin ve kimyasal maruziyeti'),
-            ('affected_people', 'Çalışanlar(Doktor, Hemşire, Sağ. Tek. hasta bakıcı, temizlik çalışanı vd.)Hasta ve hasta yakını'),
-            ('responsible_person', 'Tekn. Hiz. Yön.'),
-            ('responsible_person', 'Mali Hiz. Yön.'),
-            ('responsible_person', 'Çalışan'),
-            ('responsible_person', 'İSG Birimi'),
-            ('action_recommendation', 'Lavabo(wc) tavanlarda gerekli yalıtımın sağlanması'),
-            ('action_recommendation', 'Çalışma araları verilmeli, boyun egzersizleri yapılmalı, ortopedik Mouse pedleri kullanılmalı'),
-            ('action_recommendation', 'Kısa mola ve dinlenmeler yapılmalı, Uzun süre ayakta kalınmamalı, egzersiz ve ara dinlenmeler verilmeli');
-        ");
-    }
-
-    // 7. question_options Tablosuna trigger_action Sütununu Ekle
-    $optCols = $pdo->query("SHOW COLUMNS FROM `question_options`")->fetchAll(PDO::FETCH_COLUMN);
-    if (!in_array('trigger_action', $optCols)) {
-        $pdo->exec("ALTER TABLE `question_options` ADD COLUMN `trigger_action` TINYINT(1) DEFAULT 0 AFTER `points`");
-    }
-
 } catch (PDOException $e) {
     die('<div style="font-family:sans-serif; padding:40px; text-align:center; background:#fff0f0; border-radius:12px; margin:50px auto; max-width:600px; color:#c53030;">'
-        . '<h2>⚠️ Veritabanı Kurulum Hatası</h2>'
+        . '## ⚠️ Veritabanı Kurulum Hatası</h2>'
         . '<p>' . htmlspecialchars($e->getMessage()) . '</p>'
         . '</div>');
 }

@@ -6,24 +6,26 @@ Tüm geliştirmeler, eklenen/güncellenen dosyalar mevcuttur.
 
 ## 📌 Mevcut Durum Özeti (Current Status)
 - **Tarih**: 26 Temmuz 2026
-- **Aşama**: Sayısal Puanlama Sisteminin Kaldırılması, İSG Uzmanı Risk Skoru ($R = O \times Ş$) Mimarisinin Tam Geçişi ve Anket Editörüne Kütüphaneden Doğrudan Seçim & Hızlı Öğe Ekleme Modalinin Entegre Edilmesi Tamamlandı.
-- **Aktif Sürüm**: v3.2.0
+- **Aşama**: Genel Cevap Seçenekleri Yönetim Paneli (`global_options.php`) ve Adım Adım Denetim Sihirbazı (`audit_fill.php`) Entegrasyonu Tamamlandı.
+- **Aktif Sürüm**: v3.3.0
 
 ---
 
 ## 📅 Geliştirme Adımları
 
-### 🟢 Adım 1: Eski Sayısal Puanlama Sisteminin Temizlenmesi
-- [x] Soru seçeneklerindeki sayısal puan girişleri (0, 5, 10 vb.) ve genelleştirilmiş yüzde skor gösterimleri kaldırıldı.
-- [x] Kontrol paneli, denetim listesi ve raporlar tamamen İSG Uzmanı tarafından verilen **Olasılık ($O: 1-5$)** ve **Şiddet ($Ş: 1-5$)** ile hesaplanan **Risk Derecesi ($R = O \times Ş$)** odaklı yapıya geçirildi.
+### 🟢 Adım 1: Genel Cevap Seçenekleri Yönetim Modülü (`global_options.php`)
+- [x] Kontrol panelinde standart cevap şıklarının (Evet, Hayır, Kısmen, Denetim Dışı vb.) dinamik olarak tanımlanabildiği, artırılıp azaltılabildiği panel kuruldu.
+- [x] Her şık için "İSG Önlem Kartı Tetiklesin mi?" (`trigger_action`) anahtarı eklendi.
+- [x] Sol navigasyona "Cevap Seçenekleri" sekmesi yerleştirildi.
 
-### 🟢 Adım 2: Anket Editöründe Kütüphane Seçimi & Hızlı Ekleme (`survey_edit.php`)
-- [x] Soru oluştururken/düzenlerken **Tehlike Kaynağı**, **Tehlike Metni**, **Etkilenen Gruplar** alanları kütüphaneden doğrudan seçilebilir yapıldı.
-- [x] Anket editörü ekranından ayrılmadan kütüphaneye yeni öge eklemeyi sağlayan hızlı modal formu eklendi.
+### 🟢 Adım 2: Adım Adım Risk Denetim Sihirbazı (`audit_fill.php`)
+- [x] Denetim ekranında risk grupları arasında adım adım (Adım 1: Biyolojik Riskler, Adım 2: Ergonomik Riskler vb.) geçiş sağlayan Step Wizard kuruldu.
+- [x] Tanımlanan genel cevap seçenekleri sorulara otomatik entegre edildi.
+- [x] Tetikleyici aktif bir şık tıklandığında **Mevcut Durum**, **$O \times Ş$ Risk Skoru**, **Alınacak Önlemler**, **Sorumlu** ve **Termin** kartı dinamik açılır hale getirildi.
 
-### 🟢 Adım 3: İşlem Logları & Otomatik Öğrenme
-- [x] Kütüphaneye eklenen her öge ve anket değişikliği `system_logs` tablosuna `log_action()` ile kaydedildi.
-- [x] Sahada ilk kez yazılan yeni bir önlem veya sorumlu sisteme kaydedilerek kütüphanenin kendini sürekli güncel tutması sağlandı.
+### 🟢 Adım 3: Loglama ve Otomatik Push
+- [x] Yapılan tüm kütüphane, seçenek ve denetim işlemleri `system_logs` tablosuna kaydedildi.
+- [x] Proje dosyaları otomatik olarak GitHub'a commit ve push edildi.
 
 ---
 

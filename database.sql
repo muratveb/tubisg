@@ -43,7 +43,17 @@ CREATE TABLE IF NOT EXISTS `risk_groups` (
   `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 5. İSG Tanımlama Kütüphaneleri Tablosu (Tehlike Kaynakları, Tehlikeler, Etkilenenler, Sorumlular, Önlem Bankası)
+-- 5. Genel Cevap Seçenekleri Tablosu (Evet, Hayır, Kısmen, Denetim Dışı vb.)
+CREATE TABLE IF NOT EXISTS `global_options` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `option_text` VARCHAR(255) NOT NULL,
+  `trigger_action` TINYINT(1) DEFAULT 0,
+  `sort_order` INT DEFAULT 0,
+  `is_active` TINYINT(1) DEFAULT 1,
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 6. İSG Tanımlama Kütüphaneleri Tablosu (Tehlike Kaynakları, Tehlikeler, Etkilenenler, Sorumlular, Önlem Bankası)
 CREATE TABLE IF NOT EXISTS `risk_libraries` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `category` ENUM('hazard_source', 'hazard_name', 'affected_people', 'responsible_person', 'action_recommendation') NOT NULL,
@@ -51,7 +61,7 @@ CREATE TABLE IF NOT EXISTS `risk_libraries` (
   `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 6. Anket Profilleri / Şablonları (Hastane İSG, Fabrika İSG vb.)
+-- 7. Anket Profilleri / Şablonları (Hastane İSG, Fabrika İSG vb.)
 CREATE TABLE IF NOT EXISTS `survey_templates` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `title` VARCHAR(150) NOT NULL,
@@ -62,7 +72,7 @@ CREATE TABLE IF NOT EXISTS `survey_templates` (
   `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 7. Anket Soruları Tablosu (Tehlike Kaynağı, Tehlike, Risk ve Etkilenenler Alanları ile)
+-- 8. Anket Soruları Tablosu (Tehlike Kaynağı, Tehlike, Risk ve Etkilenenler Alanları ile)
 CREATE TABLE IF NOT EXISTS `survey_questions` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `template_id` INT NOT NULL,
@@ -77,7 +87,7 @@ CREATE TABLE IF NOT EXISTS `survey_questions` (
   FOREIGN KEY (`risk_group_id`) REFERENCES `risk_groups`(`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 8. Soru Seçenekleri ve Puan Tablosu (Açıklama / Önlem Tetikleyici İle)
+-- 9. Soru Seçenekleri ve Puan Tablosu (Açıklama / Önlem Tetikleyici İle)
 CREATE TABLE IF NOT EXISTS `question_options` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `question_id` INT NOT NULL,
@@ -88,7 +98,7 @@ CREATE TABLE IF NOT EXISTS `question_options` (
   FOREIGN KEY (`question_id`) REFERENCES `survey_questions`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 9. Sahada Yapılan Denetimler Tablosu
+-- 10. Sahada Yapılan Denetimler Tablosu
 CREATE TABLE IF NOT EXISTS `audits` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `template_id` INT NOT NULL,
@@ -105,7 +115,7 @@ CREATE TABLE IF NOT EXISTS `audits` (
   FOREIGN KEY (`auditor_id`) REFERENCES `users`(`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 10. Denetimde Seçilen Cevaplar & Risk Analiz Detayları Tablosu
+-- 11. Denetimde Seçilen Cevaplar & Risk Analiz Detayları Tablosu
 CREATE TABLE IF NOT EXISTS `audit_answers` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `audit_id` INT NOT NULL,
@@ -124,7 +134,7 @@ CREATE TABLE IF NOT EXISTS `audit_answers` (
   FOREIGN KEY (`question_id`) REFERENCES `survey_questions`(`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 11. Sistem İşlem Logları Tablosu
+-- 12. Sistem İşlem Logları Tablosu
 CREATE TABLE IF NOT EXISTS `system_logs` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `user_id` INT NULL,
@@ -151,7 +161,15 @@ INSERT INTO `users` (`id`, `username`, `password`, `name_surname`, `email`, `rol
 (2, 'denetci', '$2y$10$Xh9faN5jPdk/rVrPF4WrcOZ7/0RyQBiwc.5qL7Cw5uGLTNbk0W18u', 'Saha Denetçisi Ahmet', 'ahmet@tubisg.com', 2, 1)
 ON DUPLICATE KEY UPDATE `id` = `id`;
 
--- 3. Varsayılan İSG Risk Grupları
+-- 3. Varsayılan Genel Cevap Seçenekleri
+INSERT INTO `global_options` (`id`, `option_text`, `trigger_action`, `sort_order`, `is_active`) VALUES
+(1, 'Evet (Uygun)', 0, 1, 1),
+(2, 'Hayır (Uygun Değil)', 1, 2, 1),
+(3, 'Kısmen (Kısmen Uygun)', 1, 3, 1),
+(4, 'Denetim Dışı / Muaf', 0, 4, 1)
+ON DUPLICATE KEY UPDATE `option_text` = VALUES(`option_text`), `trigger_action` = VALUES(`trigger_action`);
+
+-- 4. Varsayılan İSG Risk Grupları
 INSERT INTO `risk_groups` (`id`, `group_name`, `description`, `sort_order`) VALUES
 (1, 'Biyolojik Riskler', 'Enfeksiyon, pis su bulaşması, bulaşıcı biyolojik etkenler', 1),
 (2, 'Ergonomik Riskler', 'Ekranlı araçlar, ayakta kalma, ağır kaldırma, kas-iskelet yükü', 2),
@@ -161,7 +179,7 @@ INSERT INTO `risk_groups` (`id`, `group_name`, `description`, `sort_order`) VALU
 (6, 'Genel Saha & Hijyen Riskleri', 'Yangın tesisatı, acil çıkışlar, ilk yardım ve genel temizlik', 6)
 ON DUPLICATE KEY UPDATE `group_name` = VALUES(`group_name`);
 
--- 4. Varsayılan İSG Kütüphane Öğeleri
+-- 5. Varsayılan İSG Kütüphane Öğeleri
 INSERT INTO `risk_libraries` (`category`, `item_text`) VALUES
 ('hazard_source', 'Lavabo, Wc tavanı'),
 ('hazard_source', 'Ekranlı Araçlar (Bilgisayar vb.)'),

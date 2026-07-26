@@ -63,6 +63,10 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         <i class="bi bi-journal-text"></i>
         <span>Anket Profilleri</span>
       </a>
+      <a href="global_options.php" class="nav-link-custom <?php echo $currentPage == 'global_options.php' ? 'active' : ''; ?>">
+        <i class="bi bi-ui-checks text-success"></i>
+        <span>Cevap Seçenekleri</span>
+      </a>
       <a href="risk_groups.php" class="nav-link-custom <?php echo $currentPage == 'risk_groups.php' ? 'active' : ''; ?>">
         <i class="bi bi-exclamation-triangle-fill text-warning"></i>
         <span>Risk Grupları</span>
