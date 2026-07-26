@@ -1,11 +1,20 @@
 /**
- * Tubİsg - Main Interactive Script
- * Real-time Score Calculator, Auto-dismissing Alerts, Audit Wizard, Touch Handlers & SweetAlert2 Modals
+ * Tubİsg - Main Application JavaScript File
+ * Interactive UX, Dynamic Wizard, SweetAlert2 Confirm Interceptor & Risk Matrix Calculator
  */
 
 document.addEventListener('DOMContentLoaded', function () {
+  
+  // 1. Auto-hide alerts after 5 seconds
+  const flashAlerts = document.querySelectorAll('.alert-dismissible');
+  flashAlerts.forEach(function (alert) {
+    setTimeout(function () {
+      const bsAlert = new bootstrap.Alert(alert);
+      if (bsAlert) bsAlert.close();
+    }, 5000);
+  });
 
-  // 1. Mobile Sidebar Toggle
+  // 2. Sidebar Mobile Toggle
   const sidebarToggleBtn = document.getElementById('sidebarToggleBtn');
   const sidebar = document.querySelector('.sidebar');
   if (sidebarToggleBtn && sidebar) {
@@ -14,59 +23,39 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
-  // 2. Auto-Dismissing Flash Notification Banners (4 saniye sonra otomatik kapanır)
-  const alerts = document.querySelectorAll('.alert');
-  alerts.forEach(alert => {
-    setTimeout(() => {
-      alert.style.transition = 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)';
-      alert.style.opacity = '0';
-      alert.style.transform = 'translateY(-10px)';
-      setTimeout(() => {
-        alert.remove();
-      }, 500);
-    }, 4000);
-  });
-
-  // 3. Audit Fill Page: Touch Option Card Click & Real-time Live Score Calculation
-  const auditForm = document.getElementById('auditFillForm');
-  if (auditForm) {
-    initAuditFormCalculator();
-  }
-
-  // 4. Dynamic Question Builder for survey_edit.php
+  // 3. Dynamic Question Builder for survey_edit.php
   const addQuestionBtn = document.getElementById('addQuestionBtn');
   if (addQuestionBtn) {
     initQuestionBuilder();
   }
 
-  // 5. Quick AJAX Unit Creator
+  // 4. Quick AJAX Unit Creator
   const quickUnitForm = document.getElementById('quickUnitForm');
   if (quickUnitForm) {
     initQuickUnitCreator();
   }
 
-  // 6. Interactive Visual Audit Wizard (audit_new.php)
+  // 5. Interactive Visual Audit Wizard (audit_new.php)
   const wizardForm = document.getElementById('startAuditWizardForm');
   if (wizardForm) {
     initAuditWizard();
   }
 
-  // 7. Global Modern SweetAlert2 Confirmation Dialog Handler
+  // 6. Global Modern SweetAlert2 Confirmation Dialog Handler
   initModernConfirmHandler();
 
 });
 
 /**
- * Global Modern SweetAlert2 Confirm Handler (Eski usul browser alert/confirm pencerelerini tamamen engeller)
+ * Global Modern SweetAlert2 Confirm Handler
  */
 function initModernConfirmHandler() {
-  // 1. Form Gönderimleri İçin
   document.addEventListener('submit', function (e) {
     const form = e.target;
     
     if (form.classList.contains('confirm-delete-form') || form.hasAttribute('data-confirm-title')) {
       if (form.dataset.confirmed === 'true') {
-        return true; // Kullanıcı önceden onayladıysa formu gönder
+        return true;
       }
       
       e.preventDefault();
@@ -106,18 +95,18 @@ function initModernConfirmHandler() {
     }
   });
 
-  // 2. Buton Tıklamaları İçin (Örn: survey_edit.php içindeki soru/seçenek silme butonları)
   document.addEventListener('click', function (e) {
     const btn = e.target.closest('[data-confirm-btn="true"]');
     if (btn) {
       if (btn.dataset.confirmed === 'true') {
         return true;
       }
-
+      
       e.preventDefault();
-      const title = btn.dataset.confirmTitle || 'Silme Onayı';
-      const text = btn.dataset.confirmText || 'Bu öğeyi silmek istediğinize emin misiniz?';
-
+      
+      const title = btn.dataset.confirmTitle || 'İşlem Onayı';
+      const text = btn.dataset.confirmText || 'Bu işlemi gerçekleştirmek istediğinize emin misiniz?';
+      
       if (window.Swal) {
         Swal.fire({
           title: title,
@@ -126,7 +115,7 @@ function initModernConfirmHandler() {
           showCancelButton: true,
           confirmButtonColor: '#ef4444',
           cancelButtonColor: '#64748b',
-          confirmButtonText: '<i class="bi bi-trash-fill me-1"></i> Evet, Sil!',
+          confirmButtonText: 'Evet, Devam Et',
           cancelButtonText: 'Vazgeç',
           reverseButtons: true,
           customClass: {
@@ -138,13 +127,21 @@ function initModernConfirmHandler() {
         }).then((result) => {
           if (result.isConfirmed) {
             btn.dataset.confirmed = 'true';
-            btn.click();
+            if (btn.tagName === 'A') {
+              window.location.href = btn.href;
+            } else if (btn.type === 'submit' && btn.form) {
+              btn.form.submit();
+            }
           }
         });
       } else {
         if (confirm(text)) {
           btn.dataset.confirmed = 'true';
-          btn.click();
+          if (btn.tagName === 'A') {
+            window.location.href = btn.href;
+          } else if (btn.type === 'submit' && btn.form) {
+            btn.form.submit();
+          }
         }
       }
     }
@@ -152,180 +149,28 @@ function initModernConfirmHandler() {
 }
 
 /**
- * Interactive Visual Audit Wizard (audit_new.php)
- */
-function initAuditWizard() {
-  const tplCards = document.querySelectorAll('.template-card');
-  const unitCards = document.querySelectorAll('.unit-card');
-  const tplInput = document.getElementById('selectedTemplateInput');
-  const unitInput = document.getElementById('selectedUnitInput');
-  const submitBtn = document.getElementById('startAuditSubmitBtn');
-  const summaryText = document.getElementById('wizardSelectionSummary');
-
-  let selectedTplTitle = '';
-  let selectedUnitTitle = '';
-
-  function updateWizardState() {
-    const tplId = tplInput.value;
-    const unitId = unitInput.value;
-
-    if (tplId && unitId) {
-      if (submitBtn) {
-        submitBtn.classList.remove('disabled');
-      }
-      if (summaryText) {
-        summaryText.innerHTML = `<span class="text-success">${selectedTplTitle}</span> &rarr; <span class="text-primary">${selectedUnitTitle}</span>`;
-      }
-    } else {
-      if (submitBtn) {
-        submitBtn.classList.add('disabled');
-      }
-      let missing = [];
-      if (!tplId) missing.push('Anket Profili');
-      if (!unitId) missing.push('Birim');
-      if (summaryText) {
-        summaryText.innerHTML = `Lütfen <strong class="text-danger">${missing.join(' ve ')}</strong> seçin`;
-      }
-    }
-  }
-
-  // Anket Profili Kart Seçimi
-  tplCards.forEach(card => {
-    if (card.classList.contains('selected')) {
-      selectedTplTitle = card.querySelector('.wizard-card-title').textContent.trim();
-    }
-
-    card.addEventListener('click', function () {
-      tplCards.forEach(c => c.classList.remove('selected'));
-      this.classList.add('selected');
-      const id = this.dataset.id;
-      tplInput.value = id;
-      selectedTplTitle = this.querySelector('.wizard-card-title').textContent.trim();
-      updateWizardState();
-    });
-  });
-
-  // Birim Kart Seçimi
-  unitCards.forEach(card => {
-    if (card.classList.contains('selected')) {
-      selectedUnitTitle = card.querySelector('.wizard-card-title').textContent.trim();
-    }
-
-    card.addEventListener('click', function () {
-      unitCards.forEach(c => c.classList.remove('selected'));
-      this.classList.add('selected');
-      const id = this.dataset.id;
-      unitInput.value = id;
-      selectedUnitTitle = this.querySelector('.wizard-card-title').textContent.trim();
-      updateWizardState();
-    });
-  });
-
-  updateWizardState();
-}
-
-/**
- * Audit Real-time Score Calculator & Touch Selection Handler
- */
-function initAuditFormCalculator() {
-  const optionCards = document.querySelectorAll('.option-item-card');
-  const totalScoreElem = document.getElementById('liveTotalScore');
-  const maxScoreElem = document.getElementById('liveMaxScore');
-  const percentElem = document.getElementById('livePercentage');
-  const progressBarFill = document.getElementById('scoreProgressFill');
-  const scoreBadge = document.getElementById('scoreStatusBadge');
-
-  function calculateScore() {
-    let currentTotal = 0;
-    let maxPossible = 0;
-
-    const questionCards = document.querySelectorAll('.question-card');
-    
-    questionCards.forEach(qCard => {
-      let qMaxPoints = 0;
-      const checkboxes = qCard.querySelectorAll('.option-checkbox:checked');
-      const allOptionsInQuestion = qCard.querySelectorAll('.option-item-card');
-
-      allOptionsInQuestion.forEach(optCard => {
-        const pts = parseInt(optCard.dataset.points) || 0;
-        if (pts > qMaxPoints) {
-          qMaxPoints = pts;
-        }
-      });
-      maxPossible += qMaxPoints;
-
-      checkboxes.forEach(cb => {
-        const parentCard = cb.closest('.option-item-card');
-        if (parentCard) {
-          const pts = parseInt(parentCard.dataset.points) || 0;
-          currentTotal += pts;
-        }
-      });
-    });
-
-    if (totalScoreElem) totalScoreElem.textContent = (currentTotal > 0 ? '+' : '') + currentTotal;
-    if (maxScoreElem) maxScoreElem.textContent = maxPossible;
-
-    let percentage = 0;
-    if (maxPossible > 0) {
-      percentage = Math.max(0, Math.min(100, Math.round((currentTotal / maxPossible) * 100)));
-    } else if (currentTotal > 0) {
-      percentage = 100;
-    }
-
-    if (percentElem) percentElem.textContent = '%' + percentage;
-    if (progressBarFill) progressBarFill.style.width = percentage + '%';
-
-    if (scoreBadge) {
-      if (percentage >= 80) {
-        scoreBadge.textContent = 'DÜŞÜK RİSK / UYGUN';
-        scoreBadge.className = 'badge bg-success text-white';
-        if (progressBarFill) progressBarFill.style.background = '#10b981';
-      } else if (percentage >= 50) {
-        scoreBadge.textContent = 'ORTA RİSK';
-        scoreBadge.className = 'badge bg-warning text-dark';
-        if (progressBarFill) progressBarFill.style.background = '#f59e0b';
-      } else {
-        scoreBadge.textContent = 'YÜKSEK RİSK!';
-        scoreBadge.className = 'badge bg-danger text-white';
-        if (progressBarFill) progressBarFill.style.background = '#ef4444';
-      }
-    }
-  }
-
-  optionCards.forEach(card => {
-    card.addEventListener('click', function (e) {
-      const checkbox = this.querySelector('.option-checkbox');
-      const checkIcon = this.querySelector('.check-icon');
-      if (!checkbox) return;
-
-      checkbox.checked = !checkbox.checked;
-
-      if (checkbox.checked) {
-        this.classList.add('selected');
-        if (checkIcon) checkIcon.classList.remove('d-none');
-      } else {
-        this.classList.remove('selected');
-        if (checkIcon) checkIcon.classList.add('d-none');
-      }
-
-      calculateScore();
-    });
-  });
-
-  calculateScore();
-}
-
-/**
- * Dynamic Question & Option Builder in survey_edit.php
+ * Dynamic İSG Risk Question & Option Builder for survey_edit.php
  */
 function initQuestionBuilder() {
   const container = document.getElementById('questionsContainer');
   const addQuestionBtn = document.getElementById('addQuestionBtn');
   let qIndex = document.querySelectorAll('.question-builder-card').length;
 
+  const riskGroups = window.riskGroupsData || [];
+  let riskGroupOptionsHtml = '<option value="0">-- Risk Grubu Seçin --</option>';
+  riskGroups.forEach(function(rg) {
+    riskGroupOptionsHtml += `<option value="${rg.id}">${rg.group_name}</option>`;
+  });
+
   addQuestionBtn.addEventListener('click', function () {
     qIndex++;
+    
+    // Eğer uyarı mesajı varsa kaldır
+    const warningAlert = container.querySelector('.alert-warning');
+    if (warningAlert) {
+      warningAlert.remove();
+    }
+
     const qCard = document.createElement('div');
     qCard.className = 'custom-card question-builder-card mb-4';
     qCard.setAttribute('data-qindex', qIndex);
@@ -334,46 +179,123 @@ function initQuestionBuilder() {
       <div class="custom-card-header bg-light p-3 rounded-top">
         <div class="d-flex align-items-center gap-2">
           <span class="badge bg-primary rounded-circle" style="width:28px; height:28px; display:flex; align-items:center; justify-content:center;">${qIndex}</span>
-          <h6 class="m-0 font-weight-bold">Yeni Soru ${qIndex}</h6>
+          <h6 class="m-0 font-weight-bold">Yeni Risk Sorusu #${qIndex}</h6>
         </div>
         <button type="button" class="btn btn-sm btn-outline-danger remove-question-btn">
           <i class="bi bi-trash"></i> Soruyu Sil
         </button>
       </div>
+
       <div class="p-3">
-        <div class="mb-3">
-          <label class="form-label fw-bold">Soru Metni</label>
-          <input type="text" name="new_questions[${qIndex}][text]" class="form-control" placeholder="Örn: Sahada eldiven kullanılıyor mu?" required>
+        <!-- Risk Grubu, Tehlike Kaynağı ve Tehlike Row -->
+        <div class="row g-3 mb-3">
+          <div class="col-12 col-md-4">
+            <label class="form-label fw-bold fs-8 text-muted"><i class="bi bi-exclamation-triangle"></i> Risk Grubu</label>
+            <select name="new_questions[${qIndex}][risk_group_id]" class="form-select form-select-sm">
+              ${riskGroupOptionsHtml}
+            </select>
+          </div>
+
+          <div class="col-12 col-md-4">
+            <label class="form-label fw-bold fs-8 text-muted">Tehlike Kaynağı (Kütüphaneden Seçilebilir)</label>
+            <input type="text" name="new_questions[${qIndex}][hazard_source]" list="hazard_sources_list" class="form-control form-control-sm" placeholder="Seçin veya yazın...">
+          </div>
+
+          <div class="col-12 col-md-4">
+            <label class="form-label fw-bold fs-8 text-muted">Tehlike Metni (Kütüphaneden Seçilebilir)</label>
+            <input type="text" name="new_questions[${qIndex}][hazard_name]" list="hazards_list" class="form-control form-control-sm" placeholder="Seçin veya yazın...">
+          </div>
         </div>
-        
+
+        <!-- Etkilenme ve Etkilenenler Row -->
+        <div class="row g-3 mb-3">
+          <div class="col-12 col-md-6">
+            <label class="form-label fw-bold fs-8 text-muted">Etkilenme (Yaşanabilecek Riskler)</label>
+            <input type="text" name="new_questions[${qIndex}][affected_risk]" class="form-control form-control-sm" placeholder="Örn: Pis su bulaşma, Kas-iskelet hast.">
+          </div>
+
+          <div class="col-12 col-md-6">
+            <label class="form-label fw-bold fs-8 text-muted">Etkilenenler (Kütüphaneden Seçilebilir)</label>
+            <input type="text" name="new_questions[${qIndex}][affected_people]" list="affected_list" class="form-control form-control-sm" placeholder="Seçin veya yazın...">
+          </div>
+        </div>
+
+        <!-- Soru Metni -->
+        <div class="mb-3">
+          <label class="form-label fw-bold">Kontrol / Denetim Sorusu Metni</label>
+          <input type="text" name="new_questions[${qIndex}][text]" class="form-control" placeholder="Örn: Sahada kişisel koruyucu donanım (baret, eldiven) kullanılıyor mu?" required>
+        </div>
+
+        <!-- Cevap Seçenekleri Header -->
         <div class="mb-2 d-flex align-items-center justify-content-between">
-          <label class="form-label fw-bold m-0"><i class="bi bi-list-check"></i> Cevap Seçenekleri ve Puanları</label>
+          <label class="form-label fw-bold m-0 fs-8 text-muted"><i class="bi bi-list-check"></i> Cevap Seçenekleri & Tetikleyiciler</label>
           <button type="button" class="btn btn-sm btn-outline-success add-option-btn">
             <i class="bi bi-plus-lg"></i> Seçenek Ekle
           </button>
         </div>
-        
+
         <div class="options-list-container">
+          <!-- Varsayılan Şık 1 -->
           <div class="row g-2 mb-2 option-row align-items-center">
             <div class="col-7">
-              <input type="text" name="new_questions[${qIndex}][options][0][text]" class="form-control form-control-sm" placeholder="Seçenek metni (Örn: Hayır, kullanılmıyor)" required>
+              <input type="text" name="new_questions[${qIndex}][options][0][text]" class="form-control form-control-sm" value="Evet (Uygun)" required>
             </div>
             <div class="col-4">
-              <input type="number" name="new_questions[${qIndex}][options][0][points]" class="form-control form-control-sm" placeholder="Puan (-5, 10 vb.)" value="-5" required>
+              <div class="form-check form-switch pt-1">
+                <input class="form-check-input" type="checkbox" name="new_questions[${qIndex}][options][0][trigger_action]" value="1">
+                <label class="form-check-label fs-8 fw-bold text-danger">İSG Önlem Kartı Açsın</label>
+              </div>
             </div>
             <div class="col-1 text-end">
-              <button type="button" class="btn btn-sm btn-link text-danger remove-option-btn p-0"><i class="bi bi-x-circle-fill"></i></button>
+              <button type="button" class="btn btn-sm btn-link text-danger remove-option-btn p-0"><i class="bi bi-x-circle-fill fs-5"></i></button>
             </div>
           </div>
+
+          <!-- Varsayılan Şık 2 -->
           <div class="row g-2 mb-2 option-row align-items-center">
             <div class="col-7">
-              <input type="text" name="new_questions[${qIndex}][options][1][text]" class="form-control form-control-sm" placeholder="Seçenek metni (Örn: Evet, sarı eldiven kullanılıyor)" required>
+              <input type="text" name="new_questions[${qIndex}][options][1][text]" class="form-control form-control-sm" value="Hayır (Uygun Değil)" required>
             </div>
             <div class="col-4">
-              <input type="number" name="new_questions[${qIndex}][options][1][points]" class="form-control form-control-sm" placeholder="Puan (-5, 10 vb.)" value="10" required>
+              <div class="form-check form-switch pt-1">
+                <input class="form-check-input" type="checkbox" name="new_questions[${qIndex}][options][1][trigger_action]" value="1" checked>
+                <label class="form-check-label fs-8 fw-bold text-danger">İSG Önlem Kartı Açsın</label>
+              </div>
             </div>
             <div class="col-1 text-end">
-              <button type="button" class="btn btn-sm btn-link text-danger remove-option-btn p-0"><i class="bi bi-x-circle-fill"></i></button>
+              <button type="button" class="btn btn-sm btn-link text-danger remove-option-btn p-0"><i class="bi bi-x-circle-fill fs-5"></i></button>
+            </div>
+          </div>
+
+          <!-- Varsayılan Şık 3 -->
+          <div class="row g-2 mb-2 option-row align-items-center">
+            <div class="col-7">
+              <input type="text" name="new_questions[${qIndex}][options][2][text]" class="form-control form-control-sm" value="Kısmen (Kısmen Uygun)" required>
+            </div>
+            <div class="col-4">
+              <div class="form-check form-switch pt-1">
+                <input class="form-check-input" type="checkbox" name="new_questions[${qIndex}][options][2][trigger_action]" value="1" checked>
+                <label class="form-check-label fs-8 fw-bold text-danger">İSG Önlem Kartı Açsın</label>
+              </div>
+            </div>
+            <div class="col-1 text-end">
+              <button type="button" class="btn btn-sm btn-link text-danger remove-option-btn p-0"><i class="bi bi-x-circle-fill fs-5"></i></button>
+            </div>
+          </div>
+
+          <!-- Varsayılan Şık 4 -->
+          <div class="row g-2 mb-2 option-row align-items-center">
+            <div class="col-7">
+              <input type="text" name="new_questions[${qIndex}][options][3][text]" class="form-control form-control-sm" value="Denetim Dışı / Muaf" required>
+            </div>
+            <div class="col-4">
+              <div class="form-check form-switch pt-1">
+                <input class="form-check-input" type="checkbox" name="new_questions[${qIndex}][options][3][trigger_action]" value="1">
+                <label class="form-check-label fs-8 fw-bold text-danger">İSG Önlem Kartı Açsın</label>
+              </div>
+            </div>
+            <div class="col-1 text-end">
+              <button type="button" class="btn btn-sm btn-link text-danger remove-option-btn p-0"><i class="bi bi-x-circle-fill fs-5"></i></button>
             </div>
           </div>
         </div>
@@ -401,12 +323,12 @@ function initQuestionBuilder() {
             confirmButtonText: 'Evet, Sil!',
             cancelButtonText: 'Vazgeç',
             reverseButtons: true,
-            buttonsStyling: false,
             customClass: {
               popup: 'swal2-custom-popup',
               confirmButton: 'btn btn-danger font-weight-bold px-4 py-2 me-2',
               cancelButton: 'btn btn-secondary font-weight-bold px-4 py-2'
-            }
+            },
+            buttonsStyling: false
           }).then((res) => {
             if (res.isConfirmed) {
               qCard.remove();
@@ -423,32 +345,36 @@ function initQuestionBuilder() {
     const addOptBtn = qCard.querySelector('.add-option-btn');
     if (addOptBtn) {
       addOptBtn.addEventListener('click', function () {
-        const optionsList = qCard.querySelector('.options-list-container');
-        const qIdx = qCard.getAttribute('data-qindex');
-        const optCount = optionsList.querySelectorAll('.option-row').length;
+        const optionsContainer = qCard.querySelector('.options-list-container');
+        const currentQIndex = qCard.getAttribute('data-qindex');
+        const optCount = optionsContainer.querySelectorAll('.option-row').length;
 
         const optRow = document.createElement('div');
         optRow.className = 'row g-2 mb-2 option-row align-items-center';
         optRow.innerHTML = `
           <div class="col-7">
-            <input type="text" name="new_questions[${qIdx}][options][${optCount}][text]" class="form-control form-control-sm" placeholder="Yeni seçenek metni" required>
+            <input type="text" name="new_questions[${currentQIndex}][options][${optCount}][text]" class="form-control form-control-sm" placeholder="Seçenek metni" required>
           </div>
           <div class="col-4">
-            <input type="number" name="new_questions[${qIdx}][options][${optCount}][points]" class="form-control form-control-sm" placeholder="Puan" value="0" required>
+            <div class="form-check form-switch pt-1">
+              <input class="form-check-input" type="checkbox" name="new_questions[${currentQIndex}][options][${optCount}][trigger_action]" value="1" checked>
+              <label class="form-check-label fs-8 fw-bold text-danger">İSG Önlem Kartı Açsın</label>
+            </div>
           </div>
           <div class="col-1 text-end">
-            <button type="button" class="btn btn-sm btn-link text-danger remove-option-btn p-0"><i class="bi bi-x-circle-fill"></i></button>
+            <button type="button" class="btn btn-sm btn-link text-danger remove-option-btn p-0"><i class="bi bi-x-circle-fill fs-5"></i></button>
           </div>
         `;
-        optionsList.appendChild(optRow);
-        bindOptionEvents(optRow);
+
+        optionsContainer.appendChild(optRow);
+        bindOptionRemove(optRow);
       });
     }
 
-    qCard.querySelectorAll('.option-row').forEach(bindOptionEvents);
+    qCard.querySelectorAll('.option-row').forEach(bindOptionRemove);
   }
 
-  function bindOptionEvents(optRow) {
+  function bindOptionRemove(optRow) {
     const removeOptBtn = optRow.querySelector('.remove-option-btn');
     if (removeOptBtn) {
       removeOptBtn.addEventListener('click', function () {
@@ -459,69 +385,115 @@ function initQuestionBuilder() {
 }
 
 /**
- * Quick AJAX Unit Creator Function
+ * Quick AJAX Unit Creator
  */
 function initQuickUnitCreator() {
-  const form = document.getElementById('quickUnitForm');
-  const modalElem = document.getElementById('quickUnitModal');
-
-  form.addEventListener('submit', function (e) {
+  const quickUnitForm = document.getElementById('quickUnitForm');
+  quickUnitForm.addEventListener('submit', function (e) {
     e.preventDefault();
-    const formData = new FormData(form);
+    const formData = new FormData(quickUnitForm);
 
-    fetch('units.php?action=quick_add', {
+    fetch('units.php', {
       method: 'POST',
-      body: formData
+      body: formData,
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest'
+      }
     })
-      .then(response => response.json())
-      .then(data => {
-        if (data.success) {
-          const unitContainer = document.getElementById('unitCardsContainer');
-          if (unitContainer) {
-            const col = document.createElement('div');
-            col.className = 'col-12 col-sm-6 unit-card-wrapper';
-            col.setAttribute('data-name', data.unit.unit_name.toLowerCase());
-            col.innerHTML = `
-              <div class="wizard-select-card unit-card selected p-2 px-3" data-id="${data.unit.id}">
-                <div class="d-flex align-items-center gap-2 mb-1">
-                  <i class="bi bi-building text-success fs-6"></i>
-                  <h6 class="fw-bold text-dark m-0 wizard-card-title fs-7 text-truncate">${data.unit.unit_name}</h6>
-                </div>
-                <p class="text-muted fs-8 m-0 wizard-card-desc text-truncate" style="font-size:0.75rem;">${data.unit.description || 'Kayıtlı saha birimi.'}</p>
-                <div class="wizard-card-check">
-                  <i class="bi bi-check-circle-fill"></i>
-                </div>
-              </div>
-            `;
-            unitContainer.appendChild(col);
-            
-            document.querySelectorAll('.unit-card').forEach(c => c.classList.remove('selected'));
-            col.querySelector('.unit-card').classList.add('selected');
-            document.getElementById('selectedUnitInput').value = data.unit.id;
-            
-            initAuditWizard();
-          }
-
-          form.reset();
-          if (modalElem && window.bootstrap) {
-            const modalInstance = bootstrap.Modal.getInstance(modalElem);
-            if (modalInstance) modalInstance.hide();
-          }
-        } else {
-          if (window.Swal) {
-            Swal.fire('Hata!', data.message || 'Birim eklenemedi.', 'error');
-          } else {
-            alert('Hata: ' + (data.message || 'Birim eklenemedi.'));
-          }
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        const select = document.getElementById('unitSelect');
+        if (select) {
+          const opt = document.createElement('option');
+          opt.value = data.unit.id;
+          opt.textContent = data.unit.unit_name;
+          opt.selected = true;
+          select.appendChild(opt);
         }
-      })
-      .catch(err => {
-        console.error(err);
+
+        const modalEl = document.getElementById('quickAddUnitModal');
+        if (modalEl) {
+          const modal = bootstrap.Modal.getInstance(modalEl);
+          if (modal) modal.hide();
+        }
+
         if (window.Swal) {
-          Swal.fire('Hata!', 'Bir bağlantı hatası oluştu.', 'error');
+          Swal.fire({
+            icon: 'success',
+            title: 'Başarılı!',
+            text: 'Yeni birim başarıyla eklendi ve seçildi.',
+            timer: 2000,
+            showConfirmButton: false
+          });
+        }
+        quickUnitForm.reset();
+      } else {
+        alert(data.message || 'Birim eklenirken bir hata oluştu.');
+      }
+    })
+    .catch(err => {
+      console.error(err);
+      alert('İstek gönderilirken hata oluştu.');
+    });
+  });
+}
+
+/**
+ * Interactive Visual Audit Wizard in audit_new.php
+ */
+function initAuditWizard() {
+  const templateCards = document.querySelectorAll('.template-card-choice');
+  const unitCards = document.querySelectorAll('.unit-card-choice');
+  const selectedTemplateInput = document.getElementById('selectedTemplateInput');
+  const selectedUnitInput = document.getElementById('selectedUnitInput');
+  const startBtn = document.getElementById('startAuditSubmitBtn');
+  const unitSearchInput = document.getElementById('unitSearchInput');
+
+  // 1. Template Card Select
+  templateCards.forEach(card => {
+    card.addEventListener('click', function () {
+      templateCards.forEach(c => c.classList.remove('selected', 'border-success', 'shadow-md'));
+      this.classList.add('selected', 'border-success', 'shadow-md');
+      
+      const tId = this.dataset.templateId;
+      selectedTemplateInput.value = tId;
+      checkWizardReady();
+    });
+  });
+
+  // 2. Unit Card Select
+  unitCards.forEach(card => {
+    card.addEventListener('click', function () {
+      unitCards.forEach(c => c.classList.remove('selected', 'border-success', 'shadow-md'));
+      this.classList.add('selected', 'border-success', 'shadow-md');
+      
+      const uId = this.dataset.unitId;
+      selectedUnitInput.value = uId;
+      checkWizardReady();
+    });
+  });
+
+  // 3. Live Unit Search
+  if (unitSearchInput) {
+    unitSearchInput.addEventListener('input', function () {
+      const q = this.value.toLowerCase().trim();
+      unitCards.forEach(card => {
+        const name = card.dataset.unitName.toLowerCase();
+        if (name.includes(q)) {
+          card.style.display = 'block';
         } else {
-          alert('Bir hata oluştu.');
+          card.style.display = 'none';
         }
       });
-  });
+    });
+  }
+
+  function checkWizardReady() {
+    if (selectedTemplateInput.value > 0 && selectedUnitInput.value > 0) {
+      startBtn.disabled = false;
+      startBtn.classList.remove('btn-secondary');
+      startBtn.classList.add('btn-success', 'shadow-lg');
+    }
+  }
 }

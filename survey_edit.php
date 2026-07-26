@@ -189,6 +189,10 @@ $pageTitle = 'Anket & İSG Risk Editörü: ' . $template['title'];
 include __DIR__ . '/includes/header.php';
 ?>
 
+<script>
+window.riskGroupsData = <?php echo json_encode($riskGroups); ?>;
+</script>
+
 <!-- HTML5 Autocomplete Datalist Öğeleri -->
 <datalist id="hazard_sources_list">
   <?php foreach ($libSources as $src): ?>
