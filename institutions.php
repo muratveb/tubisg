@@ -1,6 +1,7 @@
 <?php
 /**
  * Tubİsg - Kurum Tanımları Yönetimi (institutions.php)
+ * Ultra-Modern SaaS Dashboard UI (Grid Cards & Live Filter)
  */
 require_once __DIR__ . '/includes/auth.php';
 require_permission('units_manage');
@@ -72,154 +73,204 @@ $pageTitle = 'Kurum Tanımları';
 include __DIR__ . '/includes/header.php';
 ?>
 
-<!-- Üst Başlık & Ekleme Butonu -->
+<style>
+.inst-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+}
+.inst-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px -4px rgba(0, 0, 0, 0.1);
+  border-color: #cbd5e1;
+}
+.inst-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #fee2e2 0%, #fecdd3 100%);
+  color: #dc2626;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.35rem;
+  flex-shrink: 0;
+  box-shadow: 0 4px 10px rgba(220, 38, 38, 0.15);
+}
+.btn-soft-primary {
+  background-color: #f0f9ff;
+  color: #0284c7;
+  border: 1px solid #e0f2fe;
+  font-weight: 700;
+  transition: all 0.2s ease;
+}
+.btn-soft-primary:hover {
+  background-color: #0284c7;
+  color: #ffffff;
+  border-color: #0284c7;
+  transform: translateY(-1px);
+}
+.btn-soft-danger {
+  background-color: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fee2e2;
+  font-weight: 700;
+  transition: all 0.2s ease;
+}
+.btn-soft-danger:hover {
+  background-color: #dc2626;
+  color: #ffffff;
+  border-color: #dc2626;
+  transform: translateY(-1px);
+}
+</style>
+
+<!-- Üst İşlem Çubuğu & Başlık -->
 <div class="d-flex flex-column flex-sm-row align-items-sm-center justify-content-between gap-3 mb-4">
   <div>
-    <h3 class="fw-extrabold m-0 text-dark d-flex align-items-center gap-2">
-      <i class="bi bi-hospital-fill text-danger"></i> Kurum Tanımları
-    </h3>
-    <p class="text-muted fs-7 m-0 mt-1">Saha risk denetimi yürütülen resmi kurumları (Örn: Dicle Üniversitesi Hastaneleri) yönetin.</p>
+    <div class="d-flex align-items-center gap-2 mb-1">
+      <span class="badge bg-danger-subtle text-danger font-weight-bold px-2.5 py-1 fs-8 rounded-pill">
+        <i class="bi bi-hospital me-1"></i> İSG Kurum Portföyü
+      </span>
+    </div>
+    <h3 class="fw-extrabold m-0 text-dark">Kurum Tanımları</h3>
+    <p class="text-muted fs-7 m-0 mt-0.5">Saha risk denetimi yürütülen resmi kurumlar ve bağlı birimleri yönetin.</p>
   </div>
   <div>
     <button type="button" class="btn btn-danger font-weight-bold px-4 py-2.5 shadow-sm rounded-3 text-nowrap" data-bs-toggle="modal" data-bs-target="#addInstitutionModal">
-      <i class="bi bi-plus-circle-fill me-1.5"></i> + Yeni Kurum Ekle
+      <i class="bi bi-plus-lg me-1.5"></i> Yeni Kurum Ekle
     </button>
   </div>
 </div>
 
-<!-- 3 İstatistik Özeti Kartları -->
-<div class="row g-3 mb-4">
-  <div class="col-12 col-md-4">
-    <div class="custom-card p-3 mb-0 border-0 shadow-sm rounded-4 bg-white d-flex align-items-center gap-3">
-      <div class="p-3 bg-danger bg-opacity-10 text-danger rounded-3 fs-4">
-        <i class="bi bi-hospital"></i>
-      </div>
-      <div>
-        <span class="d-block text-uppercase text-muted font-weight-bold fs-8" style="letter-spacing: 0.5px;">TOPLAM KURUM</span>
-        <span class="fw-extrabold fs-4 text-dark"><?php echo $totalCount; ?></span>
-      </div>
-    </div>
-  </div>
-
-  <div class="col-12 col-md-4">
-    <div class="custom-card p-3 mb-0 border-0 shadow-sm rounded-4 bg-white d-flex align-items-center gap-3">
-      <div class="p-3 bg-success bg-opacity-10 text-success rounded-3 fs-4">
-        <i class="bi bi-check-circle-fill"></i>
-      </div>
-      <div>
-        <span class="d-block text-uppercase text-muted font-weight-bold fs-8" style="letter-spacing: 0.5px;">AKTİF KURUMLAR</span>
-        <span class="fw-extrabold fs-4 text-success"><?php echo $activeCount; ?></span>
+<!-- Modern Dark Glass Hero Banner & Metrikler -->
+<div class="custom-card p-4 mb-4 border-0 shadow-lg rounded-4 text-white" style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);">
+  <div class="row g-3 align-items-center">
+    <div class="col-12 col-md-5">
+      <div class="d-flex align-items-center gap-3">
+        <div class="p-3 bg-danger bg-opacity-20 rounded-3 text-white border border-danger border-opacity-25 fs-2">
+          <i class="bi bi-building-fill-gear"></i>
+        </div>
+        <div>
+          <h5 class="fw-extrabold m-0 text-white fs-6">Kurum Yönetim Merkezi</h5>
+          <p class="text-white-50 fs-8 m-0 mt-1">Denetimlerde kurumlara bağlı birimler ve risk analizleri raporlanır.</p>
+        </div>
       </div>
     </div>
-  </div>
 
-  <div class="col-12 col-md-4">
-    <div class="custom-card p-3 mb-0 border-0 shadow-sm rounded-4 bg-white d-flex align-items-center gap-3">
-      <div class="p-3 bg-warning bg-opacity-10 text-warning-emphasis rounded-3 fs-4">
-        <i class="bi bi-clipboard2-check-fill text-warning"></i>
-      </div>
-      <div>
-        <span class="d-block text-uppercase text-muted font-weight-bold fs-8" style="letter-spacing: 0.5px;">GERÇEKLEŞEN DENETİM</span>
-        <span class="fw-extrabold fs-4 text-dark"><?php echo $totalAudits; ?></span>
+    <div class="col-12 col-md-7">
+      <div class="row g-2">
+        <div class="col-4">
+          <div class="bg-white bg-opacity-10 p-3 rounded-3 text-center border border-white border-opacity-10">
+            <span class="d-block fs-8 text-white-50 font-weight-bold">TOPLAM KURUM</span>
+            <span class="fw-extrabold fs-4 text-white"><?php echo $totalCount; ?></span>
+          </div>
+        </div>
+        <div class="col-4">
+          <div class="bg-white bg-opacity-10 p-3 rounded-3 text-center border border-white border-opacity-10">
+            <span class="d-block fs-8 text-white-50 font-weight-bold">AKTİF DUMUM</span>
+            <span class="fw-extrabold fs-4 text-success"><?php echo $activeCount; ?></span>
+          </div>
+        </div>
+        <div class="col-4">
+          <div class="bg-white bg-opacity-10 p-3 rounded-3 text-center border border-white border-opacity-10">
+            <span class="d-block fs-8 text-white-50 font-weight-bold">DENETİMLER</span>
+            <span class="fw-extrabold fs-4 text-warning"><?php echo $totalAudits; ?></span>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </div>
 
-<!-- Arama Barı ve Kurum Tablosu Kartı -->
-<div class="custom-card p-0 overflow-hidden border-0 shadow-sm rounded-4 mb-4">
-  <!-- Canlı Filtre Arama Kutusu -->
-  <div class="p-3 bg-light border-bottom d-flex align-items-center justify-content-between gap-3">
-    <div class="input-group input-group-sm style-search" style="max-width: 320px;">
-      <span class="input-group-text bg-white border-end-0 text-muted"><i class="bi bi-search"></i></span>
-      <input type="text" id="instSearchInput" class="form-control border-start-0 ps-0" placeholder="Kurum adı veya kod ara...">
-    </div>
-    <span class="text-muted fs-8 font-weight-bold">Toplam <?php echo $totalCount; ?> kayıt gösteriliyor</span>
+<!-- Canlı Arama ve Görünüm Çubuğu -->
+<div class="d-flex flex-column flex-sm-row align-items-sm-center justify-content-between gap-3 mb-4">
+  <div class="input-group input-group-sm shadow-2xs" style="max-width: 360px;">
+    <span class="input-group-text bg-white border-end-0 text-muted px-3"><i class="bi bi-search"></i></span>
+    <input type="text" id="instSearchInput" class="form-control border-start-0 py-2 fs-7" placeholder="Kurum adı veya koda göre ara...">
   </div>
-
-  <div class="table-responsive">
-    <table class="table table-hover align-middle m-0" style="font-size: 0.85rem;">
-      <thead class="table-dark">
-        <tr>
-          <th style="width: 60px;" class="ps-3 text-center">ID</th>
-          <th>KURUM DETAYLARI</th>
-          <th style="width: 130px;">KOD / KISALTMA</th>
-          <th style="width: 150px;" class="text-center">DENETİM SAYISI</th>
-          <th style="width: 110px;" class="text-center">DURUM</th>
-          <th style="width: 170px;" class="text-end pe-3">İŞLEMLER</th>
-        </tr>
-      </thead>
-      <tbody>
-        <?php if (empty($institutions)): ?>
-          <tr>
-            <td colspan="6" class="text-center py-5 text-muted">
-              <i class="bi bi-hospital fs-1 d-block mb-2 text-secondary opacity-50"></i>
-              Henüz tanımlı bir kurum bulunmuyor. Sağ üstteki <strong>+ Yeni Kurum Ekle</strong> butonundan ekleyebilirsiniz.
-            </td>
-          </tr>
-        <?php else: ?>
-          <?php foreach ($institutions as $inst): ?>
-            <tr class="inst-row" data-name="<?php echo mb_strtolower($inst['institution_name'] . ' ' . $inst['code'], 'UTF-8'); ?>">
-              <td class="ps-3 text-center fw-bold text-muted">#<?php echo $inst['id']; ?></td>
-              <td>
-                <div class="d-flex align-items-center gap-3">
-                  <div class="p-2.5 bg-danger bg-opacity-10 text-danger rounded-3 fs-5 flex-shrink-0">
-                    <i class="bi bi-building"></i>
-                  </div>
-                  <div>
-                    <div class="fw-extrabold text-dark fs-7"><?php echo htmlspecialchars($inst['institution_name']); ?></div>
-                    <div class="text-muted fs-8 mt-0.5">
-                      <?php echo htmlspecialchars($inst['description'] ?? 'Açıklama girilmemiş'); ?>
-                    </div>
-                  </div>
-                </div>
-              </td>
-              <td>
-                <span class="badge bg-light text-dark border font-weight-bold px-2.5 py-1.5 fs-8">
-                  <?php echo htmlspecialchars($inst['code'] ?? 'KODSUZ'); ?>
-                </span>
-              </td>
-              <td class="text-center">
-                <span class="badge bg-info-subtle text-info-emphasis font-weight-bold px-3 py-1.5 rounded-pill fs-8">
-                  <i class="bi bi-clipboard-data-fill me-1"></i> <?php echo $inst['audit_count']; ?> Denetim
-                </span>
-              </td>
-              <td class="text-center">
-                <?php if ($inst['is_active']): ?>
-                  <span class="badge bg-success-subtle text-success font-weight-bold px-2.5 py-1.5 rounded-pill fs-8">
-                    <i class="bi bi-check-circle-fill me-1"></i> Aktif
-                  </span>
-                <?php else: ?>
-                  <span class="badge bg-secondary-subtle text-secondary font-weight-bold px-2.5 py-1.5 rounded-pill fs-8">
-                    Pasif
-                  </span>
-                <?php endif; ?>
-              </td>
-              <td class="text-end pe-3">
-                <div class="d-inline-flex align-items-center gap-1">
-                  <button type="button" class="btn btn-sm btn-outline-primary font-weight-bold px-2.5 py-1 rounded-2" 
-                          onclick="editInstitution(<?php echo htmlspecialchars(json_encode($inst)); ?>)"
-                          title="Düzenle">
-                    <i class="bi bi-pencil-square me-1"></i> Düzenle
-                  </button>
-                  <form method="POST" action="institutions.php" class="d-inline confirm-delete-form" data-confirm-title="Kurum Sil" data-confirm-text="Bu kurumu silmek istediğinize emin misiniz?">
-                    <input type="hidden" name="action" value="delete_institution">
-                    <input type="hidden" name="institution_id" value="<?php echo $inst['id']; ?>">
-                    <button type="submit" class="btn btn-sm btn-outline-danger font-weight-bold px-2.5 py-1 rounded-2" title="Sil">
-                      <i class="bi bi-trash-fill"></i> Sil
-                    </button>
-                  </form>
-                </div>
-              </td>
-            </tr>
-          <?php endforeach; ?>
-        <?php endif; ?>
-      </tbody>
-    </table>
-  </div>
+  <span class="text-muted fs-8 font-weight-bold">Toplam <strong id="visibleCountDisplay" class="text-dark"><?php echo $totalCount; ?></strong> kurum listeleniyor</span>
 </div>
 
-<!-- YENİ KURUM EKLE MODAL -->
+<!-- MODERN KURUMLAR KART GRID LİSTESİ -->
+<div class="row g-3" id="institutionsGrid">
+  <?php if (empty($institutions)): ?>
+    <div class="col-12">
+      <div class="custom-card p-5 text-center bg-white border-0 shadow-sm rounded-4">
+        <i class="bi bi-hospital fs-1 text-muted d-block mb-3 opacity-40"></i>
+        <h5 class="fw-extrabold text-dark m-0">Henüz Tanımlı Kurum Bulunmuyor</h5>
+        <p class="text-muted fs-7 mt-1">Saha denetimleri için sağ üstteki <strong>Yeni Kurum Ekle</strong> butonuna tıklayarak ilk kurumu tanımlayabilirsiniz.</p>
+      </div>
+    </div>
+  <?php else: ?>
+    <?php foreach ($institutions as $inst): ?>
+      <div class="col-12 col-md-6 col-xl-4 inst-card-wrapper" data-search="<?php echo mb_strtolower($inst['institution_name'] . ' ' . $inst['code'] . ' ' . $inst['description'], 'UTF-8'); ?>">
+        <div class="inst-card p-4 h-100 d-flex flex-column justify-content-between">
+          
+          <div>
+            <!-- Üst Kurum Bilgisi & Rozetler -->
+            <div class="d-flex align-items-start justify-content-between gap-2 mb-3">
+              <div class="d-flex align-items-center gap-3">
+                <div class="inst-avatar">
+                  <i class="bi bi-hospital"></i>
+                </div>
+                <div>
+                  <h6 class="fw-extrabold text-dark m-0 fs-6 leading-tight"><?php echo htmlspecialchars($inst['institution_name']); ?></h6>
+                  <span class="badge bg-light text-secondary border font-weight-bold px-2 py-0.5 fs-8 mt-1">
+                    <?php echo htmlspecialchars($inst['code'] ?? 'KODSUZ'); ?>
+                  </span>
+                </div>
+              </div>
+
+              <?php if ($inst['is_active']): ?>
+                <span class="badge bg-success-subtle text-success font-weight-bold px-2.5 py-1 rounded-pill fs-8 flex-shrink-0">
+                  <i class="bi bi-circle-fill me-1" style="font-size: 0.5rem;"></i> Aktif
+                </span>
+              <?php else: ?>
+                <span class="badge bg-secondary-subtle text-secondary font-weight-bold px-2.5 py-1 rounded-pill fs-8 flex-shrink-0">
+                  Pasif
+                </span>
+              <?php endif; ?>
+            </div>
+
+            <!-- Açıklama Metni -->
+            <p class="text-muted fs-7 mb-3 text-break" style="min-height: 40px; line-height: 1.4;">
+              <?php echo htmlspecialchars($inst['description'] ?? 'Kurum açıklaması girilmemiş.'); ?>
+            </p>
+          </div>
+
+          <!-- Alt Metrik & Aksiyon Butonları -->
+          <div class="pt-3 border-top d-flex align-items-center justify-content-between gap-2 mt-2">
+            <span class="badge bg-info-subtle text-info-emphasis font-weight-bold px-3 py-1.5 rounded-pill fs-8">
+              <i class="bi bi-clipboard2-check-fill me-1"></i> <?php echo $inst['audit_count']; ?> Denetim
+            </span>
+
+            <div class="d-flex align-items-center gap-1.5">
+              <button type="button" class="btn btn-sm btn-soft-primary px-3 py-1.5 rounded-3 fs-8" 
+                      onclick="editInstitution(<?php echo htmlspecialchars(json_encode($inst)); ?>)"
+                      title="Kurum Bilgilerini Düzenle">
+                <i class="bi bi-pencil-square me-1"></i> Düzenle
+              </button>
+              
+              <form method="POST" action="institutions.php" class="d-inline confirm-delete-form" data-confirm-title="Kurumu Sil" data-confirm-text="Bu kurumu (<?php echo htmlspecialchars($inst['institution_name']); ?>) silmek istediğinize emin misiniz?">
+                <input type="hidden" name="action" value="delete_institution">
+                <input type="hidden" name="institution_id" value="<?php echo $inst['id']; ?>">
+                <button type="submit" class="btn btn-sm btn-soft-danger px-2.5 py-1.5 rounded-3 fs-8" title="Kurumu Sil">
+                  <i class="bi bi-trash3-fill"></i>
+                </button>
+              </form>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    <?php endforeach; ?>
+  <?php endif; ?>
+</div>
+
+<!-- YENİ KURUM EKLE MODAL (Modernized UI) -->
 <div class="modal fade" id="addInstitutionModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
@@ -252,7 +303,7 @@ include __DIR__ . '/includes/header.php';
   </div>
 </div>
 
-<!-- KURUM DÜZENLE MODAL -->
+<!-- KURUM DÜZENLE MODAL (Modernized UI) -->
 <div class="modal fade" id="editInstitutionModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
@@ -300,18 +351,22 @@ function editInstitution(inst) {
 // Canlı Arama Filtrelemesi
 document.addEventListener('DOMContentLoaded', function() {
   const searchInput = document.getElementById('instSearchInput');
+  const countDisplay = document.getElementById('visibleCountDisplay');
   if (searchInput) {
     searchInput.addEventListener('input', function() {
       const q = this.value.toLowerCase().trim();
-      const rows = document.querySelectorAll('.inst-row');
-      rows.forEach(row => {
-        const name = row.dataset.name || '';
-        if (name.includes(q)) {
-          row.style.display = '';
+      const wrappers = document.querySelectorAll('.inst-card-wrapper');
+      let visible = 0;
+      wrappers.forEach(w => {
+        const text = w.dataset.search || '';
+        if (text.includes(q)) {
+          w.style.display = '';
+          visible++;
         } else {
-          row.style.display = 'none';
+          w.style.display = 'none';
         }
       });
+      if (countDisplay) countDisplay.textContent = visible;
     });
   }
 });
