@@ -72,6 +72,7 @@ if ($format === 'excel') {
       th { background-color: #0f172a; color: white; font-weight: bold; text-align: center; }
       .vhead-th { writing-mode: vertical-rl; mso-direction-alt: bottom-to-top; white-space: nowrap; height: 140px; vertical-align: middle; text-align: center; font-size: 10px; padding: 6px; }
       .rg-vcell { writing-mode: vertical-rl; mso-direction-alt: bottom-to-top; white-space: nowrap; text-align: center; vertical-align: middle; font-weight: bold; background-color: #f1f5f9; padding: 10px; }
+      .vcell { writing-mode: vertical-rl; mso-direction-alt: bottom-to-top; white-space: nowrap; text-align: center; vertical-align: middle; font-weight: bold; padding: 6px; }
       .header-title { background-color: #059669; color: white; font-size: 14px; font-weight: bold; text-align: center; }
       .risk-high { background-color: #fee2e2; color: #991b1b; font-weight: bold; text-align: center; }
       .risk-medium { background-color: #fef3c7; color: #92400e; font-weight: bold; text-align: center; }
@@ -175,8 +176,8 @@ if ($format === 'excel') {
               <td style="text-align:center;"><?php echo $sevDisplay; ?></td>
               <td class="<?php echo $rClass; ?>"><?php echo $rScoreDisplay; ?></td>
               <td><?php echo $actionDisplay; ?></td>
-              <td style="text-align:center;"><?php echo htmlspecialchars($responsibleDisplay); ?></td>
-              <td style="text-align:center;"><?php echo htmlspecialchars($deadlineDisplay); ?></td>
+              <td class="vcell"><?php echo htmlspecialchars($responsibleDisplay); ?></td>
+              <td class="vcell"><?php echo htmlspecialchars($deadlineDisplay); ?></td>
             </tr>
           <?php endforeach; ?>
         <?php endforeach; ?>
@@ -222,6 +223,7 @@ if ($format === 'word') {
         table.matrix-table th { background: #0f172a; color: #fff; text-align: center; font-size: 10px; }
         .vhead-th { writing-mode: vertical-rl; white-space: nowrap; height: 140px; vertical-align: middle; text-align: center; font-size: 10px; padding: 6px; }
         .rg-vcell { writing-mode: vertical-rl; white-space: nowrap; text-align: center; vertical-align: middle; font-weight: bold; background-color: #f1f5f9; padding: 10px; }
+        .vcell { writing-mode: vertical-rl; white-space: nowrap; text-align: center; vertical-align: middle; font-weight: bold; padding: 6px; }
       </style>
     </head>
     <body>
@@ -309,8 +311,8 @@ if ($format === 'word') {
                 <td style="text-align:center;"><?php echo $sevDisplay; ?></td>
                 <td style="text-align:center; font-weight:bold;"><?php echo $rScoreDisplay; ?></td>
                 <td><?php echo $actionDisplay; ?></td>
-                <td style="text-align:center;"><?php echo htmlspecialchars($responsibleDisplay); ?></td>
-                <td style="text-align:center;"><?php echo htmlspecialchars($deadlineDisplay); ?></td>
+                <td class="vcell"><?php echo htmlspecialchars($responsibleDisplay); ?></td>
+                <td class="vcell"><?php echo htmlspecialchars($deadlineDisplay); ?></td>
               </tr>
             <?php endforeach; ?>
           <?php endforeach; ?>

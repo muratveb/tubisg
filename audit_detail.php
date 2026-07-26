@@ -100,13 +100,24 @@ include __DIR__ . '/includes/header.php';
   font-size: 0.80rem;
   letter-spacing: 0.5px;
 }
+.vcell {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  text-align: center !important;
+  vertical-align: middle !important;
+  white-space: nowrap;
+  font-weight: 700;
+  padding: 8px 4px !important;
+  font-size: 0.78rem;
+  letter-spacing: 0.3px;
+}
 @media print {
   .vhead-th {
     writing-mode: vertical-rl;
     transform: rotate(180deg);
     height: 130px;
   }
-  .rg-vcell {
+  .rg-vcell, .vcell {
     writing-mode: vertical-rl;
     transform: rotate(180deg);
   }
@@ -295,8 +306,8 @@ include __DIR__ . '/includes/header.php';
                     <?php endif; ?>
                   </td>
                   <td><?php echo $actionDisplay; ?></td>
-                  <td class="fw-bold text-secondary text-center"><?php echo htmlspecialchars($responsibleDisplay); ?></td>
-                  <td class="text-muted text-center"><?php echo htmlspecialchars($deadlineDisplay); ?></td>
+                  <td class="vcell text-secondary fw-bold"><?php echo htmlspecialchars($responsibleDisplay); ?></td>
+                  <td class="vcell text-dark font-weight-bold"><?php echo htmlspecialchars($deadlineDisplay); ?></td>
                 </tr>
               <?php endforeach; ?>
             <?php endforeach; ?>
