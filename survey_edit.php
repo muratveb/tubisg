@@ -57,7 +57,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $hazardName = trim($qData['hazard_name'] ?? '');
             $affectedRisk = trim($qData['affected_risk'] ?? '');
             $affectedPeople = trim($qData['affected_people'] ?? '');
-            $currentStatus = trim($qData['current_status'] ?? '');
             $prob = (int)($qData['default_probability'] ?? 2);
             $sev = (int)($qData['default_severity'] ?? 3);
             $actionPlan = trim($qData['default_action_plan'] ?? '');
@@ -71,7 +70,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmtUpd = $db->prepare("
                 UPDATE survey_questions 
                 SET risk_group_id = ?, hazard_source = ?, hazard_name = ?, affected_risk = ?, affected_people = ?,
-                    current_status = ?, default_probability = ?, default_severity = ?, default_action_plan = ?,
+                    default_probability = ?, default_severity = ?, default_action_plan = ?,
                     default_responsible = ?, default_deadline = ?, question_text = ?
                 WHERE id = ? AND template_id = ?
             ");
@@ -81,7 +80,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $hazardName,
                 $affectedRisk,
                 $affectedPeople,
-                $currentStatus,
                 $prob,
                 $sev,
                 $actionPlan,
@@ -94,7 +92,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    // 3. 9 Adımlı Sihirbazdan Gelen Yeni Risk Satırları Ekleme (Anında Veritabanına Kaydet)
+    // 3. 9 Adımlı Sihirbazdan Gelen Yeni Risk Satırları Ekleme
     if (isset($_POST['new_questions']) && is_array($_POST['new_questions'])) {
         foreach ($_POST['new_questions'] as $newQ) {
             $riskGroupId = (int)($newQ['risk_group_id'] ?? 0);
@@ -102,12 +100,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $hazardName = trim($newQ['hazard_name'] ?? '');
             $affectedRisk = trim($newQ['affected_risk'] ?? '');
             $affectedPeople = trim($newQ['affected_people'] ?? '');
-            $currentStatus = trim($newQ['current_status'] ?? '');
             $prob = (int)($newQ['default_probability'] ?? 2);
             $sev = (int)($newQ['default_severity'] ?? 3);
             $actionPlan = trim($newQ['default_action_plan'] ?? '');
-            $responsible = trim($newQ['default_responsible'] ?? '');
-            $deadline = trim($newQ['default_deadline'] ?? '');
+            $responsible = trim($newQ['default_responsible'] ?? 'İşveren');
+            $deadline = trim($newQ['default_deadline'] ?? 'Sürekli');
             $qText = trim($newQ['question_text'] ?? '');
             if (empty($qText)) {
                 $qText = !empty($hazardName) ? $hazardName : 'Saha Risk Denetim Maddesi';
@@ -117,8 +114,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmtQ = $db->prepare("
                     INSERT INTO survey_questions 
                     (template_id, risk_group_id, hazard_source, hazard_name, affected_risk, affected_people,
-                     current_status, default_probability, default_severity, default_action_plan, default_responsible, default_deadline, question_text) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     default_probability, default_severity, default_action_plan, default_responsible, default_deadline, question_text) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ");
                 $stmtQ->execute([
                     $template_id,
@@ -127,7 +124,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $hazardName,
                     $affectedRisk,
                     $affectedPeople,
-                    $currentStatus,
                     $prob,
                     $sev,
                     $actionPlan,
@@ -309,22 +305,16 @@ window.libRecommendationsData = <?php echo json_encode($libRecommendations); ?>;
               </div>
             </div>
 
-            <!-- 6. MEVCUT DURUM VE KONTROL SORUSU -->
-            <div class="row g-3 mb-3">
-              <div class="col-12 col-md-6">
-                <label class="form-label fw-bold fs-8 text-muted">6. Mevcut Durum / Saha Tespiti</label>
-                <input type="text" name="questions[<?php echo $q['id']; ?>][current_status]" class="form-control form-control-sm" placeholder="Örn: Lavabolar tavanda su akıntısı mevcut" value="<?php echo htmlspecialchars($q['current_status'] ?? ''); ?>">
-              </div>
-              <div class="col-12 col-md-6">
-                <label class="form-label fw-bold fs-8 text-muted">Saha Denetim Sorusu Metni</label>
-                <input type="text" name="questions[<?php echo $q['id']; ?>][question_text]" class="form-control form-control-sm" placeholder="Örn: WC tavanında su sızıntısı var mı?" value="<?php echo htmlspecialchars($q['question_text'] ?? ''); ?>">
-              </div>
+            <!-- KONTROL SORUSU METNİ -->
+            <div class="mb-3">
+              <label class="form-label fw-bold fs-8 text-dark">Saha Denetim Sorusu Metni</label>
+              <input type="text" name="questions[<?php echo $q['id']; ?>][question_text]" class="form-control form-control-sm" placeholder="Örn: WC tavanında su sızıntısı var mı?" value="<?php echo htmlspecialchars($q['question_text'] ?? ''); ?>">
             </div>
 
-            <!-- 7. OLASILIK, 8. ŞİDDET VE 9. RİSK DERECESİ -->
+            <!-- OLASILIK, ŞİDDET VE RİSK DERECESİ -->
             <div class="row g-3 mb-3 p-2 rounded-3 bg-light border border-info">
               <div class="col-12 col-md-4">
-                <label class="form-label fw-bold fs-8 text-dark">7. Olasılık ($O: 1-5$)</label>
+                <label class="form-label fw-bold fs-8 text-dark">Olasılık ($O: 1-5$)</label>
                 <select name="questions[<?php echo $q['id']; ?>][default_probability]" class="form-select form-select-sm risk-calc-edit" data-qid="<?php echo $q['id']; ?>" id="prob_edit_<?php echo $q['id']; ?>">
                   <option value="1" <?php echo $p == 1 ? 'selected' : ''; ?>>1 - Çok Küçük</option>
                   <option value="2" <?php echo $p == 2 ? 'selected' : ''; ?>>2 - Küçük</option>
@@ -335,7 +325,7 @@ window.libRecommendationsData = <?php echo json_encode($libRecommendations); ?>;
               </div>
 
               <div class="col-12 col-md-4">
-                <label class="form-label fw-bold fs-8 text-dark">8. Şiddet ($Ş: 1-5$)</label>
+                <label class="form-label fw-bold fs-8 text-dark">Şiddet ($Ş: 1-5$)</label>
                 <select name="questions[<?php echo $q['id']; ?>][default_severity]" class="form-select form-select-sm risk-calc-edit" data-qid="<?php echo $q['id']; ?>" id="sev_edit_<?php echo $q['id']; ?>">
                   <option value="1" <?php echo $s == 1 ? 'selected' : ''; ?>>1 - Çok Hafif</option>
                   <option value="2" <?php echo $s == 2 ? 'selected' : ''; ?>>2 - Hafif</option>
@@ -347,27 +337,27 @@ window.libRecommendationsData = <?php echo json_encode($libRecommendations); ?>;
 
               <div class="col-12 col-md-4 d-flex align-items-center">
                 <div class="w-100 text-center">
-                  <div class="text-muted fs-8 fw-bold">9. Risk Derecesi ($R = O \times Ş$)</div>
+                  <div class="text-muted fs-8 fw-bold">Risk Derecesi ($R = O \times Ş$)</div>
                   <div class="fs-5 fw-extrabold text-primary" id="risk_val_<?php echo $q['id']; ?>"><?php echo $r; ?></div>
                 </div>
               </div>
             </div>
 
-            <!-- 10. ALINACAK ÖNLEMLER, 11. SORUMLU VE 12. SÜRE -->
+            <!-- ALINACAK ÖNLEMLER, SORUMLU VE SÜRE -->
             <div class="row g-3">
               <div class="col-12 col-md-5">
-                <label class="form-label fw-bold fs-8 text-dark">10. Alınacak Önlemler / İyileştirmeler (Kütüphaneden)</label>
+                <label class="form-label fw-bold fs-8 text-dark">Varsayılan İyileştirme Önerisi (Kütüphaneden)</label>
                 <input type="text" name="questions[<?php echo $q['id']; ?>][default_action_plan]" list="recommendations_list" class="form-control form-control-sm" placeholder="Örn: Lavabo (WC) tavanlarında gerekli yalıtımın sağlanması" value="<?php echo htmlspecialchars($q['default_action_plan'] ?? ''); ?>">
               </div>
 
               <div class="col-12 col-md-4">
-                <label class="form-label fw-bold fs-8 text-dark">11. Sorumlu Birim (Kütüphaneden)</label>
-                <input type="text" name="questions[<?php echo $q['id']; ?>][default_responsible]" list="responsibles_list" class="form-control form-control-sm" placeholder="Örn: Tekn. Hiz. Yön." value="<?php echo htmlspecialchars($q['default_responsible'] ?? ''); ?>">
+                <label class="form-label fw-bold fs-8 text-dark"><i class="bi bi-person-badge text-primary me-1"></i> Sorumlu Birim (Her Zaman Ankette Dahil)</label>
+                <input type="text" name="questions[<?php echo $q['id']; ?>][default_responsible]" list="responsibles_list" class="form-control form-control-sm" placeholder="Örn: Tekn. Hiz. Yön." value="<?php echo htmlspecialchars($q['default_responsible'] ?? 'İşveren'); ?>">
               </div>
 
               <div class="col-12 col-md-3">
-                <label class="form-label fw-bold fs-8 text-dark">12. Başlama / Süre</label>
-                <input type="text" name="questions[<?php echo $q['id']; ?>][default_deadline]" class="form-control form-control-sm" placeholder="Örn: 6 Ay, Sürekli" value="<?php echo htmlspecialchars($q['default_deadline'] ?? ''); ?>">
+                <label class="form-label fw-bold fs-8 text-dark"><i class="bi bi-clock-history text-success me-1"></i> Başlama / Süre (Her Zaman Ankette Dahil)</label>
+                <input type="text" name="questions[<?php echo $q['id']; ?>][default_deadline]" class="form-control form-control-sm" placeholder="Örn: 6 Ay, Sürekli" value="<?php echo htmlspecialchars($q['default_deadline'] ?? 'Sürekli'); ?>">
               </div>
             </div>
 
@@ -387,7 +377,7 @@ window.libRecommendationsData = <?php echo json_encode($libRecommendations); ?>;
 
 </form>
 
-<!-- 9 ADIMLI İNTERAKTİF RİSK MADDESİ OLUŞTURMA SİHİRBAZI MODAL (WIZARD MODAL) -->
+<!-- 8 ADIMLI İNTERAKTİF RİSK MADDESİ OLUŞTURMA SİHİRBAZI MODAL (WIZARD MODAL) -->
 <div class="modal fade" id="wizardAddRiskItemModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
   <div class="modal-dialog modal-dialog-centered modal-lg">
     <div class="modal-content border-0 shadow-lg rounded-4">
@@ -397,7 +387,7 @@ window.libRecommendationsData = <?php echo json_encode($libRecommendations); ?>;
           <i class="bi bi-magic text-warning fs-4"></i>
           <div>
             <h5 class="modal-title fw-extrabold text-white mb-0">Adım Adım Risk Maddesi Oluşturma Sihirbazı</h5>
-            <span class="fs-8 text-light opacity-75">Resmi Kağıt Belgenizdeki 12 Sütuna Göre Adım Adım Seçim Yapın</span>
+            <span class="fs-8 text-light opacity-75">Resmi Kağıt Belgenizdeki Sütunlara Göre Adım Adım Seçim Yapın</span>
           </div>
         </div>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
@@ -407,13 +397,13 @@ window.libRecommendationsData = <?php echo json_encode($libRecommendations); ?>;
         
         <!-- Üst Adım Barı (Stepper) -->
         <div class="d-flex align-items-center justify-content-between mb-4 border-bottom pb-3">
-          <span class="badge bg-primary fs-7" id="itemWizardStepBadge">Adım 1 / 9: Risk Grubu</span>
+          <span class="badge bg-primary fs-7" id="itemWizardStepBadge">Adım 1 / 8: Risk Grubu</span>
           <div class="progress w-50" style="height: 8px;">
-            <div class="progress-bar bg-success" id="itemWizardProgressBar" role="progressbar" style="width: 11%;"></div>
+            <div class="progress-bar bg-success" id="itemWizardProgressBar" role="progressbar" style="width: 12%;"></div>
           </div>
         </div>
 
-        <!-- 9 ADIM PANEL İÇERİKLERİ -->
+        <!-- 8 ADIM PANEL İÇERİKLERİ -->
         <div id="itemWizardStepsContainer">
           
           <!-- ADIM 1: RİSK GRUBU SEÇİMİ -->
@@ -477,64 +467,31 @@ window.libRecommendationsData = <?php echo json_encode($libRecommendations); ?>;
             <input type="text" id="wiz_affected_people" class="form-control" placeholder="Örn: Çalışanlar(Doktor, Hemşire, Sağ. Tek. vd.) Hasta ve hasta yakını">
           </div>
 
-          <!-- ADIM 6: MEVCUT DURUM VE KONTROL SORUSU -->
+          <!-- ADIM 6: DENETİM SORUSU METNİ -->
           <div class="item-wizard-step d-none" id="itemStep6">
-            <h6 class="fw-bold text-dark mb-2"><i class="bi bi-journal-text text-secondary me-1"></i> 6. Adım: Mevcut Durum & Denetim Sorusu Metni</h6>
-            <div class="mb-3">
-              <label class="form-label fw-bold fs-8">Mevcut Durum / Saha Tespiti</label>
-              <input type="text" id="wiz_current_status" class="form-control" placeholder="Örn: Lavabolar tavanda su akıntısı mevcut">
-            </div>
+            <h6 class="fw-bold text-dark mb-2"><i class="bi bi-journal-text text-secondary me-1"></i> 6. Adım: Saha Denetim Sorusu Metni</h6>
             <div>
               <label class="form-label fw-bold fs-8">Saha Denetim Sorusu Metni</label>
               <input type="text" id="wiz_question_text" class="form-control" placeholder="Örn: WC tavanında su sızıntısı var mı?">
             </div>
           </div>
 
-          <!-- ADIM 7: OLASILIK & ŞİDDET RİSK SKORU -->
+          <!-- ADIM 7: ALINACAK ÖNLEMLER -->
           <div class="item-wizard-step d-none" id="itemStep7">
-            <h6 class="fw-bold text-dark mb-2"><i class="bi bi-bar-chart-fill text-success me-1"></i> 7. Adım: Olasılık ($O$) & Şiddet ($Ş$) Derecelendirmesi</h6>
-            <div class="row g-3 mb-3">
-              <div class="col-12 col-md-6">
-                <label class="form-label fw-bold fs-8">Olasılık ($O: 1-5$)</label>
-                <select id="wiz_probability" class="form-select onchange-wiz-calc">
-                  <option value="1">1 - Çok Küçük (Çok nadir)</option>
-                  <option value="2" selected>2 - Küçük (Nadir)</option>
-                  <option value="3">3 - Orta (Olabilir)</option>
-                  <option value="4">4 - Yüksek (Sık sık)</option>
-                  <option value="5">5 - Çok Yüksek (Her an)</option>
-                </select>
-              </div>
-              <div class="col-12 col-md-6">
-                <label class="form-label fw-bold fs-8">Şiddet ($Ş: 1-5$)</label>
-                <select id="wiz_severity" class="form-select onchange-wiz-calc">
-                  <option value="1">1 - Çok Hafif (İlk yardım gerektirmez)</option>
-                  <option value="2">2 - Hafif (İlk yardım gerekir)</option>
-                  <option value="3" selected>3 - Ciddi (Hastane tedavisi gerekir)</option>
-                  <option value="4">4 - Çok Ciddi (Ağır yaralanma / kalıcı hasar)</option>
-                  <option value="5">5 - Felaket (Ölümcül / Çoklu kayıp)</option>
-                </select>
-              </div>
-            </div>
-            <div class="p-3 bg-light rounded-3 text-center border">
-              <div class="text-muted fs-8 fw-bold">Hesaplanan Risk Derecesi ($R = O \times Ş$)</div>
-              <div class="fs-3 fw-extrabold text-primary" id="wiz_risk_result">R = 6 (Önemli Risk)</div>
-            </div>
-          </div>
-
-          <!-- ADIM 8: ALINACAK ÖNLEMLER -->
-          <div class="item-wizard-step d-none" id="itemStep8">
-            <h6 class="fw-bold text-dark mb-2"><i class="bi bi-lightbulb-fill text-warning me-1"></i> 8. Adım: Alınacak Önlemler / İyileştirmeler</h6>
+            <h6 class="fw-bold text-dark mb-2"><i class="bi bi-lightbulb-fill text-warning me-1"></i> 7. Adım: Varsayılan Önlem Önerisi</h6>
             <div class="d-flex flex-wrap gap-2 mb-3">
               <?php foreach ($libRecommendations as $rec): ?>
                 <button type="button" class="btn btn-sm btn-outline-secondary wiz-chip-btn" onclick="setWizInput('wiz_action_plan', '<?php echo addslashes(htmlspecialchars($rec)); ?>', this)"><?php echo htmlspecialchars($rec); ?></button>
               <?php endforeach; ?>
             </div>
             <input type="text" id="wiz_action_plan" class="form-control" placeholder="Örn: Lavabo (WC) tavanlarında gerekli yalıtımın sağlanması">
+            <input type="hidden" id="wiz_probability" value="2">
+            <input type="hidden" id="wiz_severity" value="3">
           </div>
 
-          <!-- ADIM 9: SORUMLU VE SÜRE -->
-          <div class="item-wizard-step d-none" id="itemStep9">
-            <h6 class="fw-bold text-dark mb-2"><i class="bi bi-person-gear text-primary me-1"></i> 9. Adım: Sorumlu Birim & Süre/Termin</h6>
+          <!-- ADIM 8: SORUMLU VE SÜRE (HER ZAMAN AKTİF) -->
+          <div class="item-wizard-step d-none" id="itemStep8">
+            <h6 class="fw-bold text-dark mb-2"><i class="bi bi-person-gear text-primary me-1"></i> 8. Adım: Sorumlu Birim & Süre/Termin (Her Zaman Ankette Dahil)</h6>
             <div class="mb-3">
               <label class="form-label fw-bold fs-8">Sorumlu Birim</label>
               <div class="d-flex flex-wrap gap-2 mb-2">
@@ -542,11 +499,11 @@ window.libRecommendationsData = <?php echo json_encode($libRecommendations); ?>;
                   <button type="button" class="btn btn-sm btn-outline-secondary wiz-chip-btn" onclick="setWizInput('wiz_responsible', '<?php echo addslashes(htmlspecialchars($resp)); ?>', this)"><?php echo htmlspecialchars($resp); ?></button>
                 <?php endforeach; ?>
               </div>
-              <input type="text" id="wiz_responsible" class="form-control" placeholder="Örn: Tekn. Hiz. Yön.">
+              <input type="text" id="wiz_responsible" class="form-control" placeholder="Örn: Tekn. Hiz. Yön." value="İşveren">
             </div>
             <div>
               <label class="form-label fw-bold fs-8">Termin / Süre</label>
-              <input type="text" id="wiz_deadline" class="form-control" placeholder="Örn: 6 Ay, Sürekli">
+              <input type="text" id="wiz_deadline" class="form-control" placeholder="Örn: 6 Ay, Sürekli" value="Sürekli">
             </div>
           </div>
 
@@ -578,38 +535,6 @@ function setWizInput(inputId, val, btnEl) {
     btnEl.classList.add('btn-success', 'text-white');
   }
 }
-
-document.addEventListener('DOMContentLoaded', function() {
-  
-  // Risk Matris Editöründe Canlı $O \times Ş$ Hesaplama
-  document.querySelectorAll('.risk-calc-edit').forEach(select => {
-    select.addEventListener('change', function() {
-      const qId = this.dataset.qid;
-      const probSelect = document.getElementById('prob_edit_' + qId);
-      const sevSelect = document.getElementById('sev_edit_' + qId);
-      const valDiv = document.getElementById('risk_val_' + qId);
-      const badgeSpan = document.getElementById('risk_calc_badge_' + qId);
-
-      if (probSelect && sevSelect && valDiv && badgeSpan) {
-        const p = parseInt(probSelect.value) || 1;
-        const s = parseInt(sevSelect.value) || 1;
-        const r = p * s;
-
-        valDiv.textContent = r;
-
-        let category = 'Kabul Edilebilir Risk';
-        let badgeBg = 'bg-success';
-        if (r >= 16) { category = 'Kabul Edilemez Risk'; badgeBg = 'bg-danger'; }
-        else if (r >= 10) { category = 'Dikkate Değer Risk'; badgeBg = 'bg-warning text-dark'; }
-        else if (r >= 6) { category = 'Önemli Risk'; badgeBg = 'bg-info text-dark'; }
-
-        badgeSpan.className = 'badge ' + badgeBg;
-        badgeSpan.textContent = `R = ${r} (${category})`;
-      }
-    });
-  });
-
-});
 </script>
 
 <?php include __DIR__ . '/includes/footer.php'; ?>

@@ -45,7 +45,7 @@ if (!$audit) {
 // Seçilen Cevapları ve Risk Matrisi Detaylarını Çek
 $answersStmt = $db->prepare("
     SELECT ans.*, sq.question_text, sq.hazard_source, sq.hazard_name, sq.affected_risk, sq.affected_people, 
-           rg.group_name, qo.option_text
+           sq.default_responsible, sq.default_deadline, rg.group_name, qo.option_text
     FROM audit_answers ans
     JOIN survey_questions sq ON ans.question_id = sq.id
     LEFT JOIN risk_groups rg ON sq.risk_group_id = rg.id
@@ -202,12 +202,40 @@ include __DIR__ . '/includes/header.php';
                   $rScore = $prob * $sev;
               }
 
-              $rClass = 'bg-success text-white';
-              if ($rScore >= 16) $rClass = 'bg-danger text-white fw-bold';
-              elseif ($rScore >= 10) $rClass = 'bg-warning text-dark fw-bold';
-              elseif ($rScore >= 6) $rClass = 'bg-info text-dark fw-bold';
+              $ansOption = !empty($ans['answer_option']) ? $ans['answer_option'] : ($ans['option_text'] ?? 'Evet (Uygun)');
+              $isEvet = (strpos($ansOption, 'Evet') !== false);
+              $isMuaf = (strpos($ansOption, 'Denetim Dışı') !== false || strpos($ansOption, 'Muaf') !== false);
 
-              $ansOption = !empty($ans['answer_option']) ? $ans['answer_option'] : ($ans['option_text'] ?? '-');
+              if ($isEvet) {
+                  $rClass = 'bg-success text-white';
+                  $statusDisplay = 'Evet (Uygun)';
+                  $actionDisplay = !empty($ans['action_plan']) && $ans['action_plan'] !== 'Denetim Esnasında Girilecek -3' ? htmlspecialchars($ans['action_plan']) : 'Gerekli Önlemler Alınmış';
+                  $probDisplay = 1;
+                  $sevDisplay = 1;
+                  $rScoreDisplay = 1;
+              } elseif ($isMuaf) {
+                  $rClass = 'bg-secondary text-white';
+                  $statusDisplay = 'Denetim Dışı / Muaf';
+                  $actionDisplay = 'Muaf';
+                  $probDisplay = '-';
+                  $sevDisplay = '-';
+                  $rScoreDisplay = '-';
+              } else {
+                  $rClass = 'bg-success text-white';
+                  if ($rScore >= 16) $rClass = 'bg-danger text-white fw-bold';
+                  elseif ($rScore >= 10) $rClass = 'bg-warning text-dark fw-bold';
+                  elseif ($rScore >= 6) $rClass = 'bg-info text-dark fw-bold';
+
+                  $statusDisplay = !empty($ans['current_status']) && strpos($ans['current_status'], 'girilecek') === false ? htmlspecialchars($ans['current_status']) : 'Tespit Edilen Eksiklik Var';
+                  $actionDisplay = !empty($ans['action_plan']) && strpos($ans['action_plan'], 'girilecek') === false ? htmlspecialchars($ans['action_plan']) : 'İyileştirme Yapılmalı';
+                  $probDisplay = $prob > 0 ? $prob : '-';
+                  $sevDisplay = $sev > 0 ? $sev : '-';
+                  $rScoreDisplay = $rScore > 0 ? $rScore : '-';
+              }
+
+              // Her Koşulda Sorumlu ve Süre Gösterilir
+              $responsibleDisplay = !empty($ans['responsible_person']) ? $ans['responsible_person'] : (!empty($ans['default_responsible']) ? $ans['default_responsible'] : 'İşveren');
+              $deadlineDisplay = !empty($ans['deadline']) ? $ans['deadline'] : (!empty($ans['default_deadline']) ? $ans['default_deadline'] : 'Sürekli');
               ?>
               <tr>
                 <td class="fw-bold text-primary"><?php echo htmlspecialchars($ans['group_name'] ?? 'Genel'); ?></td>
@@ -218,24 +246,22 @@ include __DIR__ . '/includes/header.php';
                 <td>
                   <div class="fw-bold text-dark"><?php echo htmlspecialchars($ans['question_text']); ?></div>
                   <div class="mt-1">
-                    <span class="badge bg-light text-dark border"><?php echo htmlspecialchars($ansOption); ?></span>
+                    <span class="badge <?php echo $isEvet ? 'bg-success' : ($isMuaf ? 'bg-secondary' : 'bg-danger'); ?> text-white me-1"><?php echo htmlspecialchars($ansOption); ?></span>
                   </div>
-                  <?php if (!empty($ans['current_status'])): ?>
-                    <div class="text-muted fs-8 mt-1"><em><?php echo htmlspecialchars($ans['current_status']); ?></em></div>
+                  <div class="text-muted fs-8 mt-1"><em><?php echo $statusDisplay; ?></em></div>
+                </td>
+                <td class="text-center fw-bold"><?php echo $probDisplay; ?></td>
+                <td class="text-center fw-bold"><?php echo $sevDisplay; ?></td>
+                <td class="text-center">
+                  <?php if (is_numeric($rScoreDisplay)): ?>
+                    <span class="badge <?php echo $rClass; ?> px-2 py-1 fs-8"><?php echo $rScoreDisplay; ?></span>
+                  <?php else: ?>
+                    <span class="text-muted">-</span>
                   <?php endif; ?>
                 </td>
-                <td class="text-center fw-bold"><?php echo $prob > 0 ? $prob : '-'; ?></td>
-                <td class="text-center fw-bold"><?php echo $sev > 0 ? $sev : '-'; ?></td>
-                <td class="text-center">
-                  <span class="badge <?php echo $rClass; ?> px-2 py-1 fs-8">
-                    <?php echo $rScore > 0 ? $rScore : '-'; ?>
-                  </span>
-                </td>
-                <td>
-                  <?php echo !empty($ans['action_plan']) ? htmlspecialchars($ans['action_plan']) : '<span class="text-muted">-</span>'; ?>
-                </td>
-                <td class="fw-bold text-secondary"><?php echo htmlspecialchars($ans['responsible_person'] ?? '-'); ?></td>
-                <td class="text-muted"><?php echo htmlspecialchars($ans['deadline'] ?? '-'); ?></td>
+                <td><?php echo $actionDisplay; ?></td>
+                <td class="fw-bold text-secondary"><?php echo htmlspecialchars($responsibleDisplay); ?></td>
+                <td class="text-muted"><?php echo htmlspecialchars($deadlineDisplay); ?></td>
               </tr>
             <?php endforeach; ?>
           <?php endif; ?>

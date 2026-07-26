@@ -23,7 +23,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
-  // 3. 9-Step Survey Item Wizard Modal Handler for survey_edit.php
+  // 3. 8-Step Survey Item Wizard Modal Handler for survey_edit.php
   initItemWizardModal();
 
   // 4. Quick AJAX Unit Creator
@@ -146,7 +146,7 @@ function initModernConfirmHandler() {
 }
 
 /**
- * 9-Step Interactive Survey Item Wizard Modal in survey_edit.php
+ * 8-Step Interactive Survey Item Wizard Modal in survey_edit.php
  * Auto-Saves to Database on Completion
  */
 function initItemWizardModal() {
@@ -154,18 +154,17 @@ function initItemWizardModal() {
   if (!wizardModalEl) return;
 
   let currentStep = 1;
-  const totalSteps = 9;
+  const totalSteps = 8;
 
   const stepTitles = [
-    'Adım 1 / 9: Risk Grubu',
-    'Adım 2 / 9: Tehlike Kaynağı',
-    'Adım 3 / 9: Tehlike',
-    'Adım 4 / 9: Etkilenme (Riskler)',
-    'Adım 5 / 9: Etkilenen Gruplar',
-    'Adım 6 / 9: Mevcut Durum',
-    'Adım 7 / 9: Olasılık & Şiddet',
-    'Adım 8 / 9: Alınacak Önlemler',
-    'Adım 9 / 9: Sorumlu & Süre'
+    'Adım 1 / 8: Risk Grubu',
+    'Adım 2 / 8: Tehlike Kaynağı',
+    'Adım 3 / 8: Tehlike',
+    'Adım 4 / 8: Etkilenme (Riskler)',
+    'Adım 5 / 8: Etkilenen Gruplar',
+    'Adım 6 / 8: Denetim Sorusu Metni',
+    'Adım 7 / 8: Varsayılan Önlem Önerisi',
+    'Adım 8 / 8: Sorumlu Birim & Süre'
   ];
 
   const prevBtn = document.getElementById('wizPrevBtn');
@@ -185,28 +184,6 @@ function initItemWizardModal() {
       goToStep(2);
     }
   });
-
-  document.querySelectorAll('.onchange-wiz-calc').forEach(sel => {
-    sel.addEventListener('change', updateWizRiskCalc);
-  });
-
-  function updateWizRiskCalc() {
-    const p = parseInt(document.getElementById('wiz_probability').value) || 1;
-    const s = parseInt(document.getElementById('wiz_severity').value) || 1;
-    const r = p * s;
-
-    let cat = 'Kabul Edilebilir Risk';
-    let color = '#10b981';
-    if (r >= 16) { cat = 'Kabul Edilemez Risk'; color = '#ef4444'; }
-    else if (r >= 10) { cat = 'Dikkate Değer Risk'; color = '#f59e0b'; }
-    else if (r >= 6) { cat = 'Önemli Risk'; color = '#06b6d4'; }
-
-    const resDiv = document.getElementById('wiz_risk_result');
-    if (resDiv) {
-      resDiv.style.color = color;
-      resDiv.textContent = `R = ${r} (${cat})`;
-    }
-  }
 
   if (nextBtn) {
     nextBtn.addEventListener('click', function() {
@@ -266,14 +243,13 @@ function initItemWizardModal() {
     const mainForm = document.getElementById('surveyEditForm');
     if (!mainForm) return;
 
-    let qIndex = Date.now(); // Benzersiz anahtar
+    let qIndex = Date.now();
 
     const rgId = document.getElementById('wiz_risk_group_id').value || 0;
     const hazardSource = document.getElementById('wiz_hazard_source').value || '';
     const hazardName = document.getElementById('wiz_hazard_name').value || '';
     const affectedRisk = document.getElementById('wiz_affected_risk').value || '';
     const affectedPeople = document.getElementById('wiz_affected_people').value || '';
-    const currentStatus = document.getElementById('wiz_current_status').value || '';
     let questionText = document.getElementById('wiz_question_text').value || '';
     if (!questionText) {
       questionText = hazardName ? hazardName : 'Saha Risk Denetim Maddesi';
@@ -282,10 +258,9 @@ function initItemWizardModal() {
     const prob = parseInt(document.getElementById('wiz_probability').value) || 2;
     const sev = parseInt(document.getElementById('wiz_severity').value) || 3;
     const actionPlan = document.getElementById('wiz_action_plan').value || '';
-    const responsible = document.getElementById('wiz_responsible').value || '';
-    const deadline = document.getElementById('wiz_deadline').value || '';
+    const responsible = document.getElementById('wiz_responsible').value || 'İşveren';
+    const deadline = document.getElementById('wiz_deadline').value || 'Sürekli';
 
-    // Hidden Input'ları Forma Ekle ve Anında POST Et
     const hiddenContainer = document.createElement('div');
     hiddenContainer.innerHTML = `
       <input type="hidden" name="new_questions[${qIndex}][risk_group_id]" value="${rgId}">
@@ -293,7 +268,6 @@ function initItemWizardModal() {
       <input type="hidden" name="new_questions[${qIndex}][hazard_name]" value="${hazardName}">
       <input type="hidden" name="new_questions[${qIndex}][affected_risk]" value="${affectedRisk}">
       <input type="hidden" name="new_questions[${qIndex}][affected_people]" value="${affectedPeople}">
-      <input type="hidden" name="new_questions[${qIndex}][current_status]" value="${currentStatus}">
       <input type="hidden" name="new_questions[${qIndex}][question_text]" value="${questionText}">
       <input type="hidden" name="new_questions[${qIndex}][default_probability]" value="${prob}">
       <input type="hidden" name="new_questions[${qIndex}][default_severity]" value="${sev}">

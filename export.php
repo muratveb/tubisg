@@ -32,7 +32,7 @@ if (!$audit) {
 // Cevapları ve Risk Matrisi Bilgilerini Çek
 $answersStmt = $db->prepare("
     SELECT ans.*, sq.question_text, sq.hazard_source, sq.hazard_name, sq.affected_risk, sq.affected_people, 
-           rg.group_name, qo.option_text
+           sq.default_responsible, sq.default_deadline, rg.group_name, qo.option_text
     FROM audit_answers ans
     JOIN survey_questions sq ON ans.question_id = sq.id
     LEFT JOIN risk_groups rg ON sq.risk_group_id = rg.id
@@ -110,11 +110,38 @@ if ($format === 'excel') {
           $sev = (int)$ans['severity'];
           if ($rScore == 0 && $prob > 0 && $sev > 0) $rScore = $prob * $sev;
 
-          $rClass = 'risk-low';
-          if ($rScore >= 16) $rClass = 'risk-high';
-          elseif ($rScore >= 6) $rClass = 'risk-medium';
+          $ansOption = !empty($ans['answer_option']) ? $ans['answer_option'] : ($ans['option_text'] ?? 'Evet (Uygun)');
+          $isEvet = (strpos($ansOption, 'Evet') !== false);
+          $isMuaf = (strpos($ansOption, 'Denetim Dışı') !== false || strpos($ansOption, 'Muaf') !== false);
 
-          $ansOption = !empty($ans['answer_option']) ? $ans['answer_option'] : ($ans['option_text'] ?? '-');
+          if ($isEvet) {
+              $rClass = 'risk-low';
+              $statusDisplay = 'Evet (Uygun)';
+              $actionDisplay = !empty($ans['action_plan']) && strpos($ans['action_plan'], 'girilecek') === false ? htmlspecialchars($ans['action_plan']) : 'Gerekli Önlemler Alınmış';
+              $probDisplay = 1;
+              $sevDisplay = 1;
+              $rScoreDisplay = 1;
+          } elseif ($isMuaf) {
+              $rClass = 'risk-low';
+              $statusDisplay = 'Denetim Dışı / Muaf';
+              $actionDisplay = 'Muaf';
+              $probDisplay = '-';
+              $sevDisplay = '-';
+              $rScoreDisplay = '-';
+          } else {
+              $rClass = 'risk-low';
+              if ($rScore >= 16) $rClass = 'risk-high';
+              elseif ($rScore >= 6) $rClass = 'risk-medium';
+
+              $statusDisplay = !empty($ans['current_status']) && strpos($ans['current_status'], 'girilecek') === false ? htmlspecialchars($ans['current_status']) : 'Tespit Edilen Eksiklik Var';
+              $actionDisplay = !empty($ans['action_plan']) && strpos($ans['action_plan'], 'girilecek') === false ? htmlspecialchars($ans['action_plan']) : 'İyileştirme Yapılmalı';
+              $probDisplay = $prob > 0 ? $prob : '-';
+              $sevDisplay = $sev > 0 ? $sev : '-';
+              $rScoreDisplay = $rScore > 0 ? $rScore : '-';
+          }
+
+          $responsibleDisplay = !empty($ans['responsible_person']) ? $ans['responsible_person'] : (!empty($ans['default_responsible']) ? $ans['default_responsible'] : 'İşveren');
+          $deadlineDisplay = !empty($ans['deadline']) ? $ans['deadline'] : (!empty($ans['default_deadline']) ? $ans['default_deadline'] : 'Sürekli');
           ?>
           <tr>
             <td><strong><?php echo htmlspecialchars($ans['group_name'] ?? 'Genel'); ?></strong></td>
@@ -124,17 +151,15 @@ if ($format === 'excel') {
             <td><?php echo htmlspecialchars($ans['affected_people'] ?? '-'); ?></td>
             <td>
               <strong><?php echo htmlspecialchars($ans['question_text']); ?></strong><br>
-              Cevap: <?php echo htmlspecialchars($ansOption); ?>
-              <?php if (!empty($ans['current_status'])): ?>
-                <br><em><?php echo htmlspecialchars($ans['current_status']); ?></em>
-              <?php endif; ?>
+              Cevap: [<?php echo htmlspecialchars($ansOption); ?>]<br>
+              <em><?php echo $statusDisplay; ?></em>
             </td>
-            <td style="text-align:center;"><?php echo $prob > 0 ? $prob : '-'; ?></td>
-            <td style="text-align:center;"><?php echo $sev > 0 ? $sev : '-'; ?></td>
-            <td class="<?php echo $rClass; ?>"><?php echo $rScore > 0 ? $rScore : '-'; ?></td>
-            <td><?php echo !empty($ans['action_plan']) ? htmlspecialchars($ans['action_plan']) : '-'; ?></td>
-            <td><?php echo htmlspecialchars($ans['responsible_person'] ?? '-'); ?></td>
-            <td><?php echo htmlspecialchars($ans['deadline'] ?? '-'); ?></td>
+            <td style="text-align:center;"><?php echo $probDisplay; ?></td>
+            <td style="text-align:center;"><?php echo $sevDisplay; ?></td>
+            <td class="<?php echo $rClass; ?>"><?php echo $rScoreDisplay; ?></td>
+            <td><?php echo $actionDisplay; ?></td>
+            <td><?php echo htmlspecialchars($responsibleDisplay); ?></td>
+            <td><?php echo htmlspecialchars($deadlineDisplay); ?></td>
           </tr>
         <?php endforeach; ?>
       </tbody>
@@ -216,7 +241,33 @@ if ($format === 'word') {
             $prob = (int)$ans['probability'];
             $sev = (int)$ans['severity'];
             if ($rScore == 0 && $prob > 0 && $sev > 0) $rScore = $prob * $sev;
-            $ansOption = !empty($ans['answer_option']) ? $ans['answer_option'] : ($ans['option_text'] ?? '-');
+            
+            $ansOption = !empty($ans['answer_option']) ? $ans['answer_option'] : ($ans['option_text'] ?? 'Evet (Uygun)');
+            $isEvet = (strpos($ansOption, 'Evet') !== false);
+            $isMuaf = (strpos($ansOption, 'Denetim Dışı') !== false || strpos($ansOption, 'Muaf') !== false);
+
+            if ($isEvet) {
+                $statusDisplay = 'Evet (Uygun)';
+                $actionDisplay = !empty($ans['action_plan']) && strpos($ans['action_plan'], 'girilecek') === false ? htmlspecialchars($ans['action_plan']) : 'Gerekli Önlemler Alınmış';
+                $probDisplay = 1;
+                $sevDisplay = 1;
+                $rScoreDisplay = 1;
+            } elseif ($isMuaf) {
+                $statusDisplay = 'Denetim Dışı / Muaf';
+                $actionDisplay = 'Muaf';
+                $probDisplay = '-';
+                $sevDisplay = '-';
+                $rScoreDisplay = '-';
+            } else {
+                $statusDisplay = !empty($ans['current_status']) && strpos($ans['current_status'], 'girilecek') === false ? htmlspecialchars($ans['current_status']) : 'Tespit Edilen Eksiklik Var';
+                $actionDisplay = !empty($ans['action_plan']) && strpos($ans['action_plan'], 'girilecek') === false ? htmlspecialchars($ans['action_plan']) : 'İyileştirme Yapılmalı';
+                $probDisplay = $prob > 0 ? $prob : '-';
+                $sevDisplay = $sev > 0 ? $sev : '-';
+                $rScoreDisplay = $rScore > 0 ? $rScore : '-';
+            }
+
+            $responsibleDisplay = !empty($ans['responsible_person']) ? $ans['responsible_person'] : (!empty($ans['default_responsible']) ? $ans['default_responsible'] : 'İşveren');
+            $deadlineDisplay = !empty($ans['deadline']) ? $ans['deadline'] : (!empty($ans['default_deadline']) ? $ans['default_deadline'] : 'Sürekli');
             ?>
             <tr>
               <td><?php echo htmlspecialchars($ans['group_name'] ?? 'Genel'); ?></td>
@@ -226,14 +277,15 @@ if ($format === 'word') {
               <td><?php echo htmlspecialchars($ans['affected_people'] ?? '-'); ?></td>
               <td>
                 <?php echo htmlspecialchars($ans['question_text']); ?><br>
-                <em>Cevap: <?php echo htmlspecialchars($ansOption); ?></em>
+                <strong>Cevap: [<?php echo htmlspecialchars($ansOption); ?>]</strong><br>
+                <em><?php echo $statusDisplay; ?></em>
               </td>
-              <td style="text-align:center;"><?php echo $prob > 0 ? $prob : '-'; ?></td>
-              <td style="text-align:center;"><?php echo $sev > 0 ? $sev : '-'; ?></td>
-              <td style="text-align:center; font-weight:bold;"><?php echo $rScore > 0 ? $rScore : '-'; ?></td>
-              <td><?php echo !empty($ans['action_plan']) ? htmlspecialchars($ans['action_plan']) : '-'; ?></td>
-              <td><?php echo htmlspecialchars($ans['responsible_person'] ?? '-'); ?></td>
-              <td><?php echo htmlspecialchars($ans['deadline'] ?? '-'); ?></td>
+              <td style="text-align:center;"><?php echo $probDisplay; ?></td>
+              <td style="text-align:center;"><?php echo $sevDisplay; ?></td>
+              <td style="text-align:center; font-weight:bold;"><?php echo $rScoreDisplay; ?></td>
+              <td><?php echo $actionDisplay; ?></td>
+              <td><?php echo htmlspecialchars($responsibleDisplay); ?></td>
+              <td><?php echo htmlspecialchars($deadlineDisplay); ?></td>
             </tr>
           <?php endforeach; ?>
         </tbody>
@@ -250,7 +302,7 @@ if ($format === 'word') {
 }
 
 // ==========================================
-// 3. PDF EXPORT (İstendiğinde Otomatik PDF İndirme)
+// 3. PDF EXPORT
 // ==========================================
 header("Location: audit_detail.php?id=" . $audit_id . "&download_pdf=1");
 exit;

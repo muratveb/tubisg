@@ -59,7 +59,7 @@ if (!empty($questionIds)) {
     }
 }
 
-// Varsayılan Standart Şıklar (Eğer özel şık tanımlı değilse)
+// Varsayılan Standart Şıklar
 $defaultStandardOptions = [
     ['id' => 0, 'option_text' => 'Evet (Uygun)', 'points' => 0, 'trigger_action' => 0],
     ['id' => 0, 'option_text' => 'Hayır (Uygun Değil)', 'points' => 0, 'trigger_action' => 1],
@@ -106,37 +106,63 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
         
-        $currentStatus = trim($qInput['current_status'] ?? '');
-        if (empty($currentStatus) && !empty($q['current_status'])) {
-            $currentStatus = $q['current_status'];
+        $isEvet = (strpos($selectedOptText, 'Evet') !== false);
+        $isMuaf = (strpos($selectedOptText, 'Denetim Dışı') !== false || strpos($selectedOptText, 'Muaf') !== false);
+
+        if ($isEvet) {
+            $currentStatus = 'Evet (Uygun)';
+            $probability = 1;
+            $severity = 1;
+            $riskScore = 1;
+            $actionPlan = !empty($qInput['action_plan']) ? trim($qInput['action_plan']) : (!empty($q['default_action_plan']) ? trim($q['default_action_plan']) : 'Gerekli Önlemler Alınmış (Uygun)');
+        } elseif ($isMuaf) {
+            $currentStatus = 'Denetim Dışı / Muaf';
+            $probability = 1;
+            $severity = 1;
+            $riskScore = 1;
+            $actionPlan = 'Muaf';
+        } else {
+            // Hayır veya Kısmen Seçildiğinde
+            $currentStatus = trim($qInput['current_status'] ?? '');
+            if (empty($currentStatus)) {
+                $currentStatus = 'Tespit Edilen Eksiklik Var';
+            }
+
+            $probability = (int)($qInput['probability'] ?? ($q['default_probability'] ?? 2));
+            if ($probability < 1) $probability = 1;
+            if ($probability > 5) $probability = 5;
+
+            $severity = (int)($qInput['severity'] ?? ($q['default_severity'] ?? 3));
+            if ($severity < 1) $severity = 1;
+            if ($severity > 5) $severity = 5;
+
+            $riskScore = $probability * $severity;
+
+            $actionPlan = trim($qInput['action_plan'] ?? '');
+            if (empty($actionPlan) && !empty($q['default_action_plan'])) {
+                $actionPlan = $q['default_action_plan'];
+            }
         }
 
-        $probability = (int)($qInput['probability'] ?? ($q['default_probability'] ?? 1));
-        if ($probability < 1) $probability = 1;
-        if ($probability > 5) $probability = 5;
-
-        $severity = (int)($qInput['severity'] ?? ($q['default_severity'] ?? 1));
-        if ($severity < 1) $severity = 1;
-        if ($severity > 5) $severity = 5;
-
-        $riskScore = $probability * $severity;
         if ($riskScore > $maxRiskScoreRecorded) {
             $maxRiskScoreRecorded = $riskScore;
         }
 
-        $actionPlan = trim($qInput['action_plan'] ?? '');
-        if (empty($actionPlan) && !empty($q['default_action_plan'])) {
-            $actionPlan = $q['default_action_plan'];
-        }
-
+        // HER DURUMDA SORUMLU VE SÜRE ANKETE DAHİL EDİLİR
         $responsible = trim($qInput['responsible_person'] ?? '');
         if (empty($responsible) && !empty($q['default_responsible'])) {
             $responsible = $q['default_responsible'];
+        }
+        if (empty($responsible)) {
+            $responsible = 'İşveren / İSG Birimi';
         }
 
         $deadline = trim($qInput['deadline'] ?? '');
         if (empty($deadline) && !empty($q['default_deadline'])) {
             $deadline = $q['default_deadline'];
+        }
+        if (empty($deadline)) {
+            $deadline = 'Sürekli';
         }
 
         if (!empty($selectedOptText)) {
@@ -158,7 +184,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ];
 
         // Otomatik Kütüphane Öğrenme
-        if (!empty($actionPlan) && !in_array($actionPlan, $libRecommendations)) {
+        if (!empty($actionPlan) && !in_array($actionPlan, $libRecommendations) && $actionPlan !== 'Muaf' && $actionPlan !== 'Gerekli Önlemler Alınmış (Uygun)') {
             $db->prepare("INSERT INTO risk_libraries (category, item_text) VALUES ('action_recommendation', ?)")->execute([$actionPlan]);
             log_action('Kütüphaneye Otomatik Önlem Eklendi', "Sahada yazıldı: {$actionPlan}");
         }
@@ -293,7 +319,7 @@ include __DIR__ . '/includes/header.php';
             $defS = (int)($q['default_severity'] ?? 3);
             $isFirstQuestionInGroup = ($groupQIndex === 1);
             ?>
-            <!-- Soru Kartı (İlk soru görünür, sonrakiler 'Sonraki Soru' tıklandıkça sıralı açılır) -->
+            <!-- Soru Kartı -->
             <div class="custom-card question-card mb-4 border-2 step-question-card <?php echo $isFirstQuestionInGroup ? '' : 'd-none'; ?>" 
                  id="q_card_<?php echo $q['id']; ?>" 
                  data-group-step="<?php echo $stepIdx; ?>" 
@@ -354,8 +380,8 @@ include __DIR__ . '/includes/header.php';
 
                 <!-- Mevcut Durum Açıklaması -->
                 <div class="mb-3">
-                  <label class="form-label fw-bold fs-8 text-dark">Mevcut Durum / Tespit Edilen Eksiklik</label>
-                  <input type="text" name="answers[<?php echo $q['id']; ?>][current_status]" class="form-control form-control-sm" placeholder="Örn: Lavabolar tavanda su akıntısı mevcut..." value="<?php echo htmlspecialchars($q['current_status'] ?? ''); ?>">
+                  <label class="form-label fw-bold fs-8 text-dark">Mevcut Durum / Tespit Edilen Eksiklik (Saha Tespiti)</label>
+                  <input type="text" name="answers[<?php echo $q['id']; ?>][current_status]" class="form-control form-control-sm" placeholder="Örn: Lavabolar tavanda su akıntısı mevcut..." value="">
                 </div>
 
                 <!-- Olasılık ($O$) ve Şiddet ($Ş$) Seçimi -->
@@ -382,22 +408,26 @@ include __DIR__ . '/includes/header.php';
                   </div>
                 </div>
 
-                <!-- Önlem Önerisi, Sorumlu ve Süre -->
-                <div class="row g-3">
-                  <div class="col-12 col-md-5">
-                    <label class="form-label fw-bold fs-8 text-dark">Alınacak Önlemler / İyileştirmeler</label>
-                    <input type="text" name="answers[<?php echo $q['id']; ?>][action_plan]" list="recommendations_list" class="form-control form-control-sm" placeholder="Kütüphaneden veya manuel yazın..." value="<?php echo htmlspecialchars($q['default_action_plan'] ?? ''); ?>">
-                  </div>
-                  <div class="col-12 col-md-4">
-                    <label class="form-label fw-bold fs-8 text-dark">Sorumlu Birim / Kişi</label>
-                    <input type="text" name="answers[<?php echo $q['id']; ?>][responsible_person]" list="responsibles_list" class="form-control form-control-sm" placeholder="Kütüphaneden veya manuel yazın..." value="<?php echo htmlspecialchars($q['default_responsible'] ?? ''); ?>">
-                  </div>
-                  <div class="col-12 col-md-3">
-                    <label class="form-label fw-bold fs-8 text-dark">Termin / Süre</label>
-                    <input type="text" name="answers[<?php echo $q['id']; ?>][deadline]" class="form-control form-control-sm" placeholder="Örn: 6 ay" value="<?php echo htmlspecialchars($q['default_deadline'] ?? ''); ?>">
-                  </div>
+                <!-- Önlem Önerisi -->
+                <div class="mb-3">
+                  <label class="form-label fw-bold fs-8 text-dark">Alınacak Önlemler / İyileştirmeler</label>
+                  <input type="text" name="answers[<?php echo $q['id']; ?>][action_plan]" list="recommendations_list" class="form-control form-control-sm" placeholder="Kütüphaneden veya manuel yazın..." value="<?php echo htmlspecialchars($q['default_action_plan'] ?? ''); ?>">
                 </div>
 
+              </div>
+
+              <!-- Sorumlu ve Süre/Termin Alanı (HER DURUMDA AKTİF & GÖRÜNÜR) -->
+              <div class="p-2 bg-light rounded-3 border mb-3">
+                <div class="row g-2">
+                  <div class="col-12 col-md-7">
+                    <label class="form-label fw-bold fs-8 text-dark mb-1"><i class="bi bi-person-badge text-primary me-1"></i> Sorumlu Birim / Kişi</label>
+                    <input type="text" name="answers[<?php echo $q['id']; ?>][responsible_person]" list="responsibles_list" class="form-control form-control-sm" placeholder="Örn: Tekn. Hiz. Yön. / İşveren" value="<?php echo htmlspecialchars($q['default_responsible'] ?? 'İşveren'); ?>">
+                  </div>
+                  <div class="col-12 col-md-5">
+                    <label class="form-label fw-bold fs-8 text-dark mb-1"><i class="bi bi-clock-history text-success me-1"></i> Süre / Termin</label>
+                    <input type="text" name="answers[<?php echo $q['id']; ?>][deadline]" class="form-control form-control-sm" placeholder="Örn: 6 Ay, Sürekli" value="<?php echo htmlspecialchars($q['default_deadline'] ?? 'Sürekli'); ?>">
+                  </div>
+                </div>
               </div>
 
               <!-- SONRAKİ SORU / İLERLEME BUTONU -->
@@ -482,7 +512,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
       }
 
-      // Risk Değerlendirme & İyileştirme Kartını Göster / Gizle
+      // Risk Değerlendirme & İyileştirme Kartını Göster / Gizle (Sadece Hayır / Kısmen Seçilirse)
       const riskPanel = document.getElementById('risk_panel_' + qId);
       if (riskPanel) {
         if (val.includes('Hayır') || val.includes('Kısmen') || isTrigger) {
