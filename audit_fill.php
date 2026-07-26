@@ -1,6 +1,6 @@
 <?php
 /**
- * Tubİsg - Saha Risk Denetimi & Matris Doldurma Ekranı
+ * Tubİsg - Saha Risk Denetimi & Akıllı Matris Doldurma Ekranı (Autocomplete & Dinamik Tetikleyicili)
  */
 require_once __DIR__ . '/includes/auth.php';
 require_permission('audit_conduct');
@@ -57,9 +57,29 @@ foreach ($questions as $q) {
     $groupedQuestions[$groupName][] = $q;
 }
 
+// Autocomplete Verilerini Çek (Kütüphane + Önceki Denetim Kayıtları)
+$libRecommendations = $db->query("
+    SELECT item_text FROM risk_libraries WHERE category = 'action_recommendation'
+    UNION
+    SELECT DISTINCT action_plan AS item_text FROM audit_answers WHERE action_plan IS NOT NULL AND action_plan != ''
+    ORDER BY item_text ASC
+")->fetchAll(PDO::FETCH_COLUMN);
+
+$libResponsibles = $db->query("
+    SELECT item_text FROM risk_libraries WHERE category = 'responsible_person'
+    UNION
+    SELECT DISTINCT responsible_person AS item_text FROM audit_answers WHERE responsible_person IS NOT NULL AND responsible_person != ''
+    ORDER BY item_text ASC
+")->fetchAll(PDO::FETCH_COLUMN);
+
+$libStatuses = $db->query("
+    SELECT DISTINCT current_status AS item_text FROM audit_answers WHERE current_status IS NOT NULL AND current_status != ''
+    ORDER BY item_text ASC
+")->fetchAll(PDO::FETCH_COLUMN);
+
 // Denetim Formu Kaydedildiğinde
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $answersInput = $_POST['answers'] ?? []; // format: [question_id => [option_text, option_id, current_status, probability, severity, action_plan, responsible_person, deadline]]
+    $answersInput = $_POST['answers'] ?? [];
     $notes = trim($_POST['notes'] ?? '');
 
     $totalScore = 0;
@@ -92,16 +112,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // Puanlama Mantığı
         $ptsAwarded = 0;
-        if ($selectedOptText === 'Evet') {
+        if (strpos($selectedOptText, 'Evet') !== false) {
             $ptsAwarded = 10;
-        } elseif ($selectedOptText === 'Kısmen') {
+        } elseif (strpos($selectedOptText, 'Kısmen') !== false) {
             $ptsAwarded = 5;
-        } elseif ($selectedOptText === 'Hayır') {
+        } elseif (strpos($selectedOptText, 'Hayır') !== false) {
             $ptsAwarded = 0;
-        } elseif ($selectedOptText === 'Muaf') {
-            $ptsAwarded = 10; // Muaf sorular puandan düşülür veya tam kabul edilir
+        } elseif (strpos($selectedOptText, 'Muaf') !== false || strpos($selectedOptText, 'Denetim Dışı') !== false) {
+            $ptsAwarded = 10;
         } else {
-            // Standart seçeneklerden eşleşen varsa puanını al
             foreach ($q['options'] as $opt) {
                 if ((int)$opt['id'] === $selectedOptId) {
                     $ptsAwarded = (int)$opt['points'];
@@ -128,6 +147,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'responsible_person' => $responsible,
             'deadline'           => $deadline
         ];
+
+        // Eğer yeni bir önlem veya sorumlu yazılmışsa Kütüphaneye de Ekle (Gelişmiş Öğrenme)
+        if (!empty($actionPlan) && !in_array($actionPlan, $libRecommendations)) {
+            $db->prepare("INSERT INTO risk_libraries (category, item_text) VALUES ('action_recommendation', ?)")->execute([$actionPlan]);
+        }
+        if (!empty($responsible) && !in_array($responsible, $libResponsibles)) {
+            $db->prepare("INSERT INTO risk_libraries (category, item_text) VALUES ('responsible_person', ?)")->execute([$responsible]);
+        }
     }
 
     $percentageScore = 0.00;
@@ -169,7 +196,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     log_action('Saha Denetimi Tamamlandı', "Birim: {$unit['unit_name']}, Anket: {$template['title']}, Skor: %{$percentageScore} (#DEN-" . sprintf('%04d', $auditId) . ")");
 
-    set_flash('success', 'Birim bazlı İSG risk denetimi başarıyla kaydedildi ve risk analizi raporu oluşturuldu.');
+    set_flash('success', 'Birim bazlı İSG risk denetimi ve otomatik önlem analizi kaydedildi.');
     header("Location: audit_detail.php?id=" . $auditId);
     exit;
 }
@@ -177,6 +204,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $pageTitle = 'Saha Risk Denetimi: ' . $unit['unit_name'];
 include __DIR__ . '/includes/header.php';
 ?>
+
+<!-- Otomatik Tamamlama (Autocomplete Datalists) -->
+<datalist id="recommendations_list">
+  <?php foreach ($libRecommendations as $rec): ?>
+    <option value="<?php echo htmlspecialchars($rec); ?>"></option>
+  <?php endforeach; ?>
+</datalist>
+
+<datalist id="responsibles_list">
+  <?php foreach ($libResponsibles as $resp): ?>
+    <option value="<?php echo htmlspecialchars($resp); ?>"></option>
+  <?php endforeach; ?>
+</datalist>
+
+<datalist id="statuses_list">
+  <?php foreach ($libStatuses as $st): ?>
+    <option value="<?php echo htmlspecialchars($st); ?>"></option>
+  <?php endforeach; ?>
+</datalist>
 
 <!-- Üst Başlık ve Sabit Skor Rozeti Barı -->
 <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2 mb-3">
@@ -247,35 +293,54 @@ include __DIR__ . '/includes/header.php';
             <?php endif; ?>
           </div>
 
-          <!-- Cevap Seçenek Butonları (Evet, Hayır, Kısmen, Muaf) -->
+          <!-- Dinamik Cevap Seçenek Butonları -->
           <div class="row g-2 mb-3">
-            <div class="col-6 col-md-3">
-              <label class="btn btn-outline-success w-100 font-weight-bold py-2 answer-btn-label">
-                <input type="radio" name="answers[<?php echo $q['id']; ?>][answer_option]" value="Evet" class="d-none answer-radio" data-qid="<?php echo $q['id']; ?>">
-                <i class="bi bi-check-circle-fill me-1"></i> Evet (Uygun)
-              </label>
-            </div>
-            <div class="col-6 col-md-3">
-              <label class="btn btn-outline-danger w-100 font-weight-bold py-2 answer-btn-label">
-                <input type="radio" name="answers[<?php echo $q['id']; ?>][answer_option]" value="Hayır" class="d-none answer-radio" data-qid="<?php echo $q['id']; ?>">
-                <i class="bi bi-x-circle-fill me-1"></i> Hayır (Riskli)
-              </label>
-            </div>
-            <div class="col-6 col-md-3">
-              <label class="btn btn-outline-warning text-dark w-100 font-weight-bold py-2 answer-btn-label">
-                <input type="radio" name="answers[<?php echo $q['id']; ?>][answer_option]" value="Kısmen" class="d-none answer-radio" data-qid="<?php echo $q['id']; ?>">
-                <i class="bi bi-exclamation-triangle-fill me-1"></i> Kısmen
-              </label>
-            </div>
-            <div class="col-6 col-md-3">
-              <label class="btn btn-outline-secondary w-100 font-weight-bold py-2 answer-btn-label">
-                <input type="radio" name="answers[<?php echo $q['id']; ?>][answer_option]" value="Muaf" class="d-none answer-radio" data-qid="<?php echo $q['id']; ?>">
-                <i class="bi bi-dash-circle-fill me-1"></i> Muaf / Uyg.
-              </label>
-            </div>
+            <?php if (!empty($q['options'])): ?>
+              <?php foreach ($q['options'] as $opt): ?>
+                <?php
+                $optText = $opt['option_text'];
+                $isDanger = (strpos($optText, 'Hayır') !== false || $opt['trigger_action'] == 1);
+                $isWarning = strpos($optText, 'Kısmen') !== false;
+                $btnColorClass = $isDanger ? 'btn-outline-danger' : ($isWarning ? 'btn-outline-warning text-dark' : 'btn-outline-success');
+                ?>
+                <div class="col-6 col-md-3">
+                  <label class="btn <?php echo $btnColorClass; ?> w-100 font-weight-bold py-2 answer-btn-label">
+                    <input type="radio" name="answers[<?php echo $q['id']; ?>][answer_option]" value="<?php echo htmlspecialchars($optText); ?>" data-optid="<?php echo $opt['id']; ?>" data-trigger="<?php echo $opt['trigger_action']; ?>" class="d-none answer-radio" data-qid="<?php echo $q['id']; ?>">
+                    <i class="bi <?php echo $isDanger ? 'bi-x-circle-fill' : ($isWarning ? 'bi-exclamation-triangle-fill' : 'bi-check-circle-fill'); ?> me-1"></i>
+                    <?php echo htmlspecialchars($optText); ?>
+                  </label>
+                </div>
+              <?php endforeach; ?>
+            <?php else: ?>
+              <!-- Varsayılan Butonlar -->
+              <div class="col-6 col-md-3">
+                <label class="btn btn-outline-success w-100 font-weight-bold py-2 answer-btn-label">
+                  <input type="radio" name="answers[<?php echo $q['id']; ?>][answer_option]" value="Evet" data-trigger="0" class="d-none answer-radio" data-qid="<?php echo $q['id']; ?>">
+                  <i class="bi bi-check-circle-fill me-1"></i> Evet (Uygun)
+                </label>
+              </div>
+              <div class="col-6 col-md-3">
+                <label class="btn btn-outline-danger w-100 font-weight-bold py-2 answer-btn-label">
+                  <input type="radio" name="answers[<?php echo $q['id']; ?>][answer_option]" value="Hayır" data-trigger="1" class="d-none answer-radio" data-qid="<?php echo $q['id']; ?>">
+                  <i class="bi bi-x-circle-fill me-1"></i> Hayır (Riskli)
+                </label>
+              </div>
+              <div class="col-6 col-md-3">
+                <label class="btn btn-outline-warning text-dark w-100 font-weight-bold py-2 answer-btn-label">
+                  <input type="radio" name="answers[<?php echo $q['id']; ?>][answer_option]" value="Kısmen" data-trigger="1" class="d-none answer-radio" data-qid="<?php echo $q['id']; ?>">
+                  <i class="bi bi-exclamation-triangle-fill me-1"></i> Kısmen
+                </label>
+              </div>
+              <div class="col-6 col-md-3">
+                <label class="btn btn-outline-secondary w-100 font-weight-bold py-2 answer-btn-label">
+                  <input type="radio" name="answers[<?php echo $q['id']; ?>][answer_option]" value="Denetim Dışı" data-trigger="0" class="d-none answer-radio" data-qid="<?php echo $q['id']; ?>">
+                  <i class="bi bi-dash-circle-fill me-1"></i> Denetim Dışı
+                </label>
+              </div>
+            <?php endif; ?>
           </div>
 
-          <!-- Riskli / Kısmen Seçildiğinde Açılan 5x5 Risk Matrisi & Önlem Alanları -->
+          <!-- Riskli / Kısmen Veya Tetikleyici Aktif Olduğunda Açılan 5x5 Risk Matrisi & Otomatik Tamamlamalı Önlem Kartı -->
           <div class="risk-matrix-panel d-none p-3 rounded-3 bg-light border border-warning" id="risk_panel_<?php echo $q['id']; ?>">
             <div class="d-flex align-items-center justify-content-between mb-3 border-bottom pb-2">
               <h6 class="fw-bold text-danger m-0 fs-7">
@@ -284,10 +349,10 @@ include __DIR__ . '/includes/header.php';
               <span class="badge bg-danger" id="risk_badge_<?php echo $q['id']; ?>">RİSK SKORU: 1 (Kabul Edilebilir)</span>
             </div>
 
-            <!-- Mevcut Durum Açıklaması -->
+            <!-- Mevcut Durum Açıklaması (Otomatik Tamamlamalı) -->
             <div class="mb-3">
-              <label class="form-label fw-bold fs-8 text-dark">Mevcut Durum / Tespit Edilen Eksiklik</label>
-              <textarea name="answers[<?php echo $q['id']; ?>][current_status]" class="form-control form-control-sm" rows="2" placeholder="Örn: Lavabolar tavanda su akıntısı mevcut veya baret takılmıyor..."></textarea>
+              <label class="form-label fw-bold fs-8 text-dark">Mevcut Durum / Tespit Edilen Eksiklik (Yazdıkça Önerilir)</label>
+              <input type="text" name="answers[<?php echo $q['id']; ?>][current_status]" list="statuses_list" class="form-control form-control-sm" placeholder="Örn: Lavabolar tavanda su akıntısı mevcut...">
             </div>
 
             <!-- Olasılık ($O$) ve Şiddet ($Ş$) Seçimi -->
@@ -315,16 +380,16 @@ include __DIR__ . '/includes/header.php';
               </div>
             </div>
 
-            <!-- Alınacak Önlemler, Sorumlu ve Termin -->
+            <!-- Alınacak Önlemler (Otomatik Tamamlamalı) -->
             <div class="mb-3">
-              <label class="form-label fw-bold fs-8 text-dark">Alınacak Önlemler / İyileştirmeler</label>
-              <textarea name="answers[<?php echo $q['id']; ?>][action_plan]" class="form-control form-control-sm" rows="2" placeholder="Örn: Lavabo (WC) tavanlarında gerekli yalıtımın sağlanması..."></textarea>
+              <label class="form-label fw-bold fs-8 text-dark"><i class="bi bi-lightbulb-fill text-warning"></i> Alınacak Önlemler / İyileştirmeler (Yazdıkça Kütüphaneden Önerilir)</label>
+              <input type="text" name="answers[<?php echo $q['id']; ?>][action_plan]" list="recommendations_list" class="form-control form-control-sm" placeholder="Örn: Lavabo (WC) tavanlarında gerekli yalıtımın sağlanması...">
             </div>
 
             <div class="row g-2">
               <div class="col-12 col-md-6">
-                <label class="form-label fw-bold fs-8 text-muted">Sorumlu Birim / Kişi</label>
-                <input type="text" name="answers[<?php echo $q['id']; ?>][responsible_person]" class="form-control form-control-sm" placeholder="Örn: Tekn. Hiz. Yön.">
+                <label class="form-label fw-bold fs-8 text-muted">Sorumlu Birim / Kişi (Otomatik Tamamlamalı)</label>
+                <input type="text" name="answers[<?php echo $q['id']; ?>][responsible_person]" list="responsibles_list" class="form-control form-control-sm" placeholder="Örn: Tekn. Hiz. Yön.">
               </div>
               <div class="col-12 col-md-6">
                 <label class="form-label fw-bold fs-8 text-muted">Termin / Süre</label>
@@ -360,32 +425,25 @@ include __DIR__ . '/includes/header.php';
 <script>
 document.addEventListener('DOMContentLoaded', function() {
   
-  // 1. Cevap Butonlarına Tıklama Mantığı
+  // 1. Cevap Butonlarına Tıklama ve Tetikleyici Mantığı
   document.querySelectorAll('.answer-radio').forEach(radio => {
     radio.addEventListener('change', function() {
       const qId = this.dataset.qid;
       const val = this.value;
+      const trigger = parseInt(this.dataset.trigger || '0');
       const label = this.closest('.answer-btn-label');
       const qCard = document.getElementById('q_card_' + qId);
       const riskPanel = document.getElementById('risk_panel_' + qId);
 
-      // Gruptaki tüm butonların active sınıfını kaldır
       qCard.querySelectorAll('.answer-btn-label').forEach(lbl => {
         lbl.classList.remove('active', 'btn-success', 'btn-danger', 'btn-warning', 'btn-secondary');
-        lbl.classList.add(lbl.dataset.defaultClass || 'btn-outline-secondary');
       });
 
-      if (val === 'Evet') {
+      if (trigger === 1 || val.includes('Hayır') || val.includes('Kısmen')) {
+        label.classList.add('active', val.includes('Kısmen') ? 'btn-warning' : 'btn-danger');
+        if (riskPanel) riskPanel.classList.remove('d-none');
+      } else {
         label.classList.add('active', 'btn-success');
-        if (riskPanel) riskPanel.classList.add('d-none');
-      } else if (val === 'Hayır') {
-        label.classList.add('active', 'btn-danger');
-        if (riskPanel) riskPanel.classList.remove('d-none');
-      } else if (val === 'Kısmen') {
-        label.classList.add('active', 'btn-warning');
-        if (riskPanel) riskPanel.classList.remove('d-none');
-      } else if (val === 'Muaf') {
-        label.classList.add('active', 'btn-secondary');
         if (riskPanel) riskPanel.classList.add('d-none');
       }
 
@@ -394,7 +452,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   });
 
-  // 2. Risk Skoru Hesaplama (Olasılık x Şiddet = Risk Derecesi)
+  // 2. Risk Skoru Hesaplama ($O \times Ş$)
   document.querySelectorAll('.risk-calc-select').forEach(select => {
     select.addEventListener('change', function() {
       const qId = this.dataset.qid;
@@ -432,12 +490,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
   function updateTotalScore() {
     let total = 0;
-    let answered = 0;
     const radios = document.querySelectorAll('.answer-radio:checked');
     radios.forEach(r => {
-      answered++;
-      if (r.value === 'Evet' || r.value === 'Muaf') total += 10;
-      else if (r.value === 'Kısmen') total += 5;
+      if (r.value.includes('Evet') || r.value.includes('Muaf') || r.value.includes('Denetim Dışı')) total += 10;
+      else if (r.value.includes('Kısmen')) total += 5;
     });
 
     const totalQuestions = document.querySelectorAll('.question-card').length;

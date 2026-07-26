@@ -67,6 +67,10 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         <i class="bi bi-exclamation-triangle-fill text-warning"></i>
         <span>Risk Grupları</span>
       </a>
+      <a href="risk_libraries.php" class="nav-link-custom <?php echo $currentPage == 'risk_libraries.php' ? 'active' : ''; ?>">
+        <i class="bi bi-book-fill text-primary"></i>
+        <span>İSG Kütüphaneleri</span>
+      </a>
       <?php endif; ?>
 
       <?php if (has_permission('units_manage')): ?>

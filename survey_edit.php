@@ -1,6 +1,6 @@
 <?php
 /**
- * Tubİsg - Anket Soruları & İSG Risk Matris Editörü
+ * Tubİsg - Anket Soruları, İSG Risk Matrisi & Tetikleyici Editörü
  */
 require_once __DIR__ . '/includes/auth.php';
 require_permission('surveys_manage');
@@ -27,6 +27,11 @@ if (!$template) {
 
 // Risk Gruplarını Çek
 $riskGroups = $db->query("SELECT * FROM risk_groups ORDER BY sort_order ASC, group_name ASC")->fetchAll();
+
+// İSG Kütüphanelerinden Autocomplete Verilerini Çek
+$libSources = $db->query("SELECT item_text FROM risk_libraries WHERE category = 'hazard_source' ORDER BY item_text ASC")->fetchAll(PDO::FETCH_COLUMN);
+$libHazards = $db->query("SELECT item_text FROM risk_libraries WHERE category = 'hazard_name' ORDER BY item_text ASC")->fetchAll(PDO::FETCH_COLUMN);
+$libAffected = $db->query("SELECT item_text FROM risk_libraries WHERE category = 'affected_people' ORDER BY item_text ASC")->fetchAll(PDO::FETCH_COLUMN);
 
 // Form Post İşlemleri (Güncelleme / Soru Ekleme / Silme)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -82,8 +87,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     foreach ($qData['options'] as $optId => $optData) {
                         $optText = trim($optData['text'] ?? '');
                         $points = (int)($optData['points'] ?? 0);
+                        $trigger = isset($optData['trigger_action']) && $optData['trigger_action'] == 1 ? 1 : 0;
                         if (!empty($optText)) {
-                            $db->prepare("UPDATE question_options SET option_text = ?, points = ? WHERE id = ? AND question_id = ?")->execute([$optText, $points, $optId, $qId]);
+                            $db->prepare("UPDATE question_options SET option_text = ?, points = ?, trigger_action = ? WHERE id = ? AND question_id = ?")->execute([$optText, $points, $trigger, $optId, $qId]);
                         }
                     }
                 }
@@ -91,7 +97,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    // 4. Yeni Dinamik Soruları Kaydetme
+    // 4. Yeni Soru Ekleme
     if (isset($_POST['new_questions']) && is_array($_POST['new_questions'])) {
         foreach ($_POST['new_questions'] as $newQ) {
             $qText = trim($newQ['text'] ?? '');
@@ -118,21 +124,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $qId = $db->lastInsertId();
 
                 if (isset($newQ['options']) && is_array($newQ['options'])) {
-                    $stmtOpt = $db->prepare("INSERT INTO question_options (question_id, option_text, points) VALUES (?, ?, ?)");
+                    $stmtOpt = $db->prepare("INSERT INTO question_options (question_id, option_text, points, trigger_action) VALUES (?, ?, ?, ?)");
                     foreach ($newQ['options'] as $opt) {
                         $optText = trim($opt['text'] ?? '');
                         $points = (int)($opt['points'] ?? 0);
+                        $trigger = isset($opt['trigger_action']) && $opt['trigger_action'] == 1 ? 1 : 0;
                         if (!empty($optText)) {
-                            $stmtOpt->execute([$qId, $optText, $points]);
+                            $stmtOpt->execute([$qId, $optText, $points, $trigger]);
                         }
+                    }
+                } else {
+                    // Varsayılan 4 Standart İSG Seçeneği Ekle (Evet, Hayır, Kısmen, Denetim Dışı)
+                    $defaultOptions = [
+                        ['text' => 'Evet (Uygun)', 'points' => 10, 'trigger' => 0],
+                        ['text' => 'Hayır (Uygun Değil)', 'points' => 0, 'trigger' => 1],
+                        ['text' => 'Kısmen (Kısmen Uygun)', 'points' => 5, 'trigger' => 1],
+                        ['text' => 'Denetim Dışı / Muaf', 'points' => 10, 'trigger' => 0]
+                    ];
+                    $stmtOpt = $db->prepare("INSERT INTO question_options (question_id, option_text, points, trigger_action) VALUES (?, ?, ?, ?)");
+                    foreach ($defaultOptions as $defOpt) {
+                        $stmtOpt->execute([$qId, $defOpt['text'], $defOpt['points'], $defOpt['trigger']]);
                     }
                 }
             }
         }
     }
 
-    log_action('Anket Soruları Güncellendi', "Anket: {$template['title']} (ID: #{$template_id}) soruları ve İSG risk matrisi bilgileri güncellendi.");
-    set_flash('success', 'Anket soruları ve İSG risk matrisi bilgileri başarıyla güncellendi.');
+    log_action('Anket Soruları Güncellendi', "Anket: {$template['title']} (ID: #{$template_id}) soruları ve kütüphane bağlantıları güncellendi.");
+    set_flash('success', 'Anket soruları, seçenek tetikleyicileri ve risk matrisi bilgileri güncellendi.');
     header("Location: survey_edit.php?id=" . $template_id);
     exit;
 }
@@ -155,9 +174,28 @@ foreach ($questions as &$q) {
 }
 unset($q);
 
-$pageTitle = 'Anket & Risk Tanımları: ' . $template['title'];
+$pageTitle = 'Anket Soruları & Risk Editörü: ' . $template['title'];
 include __DIR__ . '/includes/header.php';
 ?>
+
+<!-- HTML5 Autocomplete Datalist Öğeleri -->
+<datalist id="hazard_sources_list">
+  <?php foreach ($libSources as $src): ?>
+    <option value="<?php echo htmlspecialchars($src); ?>"></option>
+  <?php endforeach; ?>
+</datalist>
+
+<datalist id="hazards_list">
+  <?php foreach ($libHazards as $hz): ?>
+    <option value="<?php echo htmlspecialchars($hz); ?>"></option>
+  <?php endforeach; ?>
+</datalist>
+
+<datalist id="affected_list">
+  <?php foreach ($libAffected as $aff): ?>
+    <option value="<?php echo htmlspecialchars($aff); ?>"></option>
+  <?php endforeach; ?>
+</datalist>
 
 <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-4">
   <div>
@@ -165,9 +203,12 @@ include __DIR__ . '/includes/header.php';
       <i class="bi bi-arrow-left"></i> Anket Profillerine Dön
     </a>
     <h3 class="fw-extrabold m-0"><?php echo htmlspecialchars($template['title']); ?></h3>
-    <p class="text-muted fs-7 m-0">Risk Grupları, Tehlike Kaynağı, Etkilenenler ve Cevap Puan Haritasını yönetin</p>
+    <p class="text-muted fs-7 m-0">Risk Grupları, Kütüphane Otomatik Tamamlamaları ve Seçenek Tetikleyicilerini yönetin</p>
   </div>
   <div class="d-flex gap-2">
+    <a href="risk_libraries.php" target="_blank" class="btn btn-outline-primary font-weight-bold">
+      <i class="bi bi-book-fill"></i> İSG Kütüphanesi
+    </a>
     <button type="button" id="addQuestionBtn" class="btn btn-outline-success font-weight-bold">
       <i class="bi bi-plus-circle-fill"></i> Yeni Risk Sorusu Ekle
     </button>
@@ -211,13 +252,13 @@ include __DIR__ . '/includes/header.php';
               </div>
 
               <div class="col-12 col-md-4">
-                <label class="form-label fw-bold fs-8 text-muted">Tehlike Kaynağı</label>
-                <input type="text" name="questions[<?php echo $q['id']; ?>][hazard_source]" class="form-control form-control-sm" placeholder="Örn: Lavabo/WC tavanı, Ekranlı Araçlar" value="<?php echo htmlspecialchars($q['hazard_source'] ?? ''); ?>">
+                <label class="form-label fw-bold fs-8 text-muted">Tehlike Kaynağı (Otomatik Tamamlamalı)</label>
+                <input type="text" name="questions[<?php echo $q['id']; ?>][hazard_source]" list="hazard_sources_list" class="form-control form-control-sm" placeholder="Örn: Lavabo/WC tavanı, Ekranlı Araçlar" value="<?php echo htmlspecialchars($q['hazard_source'] ?? ''); ?>">
               </div>
 
               <div class="col-12 col-md-4">
-                <label class="form-label fw-bold fs-8 text-muted">Tehlike Metni</label>
-                <input type="text" name="questions[<?php echo $q['id']; ?>][hazard_name]" class="form-control form-control-sm" placeholder="Örn: Enfeksiyon, Uzun süre sabit oturma" value="<?php echo htmlspecialchars($q['hazard_name'] ?? ''); ?>">
+                <label class="form-label fw-bold fs-8 text-muted">Tehlike Metni (Otomatik Tamamlamalı)</label>
+                <input type="text" name="questions[<?php echo $q['id']; ?>][hazard_name]" list="hazards_list" class="form-control form-control-sm" placeholder="Örn: Enfeksiyon, Uzun süre sabit oturma" value="<?php echo htmlspecialchars($q['hazard_name'] ?? ''); ?>">
               </div>
             </div>
 
@@ -229,32 +270,40 @@ include __DIR__ . '/includes/header.php';
               </div>
 
               <div class="col-12 col-md-6">
-                <label class="form-label fw-bold fs-8 text-muted">Etkilenenler</label>
-                <input type="text" name="questions[<?php echo $q['id']; ?>][affected_people]" class="form-control form-control-sm" placeholder="Örn: Çalışanlar (Doktor, Hemşire), Hasta ve yakınları" value="<?php echo htmlspecialchars($q['affected_people'] ?? ''); ?>">
+                <label class="form-label fw-bold fs-8 text-muted">Etkilenenler (Otomatik Tamamlamalı)</label>
+                <input type="text" name="questions[<?php echo $q['id']; ?>][affected_people]" list="affected_list" class="form-control form-control-sm" placeholder="Örn: Çalışanlar (Doktor, Hemşire), Hasta ve yakınları" value="<?php echo htmlspecialchars($q['affected_people'] ?? ''); ?>">
               </div>
             </div>
 
             <!-- Soru Metni -->
             <div class="mb-3">
-              <label class="form-label fw-bold">Kontrol / Sorulan Metin</label>
+              <label class="form-label fw-bold">Kontrol / Denetim Sorusu Metni</label>
               <input type="text" name="questions[<?php echo $q['id']; ?>][text]" class="form-control" value="<?php echo htmlspecialchars($q['question_text']); ?>" placeholder="Örn: Lavabo tavanlarında su sızıntısı veya yalıtım eksikliği var mı?" required>
             </div>
 
-            <!-- Cevap Seçenekleri -->
+            <!-- Cevap Seçenekleri & Tetikleyici Şartları -->
             <div class="mb-2 d-flex align-items-center justify-content-between">
-              <label class="form-label fw-bold m-0 fs-8 text-muted"><i class="bi bi-list-check"></i> Cevap Seçenekleri & Puanlar</label>
+              <label class="form-label fw-bold m-0 fs-8 text-muted"><i class="bi bi-list-check"></i> Cevap Seçenekleri, Puanlar & Önlem Kartı Tetikleyicisi</label>
             </div>
 
             <div class="options-list-container">
               <?php foreach ($q['options'] as $opt): ?>
                 <div class="row g-2 mb-2 option-row align-items-center">
-                  <div class="col-7">
+                  <div class="col-5">
                     <input type="text" name="questions[<?php echo $q['id']; ?>][options][<?php echo $opt['id']; ?>][text]" class="form-control form-control-sm" value="<?php echo htmlspecialchars($opt['option_text']); ?>" required>
                   </div>
-                  <div class="col-4">
+                  <div class="col-3">
                     <div class="input-group input-group-sm">
                       <span class="input-group-text bg-light fw-bold">Puan</span>
                       <input type="number" name="questions[<?php echo $q['id']; ?>][options][<?php echo $opt['id']; ?>][points]" class="form-control" value="<?php echo (int)$opt['points']; ?>" required>
+                    </div>
+                  </div>
+                  <div class="col-3">
+                    <div class="form-check form-switch pt-1">
+                      <input class="form-check-input" type="checkbox" name="questions[<?php echo $q['id']; ?>][options][<?php echo $opt['id']; ?>][trigger_action]" value="1" id="trig_<?php echo $opt['id']; ?>" <?php echo $opt['trigger_action'] == 1 ? 'checked' : ''; ?>>
+                      <label class="form-check-label fs-8 fw-bold text-danger" for="trig_<?php echo $opt['id']; ?>">
+                        Önlem Kartı Açsın
+                      </label>
                     </div>
                   </div>
                   <div class="col-1 text-end">
@@ -273,7 +322,7 @@ include __DIR__ . '/includes/header.php';
 
   <!-- Kaydet Butonu Barı -->
   <div class="custom-card p-3 d-flex align-items-center justify-content-between sticky-bottom bg-white shadow-lg border-top border-2 border-primary mb-5" style="z-index:90;">
-    <span class="text-muted fs-8"><i class="bi bi-info-circle me-1"></i> Yapılan tüm soru, risk ve puan değişikliklerini kaydetmek için tıklayın.</span>
+    <span class="text-muted fs-8"><i class="bi bi-info-circle me-1"></i> Yapılan tüm soru, risk, puan ve tetikleyici değişikliklerini kaydetmek için tıklayın.</span>
     <button type="submit" class="btn btn-primary-custom px-4 py-2 font-weight-bold">
       <i class="bi bi-check-circle-fill"></i> Tüm Değişiklikleri Kaydet
     </button>

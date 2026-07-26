@@ -43,7 +43,15 @@ CREATE TABLE IF NOT EXISTS `risk_groups` (
   `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 5. Anket Profilleri / Şablonları (Hastane İSG, Fabrika İSG vb.)
+-- 5. İSG Tanımlama Kütüphaneleri Tablosu (Tehlike Kaynakları, Tehlikeler, Etkilenenler, Sorumlular, Önlem Bankası)
+CREATE TABLE IF NOT EXISTS `risk_libraries` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `category` ENUM('hazard_source', 'hazard_name', 'affected_people', 'responsible_person', 'action_recommendation') NOT NULL,
+  `item_text` TEXT NOT NULL,
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 6. Anket Profilleri / Şablonları (Hastane İSG, Fabrika İSG vb.)
 CREATE TABLE IF NOT EXISTS `survey_templates` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `title` VARCHAR(150) NOT NULL,
@@ -54,7 +62,7 @@ CREATE TABLE IF NOT EXISTS `survey_templates` (
   `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 6. Anket Soruları Tablosu (Tehlike Kaynağı, Tehlike, Risk ve Etkilenenler Alanları ile)
+-- 7. Anket Soruları Tablosu (Tehlike Kaynağı, Tehlike, Risk ve Etkilenenler Alanları ile)
 CREATE TABLE IF NOT EXISTS `survey_questions` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `template_id` INT NOT NULL,
@@ -69,17 +77,18 @@ CREATE TABLE IF NOT EXISTS `survey_questions` (
   FOREIGN KEY (`risk_group_id`) REFERENCES `risk_groups`(`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 7. Soru Seçenekleri ve Puan Tablosu
+-- 8. Soru Seçenekleri ve Puan Tablosu (Açıklama / Önlem Tetikleyici İle)
 CREATE TABLE IF NOT EXISTS `question_options` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `question_id` INT NOT NULL,
   `option_text` VARCHAR(255) NOT NULL,
   `points` INT NOT NULL DEFAULT 0,
+  `trigger_action` TINYINT(1) DEFAULT 0,
   `sort_order` INT DEFAULT 0,
   FOREIGN KEY (`question_id`) REFERENCES `survey_questions`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 8. Sahada Yapılan Denetimler Tablosu
+-- 9. Sahada Yapılan Denetimler Tablosu
 CREATE TABLE IF NOT EXISTS `audits` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `template_id` INT NOT NULL,
@@ -96,7 +105,7 @@ CREATE TABLE IF NOT EXISTS `audits` (
   FOREIGN KEY (`auditor_id`) REFERENCES `users`(`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 9. Denetimde Seçilen Cevaplar & Risk Analiz Detayları Tablosu
+-- 10. Denetimde Seçilen Cevaplar & Risk Analiz Detayları Tablosu
 CREATE TABLE IF NOT EXISTS `audit_answers` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `audit_id` INT NOT NULL,
@@ -115,7 +124,7 @@ CREATE TABLE IF NOT EXISTS `audit_answers` (
   FOREIGN KEY (`question_id`) REFERENCES `survey_questions`(`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 10. Sistem İşlem Logları Tablosu
+-- 11. Sistem İşlem Logları Tablosu
 CREATE TABLE IF NOT EXISTS `system_logs` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `user_id` INT NULL,
@@ -151,3 +160,23 @@ INSERT INTO `risk_groups` (`id`, `group_name`, `description`, `sort_order`) VALU
 (5, 'Psikososyal Riskler', 'Vardiyalı çalışma, iş stresi, aşırı iş yükü', 5),
 (6, 'Genel Saha & Hijyen Riskleri', 'Yangın tesisatı, acil çıkışlar, ilk yardım ve genel temizlik', 6)
 ON DUPLICATE KEY UPDATE `group_name` = VALUES(`group_name`);
+
+-- 4. Varsayılan İSG Kütüphane Öğeleri
+INSERT INTO `risk_libraries` (`category`, `item_text`) VALUES
+('hazard_source', 'Lavabo, Wc tavanı'),
+('hazard_source', 'Ekranlı Araçlar (Bilgisayar vb.)'),
+('hazard_source', 'Çalışma alanı'),
+('hazard_source', 'Tıbbi atık alanı ve jeneratör dairesi'),
+('hazard_name', 'Enfeksiyon'),
+('hazard_name', 'Uzun süre sabit oturma'),
+('hazard_name', 'Ayakta kalma'),
+('hazard_name', 'Kaygan zemin ve kimyasal maruziyeti'),
+('affected_people', 'Çalışanlar(Doktor, Hemşire, Sağ. Tek. hasta bakıcı, temizlik çalışanı vd.)Hasta ve hasta yakını'),
+('responsible_person', 'Tekn. Hiz. Yön.'),
+('responsible_person', 'Mali Hiz. Yön.'),
+('responsible_person', 'Çalışan'),
+('responsible_person', 'İSG Birimi'),
+('action_recommendation', 'Lavabo(wc) tavanlarda gerekli yalıtımın sağlanması'),
+('action_recommendation', 'Çalışma araları verilmeli, boyun egzersizleri yapılmalı, ortopedik Mouse pedleri kullanılmalı'),
+('action_recommendation', 'Kısa mola ve dinlenmeler yapılmalı, Uzun süre ayakta kalınmamalı, egzersiz ve ara dinlenmeler verilmeli')
+ON DUPLICATE KEY UPDATE `item_text` = VALUES(`item_text`);

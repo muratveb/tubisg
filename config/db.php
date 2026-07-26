@@ -114,63 +114,44 @@ try {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     ");
 
-    // Risk Grupları Boşsa Varsayılan Verileri Ekle
-    $countGroups = $pdo->query("SELECT COUNT(*) FROM `risk_groups`")->fetchColumn();
-    if ((int)$countGroups === 0) {
+    // 6. risk_libraries Tablosu
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS `risk_libraries` (
+          `id` INT AUTO_INCREMENT PRIMARY KEY,
+          `category` ENUM('hazard_source', 'hazard_name', 'affected_people', 'responsible_person', 'action_recommendation') NOT NULL,
+          `item_text` TEXT NOT NULL,
+          `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    ");
+
+    // Kütüphaneler Boşsa Varsayılan Verileri Ekle
+    $countLib = $pdo->query("SELECT COUNT(*) FROM `risk_libraries`")->fetchColumn();
+    if ((int)$countLib === 0) {
         $pdo->exec("
-            INSERT INTO `risk_groups` (`id`, `group_name`, `description`, `sort_order`) VALUES
-            (1, 'Biyolojik Riskler', 'Enfeksiyon, pis su bulaşması, bulaşıcı biyolojik etkenler', 1),
-            (2, 'Ergonomik Riskler', 'Ekranlı araçlar, ayakta kalma, ağır kaldırma, kas-iskelet yükü', 2),
-            (3, 'Fiziksel Riskler', 'Gürültü, aydınlatma, havalandırma, kaygan zemin, yüksekten düşme', 3),
-            (4, 'Kimyasal Riskler', 'Tıbbi atıklar, dezenfektanlar, tehlikeli kimyasal maruziyeti', 4),
-            (5, 'Psikososyal Riskler', 'Vardiyalı çalışma, iş stresi, aşırı iş yükü', 5),
-            (6, 'Genel Saha & Hijyen Riskleri', 'Yangın tesisatı, acil çıkışlar, ilk yardım ve genel temizlik', 6);
+            INSERT INTO `risk_libraries` (`category`, `item_text`) VALUES
+            ('hazard_source', 'Lavabo, Wc tavanı'),
+            ('hazard_source', 'Ekranlı Araçlar (Bilgisayar vb.)'),
+            ('hazard_source', 'Çalışma alanı'),
+            ('hazard_source', 'Tıbbi atık alanı ve jeneratör dairesi'),
+            ('hazard_name', 'Enfeksiyon'),
+            ('hazard_name', 'Uzun süre sabit oturma'),
+            ('hazard_name', 'Ayakta kalma'),
+            ('hazard_name', 'Kaygan zemin ve kimyasal maruziyeti'),
+            ('affected_people', 'Çalışanlar(Doktor, Hemşire, Sağ. Tek. hasta bakıcı, temizlik çalışanı vd.)Hasta ve hasta yakını'),
+            ('responsible_person', 'Tekn. Hiz. Yön.'),
+            ('responsible_person', 'Mali Hiz. Yön.'),
+            ('responsible_person', 'Çalışan'),
+            ('responsible_person', 'İSG Birimi'),
+            ('action_recommendation', 'Lavabo(wc) tavanlarda gerekli yalıtımın sağlanması'),
+            ('action_recommendation', 'Çalışma araları verilmeli, boyun egzersizleri yapılmalı, ortopedik Mouse pedleri kullanılmalı'),
+            ('action_recommendation', 'Kısa mola ve dinlenmeler yapılmalı, Uzun süre ayakta kalınmamalı, egzersiz ve ara dinlenmeler verilmeli');
         ");
     }
 
-    // 6. survey_questions Tablosuna Eksik Sütunları Ekle (Migration)
-    $qCols = $pdo->query("SHOW COLUMNS FROM `survey_questions`")->fetchAll(PDO::FETCH_COLUMN);
-    if (!in_array('risk_group_id', $qCols)) {
-        $pdo->exec("ALTER TABLE `survey_questions` ADD COLUMN `risk_group_id` INT NULL AFTER `template_id`");
-    }
-    if (!in_array('hazard_source', $qCols)) {
-        $pdo->exec("ALTER TABLE `survey_questions` ADD COLUMN `hazard_source` VARCHAR(255) NULL AFTER `question_text`");
-    }
-    if (!in_array('hazard_name', $qCols)) {
-        $pdo->exec("ALTER TABLE `survey_questions` ADD COLUMN `hazard_name` VARCHAR(255) NULL AFTER `hazard_source`");
-    }
-    if (!in_array('affected_risk', $qCols)) {
-        $pdo->exec("ALTER TABLE `survey_questions` ADD COLUMN `affected_risk` TEXT NULL AFTER `hazard_name`");
-    }
-    if (!in_array('affected_people', $qCols)) {
-        $pdo->exec("ALTER TABLE `survey_questions` ADD COLUMN `affected_people` VARCHAR(255) NULL AFTER `affected_risk`");
-    }
-
-    // 7. audit_answers Tablosuna Risk Analiz Sütunlarını Ekle (Migration)
-    $aCols = $pdo->query("SHOW COLUMNS FROM `audit_answers`")->fetchAll(PDO::FETCH_COLUMN);
-    if (!in_array('answer_option', $aCols)) {
-        $pdo->exec("ALTER TABLE `audit_answers` ADD COLUMN `answer_option` VARCHAR(50) NULL AFTER `option_id`");
-    }
-    if (!in_array('current_status', $aCols)) {
-        $pdo->exec("ALTER TABLE `audit_answers` ADD COLUMN `current_status` TEXT NULL AFTER `points_awarded`");
-    }
-    if (!in_array('probability', $aCols)) {
-        $pdo->exec("ALTER TABLE `audit_answers` ADD COLUMN `probability` INT DEFAULT 1 AFTER `current_status`");
-    }
-    if (!in_array('severity', $aCols)) {
-        $pdo->exec("ALTER TABLE `audit_answers` ADD COLUMN `severity` INT DEFAULT 1 AFTER `probability`");
-    }
-    if (!in_array('risk_score', $aCols)) {
-        $pdo->exec("ALTER TABLE `audit_answers` ADD COLUMN `risk_score` INT DEFAULT 1 AFTER `severity`");
-    }
-    if (!in_array('action_plan', $aCols)) {
-        $pdo->exec("ALTER TABLE `audit_answers` ADD COLUMN `action_plan` TEXT NULL AFTER `risk_score`");
-    }
-    if (!in_array('responsible_person', $aCols)) {
-        $pdo->exec("ALTER TABLE `audit_answers` ADD COLUMN `responsible_person` VARCHAR(255) NULL AFTER `action_plan`");
-    }
-    if (!in_array('deadline', $aCols)) {
-        $pdo->exec("ALTER TABLE `audit_answers` ADD COLUMN `deadline` VARCHAR(100) NULL AFTER `responsible_person`");
+    // 7. question_options Tablosuna trigger_action Sütununu Ekle
+    $optCols = $pdo->query("SHOW COLUMNS FROM `question_options`")->fetchAll(PDO::FETCH_COLUMN);
+    if (!in_array('trigger_action', $optCols)) {
+        $pdo->exec("ALTER TABLE `question_options` ADD COLUMN `trigger_action` TINYINT(1) DEFAULT 0 AFTER `points`");
     }
 
 } catch (PDOException $e) {
