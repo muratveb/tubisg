@@ -76,11 +76,11 @@ include __DIR__ . '/includes/header.php';
   writing-mode: vertical-rl;
   transform: rotate(180deg);
   white-space: nowrap;
-  padding: 6px 2px !important;
-  font-size: 0.70rem;
+  padding: 6px 4px !important;
+  font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: 0.5px;
-  height: 95px;
+  height: 110px;
   vertical-align: middle !important;
   text-align: center !important;
 }
@@ -91,14 +91,16 @@ include __DIR__ . '/includes/header.php';
   vertical-align: middle !important;
   white-space: nowrap;
   font-weight: 800;
-  padding: 10px 4px !important;
+  padding: 12px 6px !important;
   background-color: #f1f5f9 !important;
+  font-size: 0.80rem;
+  letter-spacing: 0.5px;
 }
 @media print {
   .vhead-th {
     writing-mode: vertical-rl;
     transform: rotate(180deg);
-    height: 90px;
+    height: 100px;
   }
   .rg-vcell {
     writing-mode: vertical-rl;
@@ -193,15 +195,15 @@ include __DIR__ . '/includes/header.php';
       <table class="table table-bordered table-striped align-middle m-0" style="font-size: 0.78rem;">
         <thead class="table-dark text-center align-middle" style="font-size: 0.72rem; letter-spacing: 0.3px;">
           <tr>
-            <th class="vhead-th" style="width: 45px;">RİSK GRUPLARI</th>
+            <th class="vhead-th" style="width: 58px;">RİSK GRUPLARI</th>
             <th style="width: 95px;">TEHLİKE KAYNAĞI</th>
             <th style="width: 95px;">TEHLİKE</th>
             <th style="width: 105px;">ETKİLENME (YAŞANABİLECEK RİSKLER)</th>
             <th style="width: 95px;">ETKİLENENLER</th>
             <th style="width: 130px;">MEVCUT DURUM / CEVAP</th>
-            <th class="vhead-th" style="width: 32px;">OLASILIK (O)</th>
-            <th class="vhead-th" style="width: 32px;">ŞİDDET (Ş)</th>
-            <th class="vhead-th" style="width: 38px;">RİSK DERECESİ (R)</th>
+            <th class="vhead-th" style="width: 42px;">OLASILIK (O)</th>
+            <th class="vhead-th" style="width: 42px;">ŞİDDET (Ş)</th>
+            <th class="vhead-th" style="width: 48px;">RİSK DERECESİ (R)</th>
             <th style="width: 135px;">ALINACAK ÖNLEMLER / İYİLEŞTİRMELER</th>
             <th style="width: 85px;">SORUMLU</th>
             <th style="width: 70px;">SÜRE / TERMİN</th>
@@ -231,14 +233,14 @@ include __DIR__ . '/includes/header.php';
 
                 if ($isEvet) {
                     $rClass = 'bg-success text-white';
-                    $statusDisplay = 'Evet (Uygun)';
+                    $statusDisplay = ''; // Evet için ekstra alt yazı gösterilmez
                     $actionDisplay = !empty($ans['action_plan']) && strpos($ans['action_plan'], 'girilecek') === false ? htmlspecialchars($ans['action_plan']) : 'Gerekli Önlemler Alınmış';
                     $probDisplay = 1;
                     $sevDisplay = 1;
                     $rScoreDisplay = 1;
                 } elseif ($isMuaf) {
                     $rClass = 'bg-secondary text-white';
-                    $statusDisplay = 'Denetim Dışı / Muaf';
+                    $statusDisplay = ''; // Muaf için ekstra alt yazı gösterilmez
                     $actionDisplay = 'Muaf';
                     $probDisplay = '-';
                     $sevDisplay = '-';
@@ -275,7 +277,9 @@ include __DIR__ . '/includes/header.php';
                     <div class="mt-1">
                       <span class="badge <?php echo $isEvet ? 'bg-success' : ($isMuaf ? 'bg-secondary' : 'bg-danger'); ?> text-white me-1"><?php echo htmlspecialchars($ansOption); ?></span>
                     </div>
-                    <div class="text-muted fs-8 mt-1"><em><?php echo $statusDisplay; ?></em></div>
+                    <?php if (!$isEvet && !$isMuaf && !empty($statusDisplay)): ?>
+                      <div class="text-muted fs-8 mt-1"><em><?php echo $statusDisplay; ?></em></div>
+                    <?php endif; ?>
                   </td>
                   <td class="text-center fw-bold"><?php echo $probDisplay; ?></td>
                   <td class="text-center fw-bold"><?php echo $sevDisplay; ?></td>

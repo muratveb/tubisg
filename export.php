@@ -67,8 +67,8 @@ if ($format === 'excel') {
       table { border-collapse: collapse; width: 100%; font-family: Arial, sans-serif; font-size: 11px; }
       th, td { border: 1px solid #94a3b8; padding: 6px; text-align: left; vertical-align: middle; }
       th { background-color: #0f172a; color: white; font-weight: bold; text-align: center; }
-      .vhead-th { writing-mode: vertical-rl; mso-direction-alt: bottom-to-top; white-space: nowrap; height: 90px; vertical-align: middle; text-align: center; font-size: 10px; }
-      .rg-vcell { writing-mode: vertical-rl; mso-direction-alt: bottom-to-top; white-space: nowrap; text-align: center; vertical-align: middle; font-weight: bold; background-color: #f1f5f9; }
+      .vhead-th { writing-mode: vertical-rl; mso-direction-alt: bottom-to-top; white-space: nowrap; height: 110px; vertical-align: middle; text-align: center; font-size: 10px; padding: 6px; }
+      .rg-vcell { writing-mode: vertical-rl; mso-direction-alt: bottom-to-top; white-space: nowrap; text-align: center; vertical-align: middle; font-weight: bold; background-color: #f1f5f9; padding: 10px; }
       .header-title { background-color: #059669; color: white; font-size: 14px; font-weight: bold; text-align: center; }
       .risk-high { background-color: #fee2e2; color: #991b1b; font-weight: bold; text-align: center; }
       .risk-medium { background-color: #fef3c7; color: #92400e; font-weight: bold; text-align: center; }
@@ -126,14 +126,14 @@ if ($format === 'excel') {
 
             if ($isEvet) {
                 $rClass = 'risk-low';
-                $statusDisplay = 'Evet (Uygun)';
+                $statusDisplay = '';
                 $actionDisplay = !empty($ans['action_plan']) && strpos($ans['action_plan'], 'girilecek') === false ? htmlspecialchars($ans['action_plan']) : 'Gerekli Önlemler Alınmış';
                 $probDisplay = 1;
                 $sevDisplay = 1;
                 $rScoreDisplay = 1;
             } elseif ($isMuaf) {
                 $rClass = 'risk-low';
-                $statusDisplay = 'Denetim Dışı / Muaf';
+                $statusDisplay = '';
                 $actionDisplay = 'Muaf';
                 $probDisplay = '-';
                 $sevDisplay = '-';
@@ -163,8 +163,10 @@ if ($format === 'excel') {
               <td><?php echo htmlspecialchars($ans['affected_people'] ?? '-'); ?></td>
               <td>
                 <strong><?php echo htmlspecialchars($ans['question_text']); ?></strong><br>
-                Cevap: [<?php echo htmlspecialchars($ansOption); ?>]<br>
-                <em><?php echo $statusDisplay; ?></em>
+                Cevap: [<?php echo htmlspecialchars($ansOption); ?>]
+                <?php if (!$isEvet && !$isMuaf && !empty($statusDisplay)): ?>
+                  <br><em><?php echo $statusDisplay; ?></em>
+                <?php endif; ?>
               </td>
               <td style="text-align:center;"><?php echo $probDisplay; ?></td>
               <td style="text-align:center;"><?php echo $sevDisplay; ?></td>
@@ -215,8 +217,8 @@ if ($format === 'word') {
         table.matrix-table { border-collapse: collapse; width: 100%; margin-top: 10px; }
         table.matrix-table th, table.matrix-table td { border: 1px solid #cbd5e1; padding: 6px; text-align: left; }
         table.matrix-table th { background: #0f172a; color: #fff; text-align: center; font-size: 10px; }
-        .vhead-th { writing-mode: vertical-rl; white-space: nowrap; height: 90px; vertical-align: middle; text-align: center; font-size: 10px; }
-        .rg-vcell { writing-mode: vertical-rl; white-space: nowrap; text-align: center; vertical-align: middle; font-weight: bold; background-color: #f1f5f9; }
+        .vhead-th { writing-mode: vertical-rl; white-space: nowrap; height: 110px; vertical-align: middle; text-align: center; font-size: 10px; padding: 6px; }
+        .rg-vcell { writing-mode: vertical-rl; white-space: nowrap; text-align: center; vertical-align: middle; font-weight: bold; background-color: #f1f5f9; padding: 10px; }
       </style>
     </head>
     <body>
@@ -263,13 +265,13 @@ if ($format === 'word') {
               $isMuaf = (strpos($ansOption, 'Denetim Dışı') !== false || strpos($ansOption, 'Muaf') !== false);
 
               if ($isEvet) {
-                  $statusDisplay = 'Evet (Uygun)';
+                  $statusDisplay = '';
                   $actionDisplay = !empty($ans['action_plan']) && strpos($ans['action_plan'], 'girilecek') === false ? htmlspecialchars($ans['action_plan']) : 'Gerekli Önlemler Alınmış';
                   $probDisplay = 1;
                   $sevDisplay = 1;
                   $rScoreDisplay = 1;
               } elseif ($isMuaf) {
-                  $statusDisplay = 'Denetim Dışı / Muaf';
+                  $statusDisplay = '';
                   $actionDisplay = 'Muaf';
                   $probDisplay = '-';
                   $sevDisplay = '-';
@@ -295,8 +297,10 @@ if ($format === 'word') {
                 <td><?php echo htmlspecialchars($ans['affected_people'] ?? '-'); ?></td>
                 <td>
                   <?php echo htmlspecialchars($ans['question_text']); ?><br>
-                  <strong>Cevap: [<?php echo htmlspecialchars($ansOption); ?>]</strong><br>
-                  <em><?php echo $statusDisplay; ?></em>
+                  <strong>Cevap: [<?php echo htmlspecialchars($ansOption); ?>]</strong>
+                  <?php if (!$isEvet && !$isMuaf && !empty($statusDisplay)): ?>
+                    <br><em><?php echo $statusDisplay; ?></em>
+                  <?php endif; ?>
                 </td>
                 <td style="text-align:center;"><?php echo $probDisplay; ?></td>
                 <td style="text-align:center;"><?php echo $sevDisplay; ?></td>
