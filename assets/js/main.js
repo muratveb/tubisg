@@ -172,17 +172,18 @@ function initItemWizardModal() {
   const badge = document.getElementById('itemWizardStepBadge');
   const progressBar = document.getElementById('itemWizardProgressBar');
 
-  // Step 1: Risk Group Card Click
-  document.querySelectorAll('.wiz-rg-card').forEach(card => {
-    card.addEventListener('click', function() {
-      document.querySelectorAll('.wiz-rg-card').forEach(c => c.classList.remove('border-success', 'bg-light'));
-      this.classList.add('border-success', 'bg-light');
+  // Step 1: Event Delegation for Risk Group Card Clicks
+  wizardModalEl.addEventListener('click', function(e) {
+    const rgCard = e.target.closest('.wiz-rg-card');
+    if (rgCard) {
+      wizardModalEl.querySelectorAll('.wiz-rg-card').forEach(c => c.classList.remove('border-success', 'bg-light'));
+      rgCard.classList.add('border-success', 'bg-light');
 
-      document.getElementById('wiz_risk_group_id').value = this.dataset.rgid;
-      document.getElementById('wiz_risk_group_name').value = this.dataset.rgname;
+      document.getElementById('wiz_risk_group_id').value = rgCard.dataset.rgid;
+      document.getElementById('wiz_risk_group_name').value = rgCard.dataset.rgname;
 
       goToStep(2);
-    });
+    }
   });
 
   // Risk Score Calc in Step 7
@@ -209,20 +210,26 @@ function initItemWizardModal() {
   }
 
   // Next Button Click
-  nextBtn.addEventListener('click', function() {
-    if (currentStep < totalSteps) {
-      goToStep(currentStep + 1);
-    } else {
-      finishWizardAndAddItem();
-    }
-  });
+  if (nextBtn) {
+    nextBtn.addEventListener('click', function() {
+      if (currentStep < totalSteps) {
+        goToStep(currentStep + 1);
+      } else {
+        finishWizardAndAddItem();
+      }
+    });
+  }
 
   // Prev Button Click
-  prevBtn.addEventListener('click', function() {
-    if (currentStep > 1) {
-      goToStep(currentStep - 1);
-    }
-  });
+  if (prevBtn) {
+    prevBtn.addEventListener('click', function() {
+      if (currentStep > 1) {
+        goToStep(currentStep - 1);
+      }
+    });
+  }
+
+  window.goToStep = goToStep;
 
   function goToStep(stepNum) {
     currentStep = stepNum;
@@ -242,17 +249,19 @@ function initItemWizardModal() {
     if (progressBar) progressBar.style.width = Math.round((currentStep / totalSteps) * 100) + '%';
 
     if (currentStep > 1) {
-      prevBtn.classList.remove('d-none');
+      if (prevBtn) prevBtn.classList.remove('d-none');
     } else {
-      prevBtn.classList.add('d-none');
+      if (prevBtn) prevBtn.classList.add('d-none');
     }
 
-    if (currentStep === totalSteps) {
-      nextBtn.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i> Sihirbazı Tamamla ve Ekle';
-      nextBtn.className = 'btn btn-primary font-weight-bold px-4 shadow';
-    } else {
-      nextBtn.innerHTML = 'Sonraki Adım <i class="bi bi-arrow-right"></i>';
-      nextBtn.className = 'btn btn-success font-weight-bold px-4';
+    if (nextBtn) {
+      if (currentStep === totalSteps) {
+        nextBtn.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i> Sihirbazı Tamamla ve Ekle';
+        nextBtn.className = 'btn btn-primary font-weight-bold px-4 shadow';
+      } else {
+        nextBtn.innerHTML = 'Sonraki Adım <i class="bi bi-arrow-right"></i>';
+        nextBtn.className = 'btn btn-success font-weight-bold px-4';
+      }
     }
   }
 
@@ -417,11 +426,9 @@ function initItemWizardModal() {
       });
     }
 
-    // Modal Kapat
     const bsModal = bootstrap.Modal.getInstance(wizardModalEl);
     if (bsModal) bsModal.hide();
 
-    // Reset Wizard to Step 1
     goToStep(1);
 
     if (window.Swal) {
@@ -441,6 +448,8 @@ function initItemWizardModal() {
  */
 function initQuickUnitCreator() {
   const quickUnitForm = document.getElementById('quickUnitForm');
+  if (!quickUnitForm) return;
+
   quickUnitForm.addEventListener('submit', function (e) {
     e.preventDefault();
     const formData = new FormData(quickUnitForm);
@@ -539,10 +548,12 @@ function initAuditWizard() {
   }
 
   function checkWizardReady() {
-    if (selectedTemplateInput.value > 0 && selectedUnitInput.value > 0) {
-      startBtn.disabled = false;
-      startBtn.classList.remove('btn-secondary');
-      startBtn.classList.add('btn-success', 'shadow-lg');
+    if (selectedTemplateInput && selectedUnitInput && startBtn) {
+      if (selectedTemplateInput.value > 0 && selectedUnitInput.value > 0) {
+        startBtn.disabled = false;
+        startBtn.classList.remove('btn-secondary');
+        startBtn.classList.add('btn-success', 'shadow-lg');
+      }
     }
   }
 }

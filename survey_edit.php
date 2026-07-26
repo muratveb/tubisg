@@ -39,19 +39,6 @@ $libRecommendations = $db->query("SELECT item_text FROM risk_libraries WHERE cat
 // Form Post İşlemleri
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
-    // 0. Kütüphaneye Hızlı Öğe Ekleme (Modal Formu)
-    if (isset($_POST['action']) && $_POST['action'] === 'add_library_item') {
-        $cat = trim($_POST['category'] ?? '');
-        $itemText = trim($_POST['item_text'] ?? '');
-        if (!empty($cat) && !empty($itemText)) {
-            $db->prepare("INSERT INTO risk_libraries (category, item_text) VALUES (?, ?)")->execute([$cat, $itemText]);
-            log_action('İSG Kütüphanesine Öğe Eklendi', "Anket Editöründen Eklendi - Kategori: {$cat}, Metin: {$itemText}");
-            set_flash('success', "Kütüphaneye yeni öge ({$itemText}) başarıyla eklendi.");
-        }
-        header("Location: survey_edit.php?id=" . $template_id);
-        exit;
-    }
-
     // 1. Soru / Risk Satırı Silme İşlemi
     if (isset($_POST['delete_question_id'])) {
         $qId = (int)$_POST['delete_question_id'];
@@ -235,10 +222,7 @@ window.libRecommendationsData = <?php echo json_encode($libRecommendations); ?>;
     <h3 class="fw-extrabold m-0"><?php echo htmlspecialchars($template['title']); ?></h3>
     <p class="text-muted fs-7 m-0">Kağıt Belgenizdeki 12 Sütunlu İSG Birim Bazlı Risk Analiz Form Şablonu</p>
   </div>
-  <div class="d-flex flex-wrap gap-2">
-    <button type="button" class="btn btn-outline-primary font-weight-bold" data-bs-toggle="modal" data-bs-target="#quickAddLibModal">
-      <i class="bi bi-plus-circle-fill"></i> Kütüphaneye Öğe Ekle
-    </button>
+  <div>
     <button type="button" class="btn btn-success font-weight-bold shadow-lg" data-bs-toggle="modal" data-bs-target="#wizardAddRiskItemModal">
       <i class="bi bi-magic me-1"></i> + Adım Adım Seçimli Risk Maddesi Ekle
     </button>
@@ -581,41 +565,6 @@ window.libRecommendationsData = <?php echo json_encode($libRecommendations); ?>;
         </button>
       </div>
 
-    </div>
-  </div>
-</div>
-
-<!-- Kütüphaneye Hızlı Öğe Ekleme Modal -->
-<div class="modal fade" id="quickAddLibModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <form method="POST" action="survey_edit.php?id=<?php echo $template_id; ?>">
-        <input type="hidden" name="action" value="add_library_item">
-        <div class="modal-header">
-          <h5 class="modal-title fw-bold"><i class="bi bi-plus-circle-fill text-primary"></i> İSG Kütüphanesine Yeni Öğe Ekle</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-        </div>
-        <div class="modal-body">
-          <div class="mb-3">
-            <label class="form-label fw-bold">Kategori</label>
-            <select name="category" class="form-select" required>
-              <option value="hazard_source">Tehlike Kaynakları</option>
-              <option value="hazard_name">Tehlikeler</option>
-              <option value="affected_people">Etkilenen Gruplar</option>
-              <option value="responsible_person">Sorumlu Birimler</option>
-              <option value="action_recommendation">Önlem & İyileştirme Bankası</option>
-            </select>
-          </div>
-          <div class="mb-3">
-            <label class="form-label fw-bold">Tanımlanacak İfade / Metin</label>
-            <textarea name="item_text" class="form-control" rows="3" placeholder="Örn: Lavabo, WC tavan sızıntısı" required></textarea>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Vazgeç</button>
-          <button type="submit" class="btn btn-primary font-weight-bold"><i class="bi bi-plus-lg"></i> Kütüphaneye Ekle</button>
-        </div>
-      </form>
     </div>
   </div>
 </div>
