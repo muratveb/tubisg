@@ -1,6 +1,6 @@
 <?php
 /**
- * Tubİsg - 9 Adımlı Seçimli Risk Maddesi & Anket Profili Sihirbazı (survey_edit.php)
+ * Tubİsg - 7 Adımlı Seçimli Risk Maddesi & Anket Profili Sihirbazı (survey_edit.php)
  * Kağıt Form Belgenizdeki 12 Sütunlu Yapı İle Birebir Senkronize
  */
 require_once __DIR__ . '/includes/auth.php';
@@ -92,7 +92,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    // 3. 9 Adımlı Sihirbazdan Gelen Yeni Risk Satırları Ekleme
+    // 3. 7 Adımlı Sihirbazdan Gelen Yeni Risk Satırları Ekleme
     if (isset($_POST['new_questions']) && is_array($_POST['new_questions'])) {
         foreach ($_POST['new_questions'] as $newQ) {
             $riskGroupId = (int)($newQ['risk_group_id'] ?? 0);
@@ -107,7 +107,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $deadline = trim($newQ['default_deadline'] ?? 'Sürekli');
             $qText = trim($newQ['question_text'] ?? '');
             if (empty($qText)) {
-                $qText = !empty($hazardName) ? $hazardName : 'Saha Risk Denetim Maddesi';
+                $qText = !empty($hazardName) ? $hazardName : (!empty($hazardSource) ? $hazardSource : 'Saha Risk Denetim Maddesi');
             }
 
             if (!empty($hazardSource) || !empty($hazardName) || !empty($qText) || !empty($affectedRisk) || $riskGroupId > 0) {
@@ -377,7 +377,7 @@ window.libRecommendationsData = <?php echo json_encode($libRecommendations); ?>;
 
 </form>
 
-<!-- 8 ADIMLI İNTERAKTİF RİSK MADDESİ OLUŞTURMA SİHİRBAZI MODAL (WIZARD MODAL) -->
+<!-- 7 ADIMLI İNTERAKTİF RİSK MADDESİ OLUŞTURMA SİHİRBAZI MODAL (WIZARD MODAL) -->
 <div class="modal fade" id="wizardAddRiskItemModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
   <div class="modal-dialog modal-dialog-centered modal-lg">
     <div class="modal-content border-0 shadow-lg rounded-4">
@@ -397,13 +397,13 @@ window.libRecommendationsData = <?php echo json_encode($libRecommendations); ?>;
         
         <!-- Üst Adım Barı (Stepper) -->
         <div class="d-flex align-items-center justify-content-between mb-4 border-bottom pb-3">
-          <span class="badge bg-primary fs-7" id="itemWizardStepBadge">Adım 1 / 8: Risk Grubu</span>
+          <span class="badge bg-primary fs-7" id="itemWizardStepBadge">Adım 1 / 7: Risk Grubu</span>
           <div class="progress w-50" style="height: 8px;">
-            <div class="progress-bar bg-success" id="itemWizardProgressBar" role="progressbar" style="width: 12%;"></div>
+            <div class="progress-bar bg-success" id="itemWizardProgressBar" role="progressbar" style="width: 14%;"></div>
           </div>
         </div>
 
-        <!-- 8 ADIM PANEL İÇERİKLERİ -->
+        <!-- 7 ADIM PANEL İÇERİKLERİ -->
         <div id="itemWizardStepsContainer">
           
           <!-- ADIM 1: RİSK GRUBU SEÇİMİ -->
@@ -467,18 +467,9 @@ window.libRecommendationsData = <?php echo json_encode($libRecommendations); ?>;
             <input type="text" id="wiz_affected_people" class="form-control" placeholder="Örn: Çalışanlar(Doktor, Hemşire, Sağ. Tek. vd.) Hasta ve hasta yakını">
           </div>
 
-          <!-- ADIM 6: DENETİM SORUSU METNİ -->
+          <!-- ADIM 6: ALINACAK ÖNLEMLER -->
           <div class="item-wizard-step d-none" id="itemStep6">
-            <h6 class="fw-bold text-dark mb-2"><i class="bi bi-journal-text text-secondary me-1"></i> 6. Adım: Saha Denetim Sorusu Metni</h6>
-            <div>
-              <label class="form-label fw-bold fs-8">Saha Denetim Sorusu Metni</label>
-              <input type="text" id="wiz_question_text" class="form-control" placeholder="Örn: WC tavanında su sızıntısı var mı?">
-            </div>
-          </div>
-
-          <!-- ADIM 7: ALINACAK ÖNLEMLER -->
-          <div class="item-wizard-step d-none" id="itemStep7">
-            <h6 class="fw-bold text-dark mb-2"><i class="bi bi-lightbulb-fill text-warning me-1"></i> 7. Adım: Varsayılan Önlem Önerisi</h6>
+            <h6 class="fw-bold text-dark mb-2"><i class="bi bi-lightbulb-fill text-warning me-1"></i> 6. Adım: Varsayılan Önlem Önerisi</h6>
             <div class="d-flex flex-wrap gap-2 mb-3">
               <?php foreach ($libRecommendations as $rec): ?>
                 <button type="button" class="btn btn-sm btn-outline-secondary wiz-chip-btn" onclick="setWizInput('wiz_action_plan', '<?php echo addslashes(htmlspecialchars($rec)); ?>', this)"><?php echo htmlspecialchars($rec); ?></button>
@@ -489,9 +480,9 @@ window.libRecommendationsData = <?php echo json_encode($libRecommendations); ?>;
             <input type="hidden" id="wiz_severity" value="3">
           </div>
 
-          <!-- ADIM 8: SORUMLU VE SÜRE (HER ZAMAN AKTİF) -->
-          <div class="item-wizard-step d-none" id="itemStep8">
-            <h6 class="fw-bold text-dark mb-2"><i class="bi bi-person-gear text-primary me-1"></i> 8. Adım: Sorumlu Birim & Süre/Termin (Her Zaman Ankette Dahil)</h6>
+          <!-- ADIM 7: SORUMLU VE SÜRE (HIZLI SEÇİMLİ) -->
+          <div class="item-wizard-step d-none" id="itemStep7">
+            <h6 class="fw-bold text-dark mb-2"><i class="bi bi-person-gear text-primary me-1"></i> 7. Adım: Sorumlu Birim & Süre/Termin (Her Zaman Ankette Dahil)</h6>
             <div class="mb-3">
               <label class="form-label fw-bold fs-8">Sorumlu Birim</label>
               <div class="d-flex flex-wrap gap-2 mb-2">
@@ -502,7 +493,15 @@ window.libRecommendationsData = <?php echo json_encode($libRecommendations); ?>;
               <input type="text" id="wiz_responsible" class="form-control" placeholder="Örn: Tekn. Hiz. Yön." value="İşveren">
             </div>
             <div>
-              <label class="form-label fw-bold fs-8">Termin / Süre</label>
+              <label class="form-label fw-bold fs-8"><i class="bi bi-clock-history text-success me-1"></i> Termin / Süre (Hızlı Seçim)</label>
+              <div class="d-flex flex-wrap gap-2 mb-2">
+                <button type="button" class="btn btn-sm btn-outline-secondary wiz-chip-btn" onclick="setWizInput('wiz_deadline', 'Sürekli', this)">Sürekli</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary wiz-chip-btn" onclick="setWizInput('wiz_deadline', 'Derhal', this)">Derhal</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary wiz-chip-btn" onclick="setWizInput('wiz_deadline', '1 Ay', this)">1 Ay</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary wiz-chip-btn" onclick="setWizInput('wiz_deadline', '3 Ay', this)">3 Ay</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary wiz-chip-btn" onclick="setWizInput('wiz_deadline', '6 Ay', this)">6 Ay</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary wiz-chip-btn" onclick="setWizInput('wiz_deadline', '12 Ay', this)">12 Ay</button>
+              </div>
               <input type="text" id="wiz_deadline" class="form-control" placeholder="Örn: 6 Ay, Sürekli" value="Sürekli">
             </div>
           </div>

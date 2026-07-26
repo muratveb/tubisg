@@ -23,7 +23,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
-  // 3. 8-Step Survey Item Wizard Modal Handler for survey_edit.php
+  // 3. 7-Step Survey Item Wizard Modal Handler for survey_edit.php
   initItemWizardModal();
 
   // 4. Quick AJAX Unit Creator
@@ -146,7 +146,7 @@ function initModernConfirmHandler() {
 }
 
 /**
- * 8-Step Interactive Survey Item Wizard Modal in survey_edit.php
+ * 7-Step Interactive Survey Item Wizard Modal in survey_edit.php
  * Auto-Saves to Database on Completion
  */
 function initItemWizardModal() {
@@ -154,17 +154,16 @@ function initItemWizardModal() {
   if (!wizardModalEl) return;
 
   let currentStep = 1;
-  const totalSteps = 8;
+  const totalSteps = 7;
 
   const stepTitles = [
-    'Adım 1 / 8: Risk Grubu',
-    'Adım 2 / 8: Tehlike Kaynağı',
-    'Adım 3 / 8: Tehlike',
-    'Adım 4 / 8: Etkilenme (Riskler)',
-    'Adım 5 / 8: Etkilenen Gruplar',
-    'Adım 6 / 8: Denetim Sorusu Metni',
-    'Adım 7 / 8: Varsayılan Önlem Önerisi',
-    'Adım 8 / 8: Sorumlu Birim & Süre'
+    'Adım 1 / 7: Risk Grubu',
+    'Adım 2 / 7: Tehlike Kaynağı',
+    'Adım 3 / 7: Tehlike',
+    'Adım 4 / 7: Etkilenme (Riskler)',
+    'Adım 5 / 7: Etkilenen Gruplar',
+    'Adım 6 / 7: Varsayılan Önlem Önerisi',
+    'Adım 7 / 7: Sorumlu Birim & Süre'
   ];
 
   const prevBtn = document.getElementById('wizPrevBtn');
@@ -250,10 +249,9 @@ function initItemWizardModal() {
     const hazardName = document.getElementById('wiz_hazard_name').value || '';
     const affectedRisk = document.getElementById('wiz_affected_risk').value || '';
     const affectedPeople = document.getElementById('wiz_affected_people').value || '';
-    let questionText = document.getElementById('wiz_question_text').value || '';
-    if (!questionText) {
-      questionText = hazardName ? hazardName : 'Saha Risk Denetim Maddesi';
-    }
+    
+    // Otomatik Soru Metni (Tehlike veya Tehlike Kaynağı esas alınır)
+    let questionText = hazardName ? hazardName : (hazardSource ? hazardSource : 'Saha Risk Denetim Maddesi');
 
     const prob = parseInt(document.getElementById('wiz_probability').value) || 2;
     const sev = parseInt(document.getElementById('wiz_severity').value) || 3;

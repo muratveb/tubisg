@@ -43,6 +43,13 @@ $answersStmt = $db->prepare("
 $answersStmt->execute([$audit_id]);
 $answers = $answersStmt->fetchAll();
 
+// Risk Gruplarına Göre Grupla
+$groupedAnswersList = [];
+foreach ($answers as $ans) {
+    $gName = !empty($ans['group_name']) ? $ans['group_name'] : 'Genel Riskler';
+    $groupedAnswersList[$gName][] = $ans;
+}
+
 $fileName = 'TubISG_Birim_Risk_Analizi_#DEN-' . sprintf('%04d', $audit['id']) . '_' . date('Ymd');
 
 // ==========================================
@@ -61,6 +68,7 @@ if ($format === 'excel') {
       th, td { border: 1px solid #94a3b8; padding: 6px; text-align: left; vertical-align: middle; }
       th { background-color: #0f172a; color: white; font-weight: bold; text-align: center; }
       .vhead-th { writing-mode: vertical-rl; mso-direction-alt: bottom-to-top; white-space: nowrap; height: 90px; vertical-align: middle; text-align: center; font-size: 10px; }
+      .rg-vcell { writing-mode: vertical-rl; mso-direction-alt: bottom-to-top; white-space: nowrap; text-align: center; vertical-align: middle; font-weight: bold; background-color: #f1f5f9; }
       .header-title { background-color: #059669; color: white; font-size: 14px; font-weight: bold; text-align: center; }
       .risk-high { background-color: #fee2e2; color: #991b1b; font-weight: bold; text-align: center; }
       .risk-medium { background-color: #fef3c7; color: #92400e; font-weight: bold; text-align: center; }
@@ -88,7 +96,7 @@ if ($format === 'excel') {
     <table>
       <thead>
         <tr>
-          <th>RİSK GRUPLARI</th>
+          <th class="vhead-th">RİSK GRUPLARI</th>
           <th>TEHLİKE KAYNAĞI</th>
           <th>TEHLİKE</th>
           <th>ETKİLENME (YAŞANABİLECEK RİSKLER)</th>
@@ -103,64 +111,69 @@ if ($format === 'excel') {
         </tr>
       </thead>
       <tbody>
-        <?php foreach ($answers as $ans): ?>
-          <?php
-          $rScore = (int)$ans['risk_score'];
-          $prob = (int)$ans['probability'];
-          $sev = (int)$ans['severity'];
-          if ($rScore == 0 && $prob > 0 && $sev > 0) $rScore = $prob * $sev;
+        <?php foreach ($groupedAnswersList as $groupName => $gAnswers): ?>
+          <?php $gCount = count($gAnswers); ?>
+          <?php foreach ($gAnswers as $idx => $ans): ?>
+            <?php
+            $rScore = (int)$ans['risk_score'];
+            $prob = (int)$ans['probability'];
+            $sev = (int)$ans['severity'];
+            if ($rScore == 0 && $prob > 0 && $sev > 0) $rScore = $prob * $sev;
 
-          $ansOption = !empty($ans['answer_option']) ? $ans['answer_option'] : ($ans['option_text'] ?? 'Evet (Uygun)');
-          $isEvet = (strpos($ansOption, 'Evet') !== false);
-          $isMuaf = (strpos($ansOption, 'Denetim Dışı') !== false || strpos($ansOption, 'Muaf') !== false);
+            $ansOption = !empty($ans['answer_option']) ? $ans['answer_option'] : ($ans['option_text'] ?? 'Evet (Uygun)');
+            $isEvet = (strpos($ansOption, 'Evet') !== false);
+            $isMuaf = (strpos($ansOption, 'Denetim Dışı') !== false || strpos($ansOption, 'Muaf') !== false);
 
-          if ($isEvet) {
-              $rClass = 'risk-low';
-              $statusDisplay = 'Evet (Uygun)';
-              $actionDisplay = !empty($ans['action_plan']) && strpos($ans['action_plan'], 'girilecek') === false ? htmlspecialchars($ans['action_plan']) : 'Gerekli Önlemler Alınmış';
-              $probDisplay = 1;
-              $sevDisplay = 1;
-              $rScoreDisplay = 1;
-          } elseif ($isMuaf) {
-              $rClass = 'risk-low';
-              $statusDisplay = 'Denetim Dışı / Muaf';
-              $actionDisplay = 'Muaf';
-              $probDisplay = '-';
-              $sevDisplay = '-';
-              $rScoreDisplay = '-';
-          } else {
-              $rClass = 'risk-low';
-              if ($rScore >= 16) $rClass = 'risk-high';
-              elseif ($rScore >= 6) $rClass = 'risk-medium';
+            if ($isEvet) {
+                $rClass = 'risk-low';
+                $statusDisplay = 'Evet (Uygun)';
+                $actionDisplay = !empty($ans['action_plan']) && strpos($ans['action_plan'], 'girilecek') === false ? htmlspecialchars($ans['action_plan']) : 'Gerekli Önlemler Alınmış';
+                $probDisplay = 1;
+                $sevDisplay = 1;
+                $rScoreDisplay = 1;
+            } elseif ($isMuaf) {
+                $rClass = 'risk-low';
+                $statusDisplay = 'Denetim Dışı / Muaf';
+                $actionDisplay = 'Muaf';
+                $probDisplay = '-';
+                $sevDisplay = '-';
+                $rScoreDisplay = '-';
+            } else {
+                $rClass = 'risk-low';
+                if ($rScore >= 16) $rClass = 'risk-high';
+                elseif ($rScore >= 6) $rClass = 'risk-medium';
 
-              $statusDisplay = !empty($ans['current_status']) && strpos($ans['current_status'], 'girilecek') === false ? htmlspecialchars($ans['current_status']) : 'Tespit Edilen Eksiklik Var';
-              $actionDisplay = !empty($ans['action_plan']) && strpos($ans['action_plan'], 'girilecek') === false ? htmlspecialchars($ans['action_plan']) : 'İyileştirme Yapılmalı';
-              $probDisplay = $prob > 0 ? $prob : '-';
-              $sevDisplay = $sev > 0 ? $sev : '-';
-              $rScoreDisplay = $rScore > 0 ? $rScore : '-';
-          }
+                $statusDisplay = !empty($ans['current_status']) && strpos($ans['current_status'], 'girilecek') === false ? htmlspecialchars($ans['current_status']) : 'Tespit Edilen Eksiklik Var';
+                $actionDisplay = !empty($ans['action_plan']) && strpos($ans['action_plan'], 'girilecek') === false ? htmlspecialchars($ans['action_plan']) : 'İyileştirme Yapılmalı';
+                $probDisplay = $prob > 0 ? $prob : '-';
+                $sevDisplay = $sev > 0 ? $sev : '-';
+                $rScoreDisplay = $rScore > 0 ? $rScore : '-';
+            }
 
-          $responsibleDisplay = !empty($ans['responsible_person']) ? $ans['responsible_person'] : (!empty($ans['default_responsible']) ? $ans['default_responsible'] : 'İşveren');
-          $deadlineDisplay = !empty($ans['deadline']) ? $ans['deadline'] : (!empty($ans['default_deadline']) ? $ans['default_deadline'] : 'Sürekli');
-          ?>
-          <tr>
-            <td><strong><?php echo htmlspecialchars($ans['group_name'] ?? 'Genel'); ?></strong></td>
-            <td><?php echo htmlspecialchars($ans['hazard_source'] ?? '-'); ?></td>
-            <td><?php echo htmlspecialchars($ans['hazard_name'] ?? '-'); ?></td>
-            <td><?php echo htmlspecialchars($ans['affected_risk'] ?? '-'); ?></td>
-            <td><?php echo htmlspecialchars($ans['affected_people'] ?? '-'); ?></td>
-            <td>
-              <strong><?php echo htmlspecialchars($ans['question_text']); ?></strong><br>
-              Cevap: [<?php echo htmlspecialchars($ansOption); ?>]<br>
-              <em><?php echo $statusDisplay; ?></em>
-            </td>
-            <td style="text-align:center;"><?php echo $probDisplay; ?></td>
-            <td style="text-align:center;"><?php echo $sevDisplay; ?></td>
-            <td class="<?php echo $rClass; ?>"><?php echo $rScoreDisplay; ?></td>
-            <td><?php echo $actionDisplay; ?></td>
-            <td><?php echo htmlspecialchars($responsibleDisplay); ?></td>
-            <td><?php echo htmlspecialchars($deadlineDisplay); ?></td>
-          </tr>
+            $responsibleDisplay = !empty($ans['responsible_person']) ? $ans['responsible_person'] : (!empty($ans['default_responsible']) ? $ans['default_responsible'] : 'İşveren');
+            $deadlineDisplay = !empty($ans['deadline']) ? $ans['deadline'] : (!empty($ans['default_deadline']) ? $ans['default_deadline'] : 'Sürekli');
+            ?>
+            <tr>
+              <?php if ($idx === 0): ?>
+                <td rowspan="<?php echo $gCount; ?>" class="rg-vcell"><?php echo htmlspecialchars($groupName); ?></td>
+              <?php endif; ?>
+              <td><?php echo htmlspecialchars($ans['hazard_source'] ?? '-'); ?></td>
+              <td><?php echo htmlspecialchars($ans['hazard_name'] ?? '-'); ?></td>
+              <td><?php echo htmlspecialchars($ans['affected_risk'] ?? '-'); ?></td>
+              <td><?php echo htmlspecialchars($ans['affected_people'] ?? '-'); ?></td>
+              <td>
+                <strong><?php echo htmlspecialchars($ans['question_text']); ?></strong><br>
+                Cevap: [<?php echo htmlspecialchars($ansOption); ?>]<br>
+                <em><?php echo $statusDisplay; ?></em>
+              </td>
+              <td style="text-align:center;"><?php echo $probDisplay; ?></td>
+              <td style="text-align:center;"><?php echo $sevDisplay; ?></td>
+              <td class="<?php echo $rClass; ?>"><?php echo $rScoreDisplay; ?></td>
+              <td><?php echo $actionDisplay; ?></td>
+              <td><?php echo htmlspecialchars($responsibleDisplay); ?></td>
+              <td><?php echo htmlspecialchars($deadlineDisplay); ?></td>
+            </tr>
+          <?php endforeach; ?>
         <?php endforeach; ?>
       </tbody>
     </table>
@@ -203,6 +216,7 @@ if ($format === 'word') {
         table.matrix-table th, table.matrix-table td { border: 1px solid #cbd5e1; padding: 6px; text-align: left; }
         table.matrix-table th { background: #0f172a; color: #fff; text-align: center; font-size: 10px; }
         .vhead-th { writing-mode: vertical-rl; white-space: nowrap; height: 90px; vertical-align: middle; text-align: center; font-size: 10px; }
+        .rg-vcell { writing-mode: vertical-rl; white-space: nowrap; text-align: center; vertical-align: middle; font-weight: bold; background-color: #f1f5f9; }
       </style>
     </head>
     <body>
@@ -220,7 +234,7 @@ if ($format === 'word') {
       <table class="matrix-table">
         <thead>
           <tr>
-            <th>RİSK GRUP</th>
+            <th class="vhead-th">RİSK GRUP</th>
             <th>TEHLİKE KAYNAĞI</th>
             <th>TEHLİKE</th>
             <th>ETKİLENME (RİSKLER)</th>
@@ -235,58 +249,63 @@ if ($format === 'word') {
           </tr>
         </thead>
         <tbody>
-          <?php foreach ($answers as $ans): ?>
-            <?php
-            $rScore = (int)$ans['risk_score'];
-            $prob = (int)$ans['probability'];
-            $sev = (int)$ans['severity'];
-            if ($rScore == 0 && $prob > 0 && $sev > 0) $rScore = $prob * $sev;
-            
-            $ansOption = !empty($ans['answer_option']) ? $ans['answer_option'] : ($ans['option_text'] ?? 'Evet (Uygun)');
-            $isEvet = (strpos($ansOption, 'Evet') !== false);
-            $isMuaf = (strpos($ansOption, 'Denetim Dışı') !== false || strpos($ansOption, 'Muaf') !== false);
+          <?php foreach ($groupedAnswersList as $groupName => $gAnswers): ?>
+            <?php $gCount = count($gAnswers); ?>
+            <?php foreach ($gAnswers as $idx => $ans): ?>
+              <?php
+              $rScore = (int)$ans['risk_score'];
+              $prob = (int)$ans['probability'];
+              $sev = (int)$ans['severity'];
+              if ($rScore == 0 && $prob > 0 && $sev > 0) $rScore = $prob * $sev;
+              
+              $ansOption = !empty($ans['answer_option']) ? $ans['answer_option'] : ($ans['option_text'] ?? 'Evet (Uygun)');
+              $isEvet = (strpos($ansOption, 'Evet') !== false);
+              $isMuaf = (strpos($ansOption, 'Denetim Dışı') !== false || strpos($ansOption, 'Muaf') !== false);
 
-            if ($isEvet) {
-                $statusDisplay = 'Evet (Uygun)';
-                $actionDisplay = !empty($ans['action_plan']) && strpos($ans['action_plan'], 'girilecek') === false ? htmlspecialchars($ans['action_plan']) : 'Gerekli Önlemler Alınmış';
-                $probDisplay = 1;
-                $sevDisplay = 1;
-                $rScoreDisplay = 1;
-            } elseif ($isMuaf) {
-                $statusDisplay = 'Denetim Dışı / Muaf';
-                $actionDisplay = 'Muaf';
-                $probDisplay = '-';
-                $sevDisplay = '-';
-                $rScoreDisplay = '-';
-            } else {
-                $statusDisplay = !empty($ans['current_status']) && strpos($ans['current_status'], 'girilecek') === false ? htmlspecialchars($ans['current_status']) : 'Tespit Edilen Eksiklik Var';
-                $actionDisplay = !empty($ans['action_plan']) && strpos($ans['action_plan'], 'girilecek') === false ? htmlspecialchars($ans['action_plan']) : 'İyileştirme Yapılmalı';
-                $probDisplay = $prob > 0 ? $prob : '-';
-                $sevDisplay = $sev > 0 ? $sev : '-';
-                $rScoreDisplay = $rScore > 0 ? $rScore : '-';
-            }
+              if ($isEvet) {
+                  $statusDisplay = 'Evet (Uygun)';
+                  $actionDisplay = !empty($ans['action_plan']) && strpos($ans['action_plan'], 'girilecek') === false ? htmlspecialchars($ans['action_plan']) : 'Gerekli Önlemler Alınmış';
+                  $probDisplay = 1;
+                  $sevDisplay = 1;
+                  $rScoreDisplay = 1;
+              } elseif ($isMuaf) {
+                  $statusDisplay = 'Denetim Dışı / Muaf';
+                  $actionDisplay = 'Muaf';
+                  $probDisplay = '-';
+                  $sevDisplay = '-';
+                  $rScoreDisplay = '-';
+              } else {
+                  $statusDisplay = !empty($ans['current_status']) && strpos($ans['current_status'], 'girilecek') === false ? htmlspecialchars($ans['current_status']) : 'Tespit Edilen Eksiklik Var';
+                  $actionDisplay = !empty($ans['action_plan']) && strpos($ans['action_plan'], 'girilecek') === false ? htmlspecialchars($ans['action_plan']) : 'İyileştirme Yapılmalı';
+                  $probDisplay = $prob > 0 ? $prob : '-';
+                  $sevDisplay = $sev > 0 ? $sev : '-';
+                  $rScoreDisplay = $rScore > 0 ? $rScore : '-';
+              }
 
-            $responsibleDisplay = !empty($ans['responsible_person']) ? $ans['responsible_person'] : (!empty($ans['default_responsible']) ? $ans['default_responsible'] : 'İşveren');
-            $deadlineDisplay = !empty($ans['deadline']) ? $ans['deadline'] : (!empty($ans['default_deadline']) ? $ans['default_deadline'] : 'Sürekli');
-            ?>
-            <tr>
-              <td><?php echo htmlspecialchars($ans['group_name'] ?? 'Genel'); ?></td>
-              <td><?php echo htmlspecialchars($ans['hazard_source'] ?? '-'); ?></td>
-              <td><?php echo htmlspecialchars($ans['hazard_name'] ?? '-'); ?></td>
-              <td><?php echo htmlspecialchars($ans['affected_risk'] ?? '-'); ?></td>
-              <td><?php echo htmlspecialchars($ans['affected_people'] ?? '-'); ?></td>
-              <td>
-                <?php echo htmlspecialchars($ans['question_text']); ?><br>
-                <strong>Cevap: [<?php echo htmlspecialchars($ansOption); ?>]</strong><br>
-                <em><?php echo $statusDisplay; ?></em>
-              </td>
-              <td style="text-align:center;"><?php echo $probDisplay; ?></td>
-              <td style="text-align:center;"><?php echo $sevDisplay; ?></td>
-              <td style="text-align:center; font-weight:bold;"><?php echo $rScoreDisplay; ?></td>
-              <td><?php echo $actionDisplay; ?></td>
-              <td><?php echo htmlspecialchars($responsibleDisplay); ?></td>
-              <td><?php echo htmlspecialchars($deadlineDisplay); ?></td>
-            </tr>
+              $responsibleDisplay = !empty($ans['responsible_person']) ? $ans['responsible_person'] : (!empty($ans['default_responsible']) ? $ans['default_responsible'] : 'İşveren');
+              $deadlineDisplay = !empty($ans['deadline']) ? $ans['deadline'] : (!empty($ans['default_deadline']) ? $ans['default_deadline'] : 'Sürekli');
+              ?>
+              <tr>
+                <?php if ($idx === 0): ?>
+                  <td rowspan="<?php echo $gCount; ?>" class="rg-vcell"><?php echo htmlspecialchars($groupName); ?></td>
+                <?php endif; ?>
+                <td><?php echo htmlspecialchars($ans['hazard_source'] ?? '-'); ?></td>
+                <td><?php echo htmlspecialchars($ans['hazard_name'] ?? '-'); ?></td>
+                <td><?php echo htmlspecialchars($ans['affected_risk'] ?? '-'); ?></td>
+                <td><?php echo htmlspecialchars($ans['affected_people'] ?? '-'); ?></td>
+                <td>
+                  <?php echo htmlspecialchars($ans['question_text']); ?><br>
+                  <strong>Cevap: [<?php echo htmlspecialchars($ansOption); ?>]</strong><br>
+                  <em><?php echo $statusDisplay; ?></em>
+                </td>
+                <td style="text-align:center;"><?php echo $probDisplay; ?></td>
+                <td style="text-align:center;"><?php echo $sevDisplay; ?></td>
+                <td style="text-align:center; font-weight:bold;"><?php echo $rScoreDisplay; ?></td>
+                <td><?php echo $actionDisplay; ?></td>
+                <td><?php echo htmlspecialchars($responsibleDisplay); ?></td>
+                <td><?php echo htmlspecialchars($deadlineDisplay); ?></td>
+              </tr>
+            <?php endforeach; ?>
           <?php endforeach; ?>
         </tbody>
       </table>
